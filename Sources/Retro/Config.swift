@@ -13,7 +13,9 @@ public private(set) var supportedCores = [String: CoreInformation]()
 public private(set) var supportedExtensions = [String: String]()
 
 internal func initializeRetroCoreInformation(withConfig config: EmulatorConfig) throws {
-  let files = try FileManager.default.contentsOfDirectory(at: config.coresInformationPath, includingPropertiesForKeys: [.nameKey])
+  let files = try FileManager.default.contentsOfDirectory(
+    at: config.coresInformationPath,
+    includingPropertiesForKeys: [.nameKey])
   for file in files {
     if file.pathExtension == "json" {
       let json = try String(contentsOf: file, encoding: .utf8)
@@ -108,16 +110,33 @@ public extension EmulatorConfig {
   }
 
   func games(for integration: GameIntegration = .stable) -> [String] {
-    var possibleGames: Set<String> = []
+    var games: Set<String> = []
     for path in integration.paths {
       let pathFiles = FileManager.default.enumerator(
         atPath: gameDataPath.appendingPathComponent(path).path)
       while let game = pathFiles?.nextObject() as? String {
         if let _ = gameFile("rom.sha", for: game, with: integration) {
-          possibleGames.insert(game)
+          games.insert(game)
         }
       }
     }
-    return Array(possibleGames).sorted()
+    return Array(games).sorted()
+  }
+
+  func states(for game: String, with integration: GameIntegration = .stable) -> [String] {
+    var states: Set<String> = []
+    for path in integration.paths {
+      let gamePath = gameDataPath
+        .appendingPathComponent(path)
+        .appendingPathComponent(game)
+      let pathFiles = FileManager.default.enumerator(atPath: gamePath.path)
+      while let file = pathFiles?.nextObject() as? String {
+        if file.hasSuffix(".state") && !file.hasPrefix("_") {
+          let endIndex = file.index(file.endIndex, offsetBy: -6)
+          states.insert(String(file.prefix(upTo: endIndex)))
+        }
+      }
+    }
+    return Array(states).sorted()
   }
 }
