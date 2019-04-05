@@ -6,8 +6,9 @@ class EmulatorTests: XCTestCase {
   let emulatorConfig: EmulatorConfig = {
     let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift/retro")
     return EmulatorConfig(
+      coresInformationPath: retroURL.appendingPathComponent("cores"),
       coresPath: retroURL.appendingPathComponent("retro/cores"),
-      coresInformationPath: retroURL.appendingPathComponent("cores"))
+      gameDataPath: retroURL.appendingPathComponent("retro/data"))
   }()
 
   override func setUp() {
@@ -32,6 +33,10 @@ class EmulatorTests: XCTestCase {
   func testSupportedExtensions() {
     XCTAssert(supportedExtensions.keys.contains(".a26"))
     XCTAssert(supportedExtensions[".a26"]! == "Atari2600")
+  }
+
+  func testGames() {
+    XCTAssert(emulatorConfig.games().contains("Pong-Atari2600"))
   }
 
 	// func testEmulatorScreenRate() {

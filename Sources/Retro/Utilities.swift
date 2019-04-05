@@ -1,5 +1,9 @@
 import Foundation
 
+public enum RetroError: Error {
+  case ROMFileNotFound(game: String)
+}
+
 public extension Encodable {
   func toJson(pretty: Bool = true) throws -> String {
     let encoder = JSONEncoder()

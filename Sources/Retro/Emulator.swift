@@ -9,6 +9,5 @@ public func initializeRetro(withConfigFromFile configFile: String) throws {
 }
 
 public func initializeRetro(withConfig config: EmulatorConfig) throws {
-  retroCorePath(config.coresPath.path)
   try initializeRetroCoreInformation(withConfig: config)
 }
