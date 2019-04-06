@@ -1,4 +1,6 @@
-
+**WARNING:** This is currently work-in-progress and is 
+changing rapidly. I expect it to be more stable within 
+about a week or two.
 
 # Installation
 
