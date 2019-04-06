@@ -13,10 +13,10 @@ public protocol Space {
   var shape: [Int] { get }
 
   /// Uniformly randomly sample a random element of this space.
-  func sample<G: RandomNumberGenerator>(generator: inout G) -> Tensor<Scalar>
+  func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Scalar>
 
   /// Returns a boolean specifying if `value` is a valid member of this space.
-  func contains(_ value: Tensor<Scalar>) -> Bool
+  func contains(_ value: ShapedArray<Scalar>) -> Bool
 }
 
 public struct Discrete: Space {
@@ -29,11 +29,11 @@ public struct Discrete: Space {
     self.size = size
   }
 
-  public func sample<G: RandomNumberGenerator>(generator: inout G) -> Tensor<Int32> {
-    return Tensor<Int32>(Int32.random(in: 0..<size, using: &generator))
+  public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
+    return ShapedArray<Int32>(Int32.random(in: 0..<size, using: &generator))
   }
 
-  public func contains(_ value: Tensor<Int32>) -> Bool {
+  public func contains(_ value: ShapedArray<Int32>) -> Bool {
     let scalar = value.scalar ?? -1
     return scalar >= 0 && scalar < size
   }
@@ -50,12 +50,12 @@ public struct MultiBinary: Space {
     self.shape = [Int(size)]
   }
 
-  public func sample<G: RandomNumberGenerator>(generator: inout G) -> Tensor<Int32> {
+  public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
     // TODO
     fatalError("Not implemented.")
   }
 
-  public func contains(_ value: Tensor<Int32>) -> Bool {
+  public func contains(_ value: ShapedArray<Int32>) -> Bool {
     // TODO
     fatalError("Not implemented.")
   }
@@ -72,12 +72,12 @@ public struct MultiDiscrete: Space {
     self.shape = sizes.map { Int($0) }
   }
 
-  public func sample<G: RandomNumberGenerator>(generator: inout G) -> Tensor<Int32> {
+  public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
     // TODO
     fatalError("Not implemented.")
   }
 
-  public func contains(_ value: Tensor<Int32>) -> Bool {
+  public func contains(_ value: ShapedArray<Int32>) -> Bool {
     // TODO
     fatalError("Not implemented.")
   }
@@ -88,12 +88,12 @@ public struct Box<Scalar: TensorFlowScalar>: Space {
   public let high: Scalar
   public let shape: [Int]
 
-  public func sample<G: RandomNumberGenerator>(generator: inout G) -> Tensor<Scalar> {
+  public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Scalar> {
     // TODO
     fatalError("Not implemented.")
   }
 
-  public func contains(_ value: Tensor<Scalar>) -> Bool {
+  public func contains(_ value: ShapedArray<Scalar>) -> Bool {
     // TODO
     fatalError("Not implemented.")
   }
