@@ -4,14 +4,14 @@ import Foundation
 public internal(set) var supportedCores = [String: CoreInformation]()
 public internal(set) var supportedExtensions = [String: String]()
 
-public func initializeRetro(withConfigFromFile configFile: String) throws {
-  let configFileURL = URL(fileURLWithPath: configFile)
-  let configString = try String(contentsOf: configFileURL, encoding: .utf8)
-  let config = try EmulatorConfig(fromJson: configString)
-  try initializeRetro(withConfig: config)
-}
+// public func initializeRetro(withConfigFromFile configFile: String) throws {
+//   let configFileURL = URL(fileURLWithPath: configFile)
+//   let configString = try String(contentsOf: configFileURL, encoding: .utf8)
+//   let config = try EmulatorConfig(fromJson: configString)
+//   try initializeRetro(withConfig: config)
+// }
 
-public func initializeRetro(withConfig config: EmulatorConfig) throws {
+public func initializeRetro<A: ActionSpaceType>(withConfig config: EmulatorConfig<A>) throws {
   let files = try FileManager.default.contentsOfDirectory(
     at: config.coresInformationPath,
     includingPropertiesForKeys: [.nameKey])
@@ -30,19 +30,19 @@ public func initializeRetro(withConfig config: EmulatorConfig) throws {
   }
 }
 
-public func core(forROM romURL: URL) throws -> String {
+public func getCore(forROM romURL: URL) throws -> String {
   let ext = romURL.pathExtension
   if let core = supportedExtensions[ext] {
     return core
   } else {
-    throw UnsupportedROMFile(romURL)
+    throw RetroError.UnsupportedROMFile(romURL: romURL)
   }
 }
 
-public func information(forCore core: String) throws -> CoreInformation {
+public func getInformation(forCore core: String) throws -> CoreInformation {
   if let coreInformation = supportedCores[core] {
     return coreInformation
   } else {
-    throw UnsupportedCore(core)
+    throw RetroError.UnsupportedCore(core: core)
   }
 }

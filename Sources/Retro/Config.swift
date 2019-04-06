@@ -30,39 +30,52 @@ public struct CoreInformation: Codable {
   }
 }
 
-/// Represents different types of action spaces for the environment.
-public enum ActionSpaceType {
-  /// Multi-binary action space with no filtered actions.
-  case all
+/// Represents different settings for the observation space of the environment.
+public enum ObservationSpaceType: Int {
+  /// Use RGB image observations.
+  case screen
 
-  /// Multi-binary action space with invalid or not allowed actions filtered out.
-  case filtered
-
-  /// Discrete action space for filtered actions.
-  case discrete
-
-  /// Multi-discete action space for filtered actions.
-  case multiDiscrete
+  /// Use RAM observations where you can see the memory of the game instead of the screen.
+  case memory
 }
 
-public struct EmulatorConfig: Codable {
+public struct EmulatorConfig<A: ActionSpaceType> {
   let coresInformationPath: URL
   let coresPath: URL
   let gameDataPath: URL
-  let actionSpaceType: ActionSpaceType = .filtered
+  let actionSpaceType: A
+  let observationSpaceType: ObservationSpaceType
 
   public init(
     coresInformationPath: URL,
     coresPath: URL,
     gameDataPath: URL,
-    actionSpaceType: ActionSpaceType = .filtered
+    actionSpaceType: A,
+    observationSpaceType: ObservationSpaceType = .screen
   ) {
     self.coresInformationPath = coresInformationPath
     self.coresPath = coresPath
     self.gameDataPath = gameDataPath
     self.actionSpaceType = actionSpaceType
+    self.observationSpaceType = observationSpaceType
     retroCorePath(coresPath.path)
     retroDataPath(gameDataPath.path)
+  }
+}
+
+public extension EmulatorConfig where A == FilteredActionSpaceType {
+  init(
+    coresInformationPath: URL,
+    coresPath: URL,
+    gameDataPath: URL,
+    observationSpaceType: ObservationSpaceType = .screen
+  ) {
+    self.init(
+      coresInformationPath: coresInformationPath,
+      coresPath: coresPath,
+      gameDataPath: gameDataPath,
+      actionSpaceType: FilteredActionSpaceType(),
+      observationSpaceType: observationSpaceType)
   }
 }
 
@@ -102,7 +115,7 @@ public extension EmulatorConfig {
     using integration: GameIntegration = .stable
   ) throws -> URL {
     for ext in supportedExtensions.keys {
-      let possibleFile = gameFile("rom\(ext)", for: game, with: integration)
+      let possibleFile = gameFile("rom\(ext)", for: game, using: integration)
       if let file = possibleFile {
         return file
       }

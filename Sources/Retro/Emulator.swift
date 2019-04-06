@@ -1,6 +1,7 @@
 import CRetro
-import Gzip
 import Foundation
+import Gzip
+import TensorFlow
 
 /// Represents the initial state of the emulator.
 public enum State {
@@ -15,42 +16,41 @@ public enum State {
   case custom(String)
 }
 
-public class Environment {
-  public let config: EmulatorConfig
+public class Environment<A: ActionSpaceType> {
+  public let config: EmulatorConfig<A>
   public let game: String
-  public let numPlayers: Int
+  public let numPlayers: UInt32
   public let core: String
   public let buttons: [String?]
-  public let buttonCombos: [[Int]]
-  public let actionSpace: Space
-  public let observationSpace: Space
+  public let actionSpace: A.ActionSpace
+  public let observationSpace: Box<UInt8>
 
   public private(set) var gameData: GameData
   public private(set) var gameDataFile: URL?
   public private(set) var gameScenarioFile: URL?
 
-  private var handle: UnsafeMutablePointer<CEmulator>?
+  internal var emulatorHandle: UnsafeMutablePointer<CEmulator>?
 
   private var state: String? = nil
   private var initialState: Data? = nil
 
   public init(
-    withConfig config: EmulatorConfig,
-    for game: String, 
+    withConfig config: EmulatorConfig<A>,
+    for game: String,
     in state: State = .provided,
     using integration: GameIntegration = .stable,
-    numPlayers: Int = 1,
+    numPlayers: UInt32 = 1,
     gameDataFile: String = "data.json",
     gameScenarioFile: String = "scenario.json"
-  ) {
-    let gameROMFile = config.gameROMFile(for: game, using: integration)
+   ) throws {
+    let gameROMFile = try config.gameROMFile(for: game, using: integration)
     let gameMetadataFile = config.gameFile("metadata.json", for: game, using: integration)
     
     self.config = config
     self.game = game
     self.numPlayers = numPlayers
-    self.core = core(forROM: gameROMFile)
-    self.gameData = GameData(withConfig: config, for: game, using: integration)
+    self.core = try getCore(forROM: gameROMFile)
+    self.gameData = try GameData(withConfig: config, for: game, using: integration)
     self.gameDataFile = config.gameFile(gameDataFile, for: game, using: integration)
     self.gameScenarioFile = config.gameFile(gameScenarioFile, for: game, using: integration)
     
@@ -58,13 +58,16 @@ public class Environment {
     case .none:
       self.state = nil
     case .provided:
-      guard let metadataFile = gameMetadataFile else { self.state = nil }
-      guard let metadataJson = try String(contentsOf: metadataFile) else { self.state = nil }
-      guard let metadata = try GameMetadata(fromJson: metadataJson) else { self.state = nil }
-      if metadata.defaultPlayerState != nil && numPlayers <= metadata.defaultPlayerState!.count {
-        self.state = metadata.defaultPlayerState![numPlayers - 1]
-      } else if metadata.defaultState != nil {
-        self.state = metadata.defaultState!
+      let gameMetadataJson = try? String(contentsOf: gameMetadataFile!)
+      let gameMetadata = try? GameMetadata(fromJson: gameMetadataJson!)
+      if let metadata = gameMetadata {
+        if metadata.defaultPlayerState != nil && numPlayers <= metadata.defaultPlayerState!.count {
+          self.state = metadata.defaultPlayerState![Int(numPlayers) - 1]
+        } else if metadata.defaultState != nil {
+          self.state = metadata.defaultState!
+        } else {
+          self.state = nil
+        }
       } else {
         self.state = nil
       }
@@ -72,32 +75,36 @@ public class Environment {
       self.state = state
     }
 
-    if let state = self.state {
-      loadState(named: state, using: integration)
-    }
-
-    self.handle = emulatorCreate(gameROMFile.path)
-    emulatorConfigureData(self.handle, self.gameData.handle)
-    emulatorStep(self.handle)
-
-    let coreInformation = information(forCore: self.core)
+    let coreInformation = try getInformation(forCore: self.core)
     if !self.gameData.load(dataFile: self.gameDataFile, scenarioFile: self.gameScenarioFile) {
-      throw GameDataFailure(
-        "Failed to load game data from '\(dataFile.path)'"
-        "or game scenario from '\(scenarioFile.path)'.")
+      throw RetroError.GameDataFailure(
+        message: "Failed to load game data from '\(gameDataFile)'" + 
+                 "or game scenario from '\(gameScenarioFile)'.")
     }
+
+    self.emulatorHandle = emulatorCreate(gameROMFile.path)
+    emulatorConfigureData(self.emulatorHandle, self.gameData.handle)
+    emulatorStep(self.emulatorHandle)
 
     self.buttons = coreInformation.buttons
-    self.buttonCombos = self.gameData.validActions
+    self.actionSpace = config.actionSpaceType.space(
+      for: self.gameData, buttons: self.buttons, numPlayers: numPlayers)
 
-    switch config.actionSpaceType {
-    case .discrete:
-      let numCombos = self.buttonCombos.map { $0.count } .reduce(1, *)
-      self.actionSpace = Discrete(size: Int32(pow(combos, numPlayers)))
-    case .multiDiscrete:
-      self.actionSpace = MultiDiscrete(sizes: self.buttonCombos.map { Int32($0.count * numPlayers) })
-    default:
-      self.actionSpace = MultiBinary(size: self.buttons.count * numPlayers)
+    // Configure the observation space.
+    switch config.observationSpaceType {
+    case .screen:
+      let screen = Environment.screen(
+        gameData: self.gameData,
+        emulatorHandle: self.emulatorHandle,
+        forPlayer: 0)
+      self.observationSpace = Box(low: 0, high: 255, shape: screen.shape)
+    case .memory:
+      let memory = Environment.memory(gameData: self.gameData)
+      self.observationSpace = Box(low: 0, high: 255, shape: memory.shape)
+    }
+
+    if let state = self.state {
+      try loadState(named: state, using: integration)
     }
 
 
@@ -106,14 +113,72 @@ public class Environment {
   }
 
   deinit {
-    emulatorDelete(self.handle)
+    emulatorDelete(emulatorHandle)
   }
 
   public func loadState(named state: String, using integration: GameIntegration = .stable) throws {
     let file = state.hasSuffix(".state") ? state : "\(state).state"
     let fileURL = config.gameFile(file, for: game, using: integration)
-    let data = Data(contentsOf: fileURL)
+    let data = try Data(contentsOf: fileURL!)
     self.initialState = try data.gunzipped()
     self.state = state
+  }
+
+  public func memory() -> ShapedArray<UInt8> {
+    return Environment.memory(gameData: gameData)
+  }
+
+  public func screen(forPlayer player: UInt32 = 0) -> ShapedArray<UInt8> {
+    return Environment.screen(
+      gameData: gameData,
+      emulatorHandle: emulatorHandle,
+      forPlayer: player)
+  }
+
+  private static func memory(gameData: GameData) -> ShapedArray<UInt8> {
+    let handle = gameDataMemory(gameData.handle)
+    let cBlocks = memoryViewBlocks(handle)!.pointee
+    let blocks = Array(UnsafeBufferPointer(start: cBlocks.blocks, count: cBlocks.numBlocks))
+    var memoryBytes = [UInt8]()
+    var numBytesPerBlock = 0
+    blocks.sorted(by: { $0.address > $1.address }).forEach {
+      memoryBytes += Array(UnsafeBufferPointer(start: $0.bytes, count: $0.numBytes))
+      numBytesPerBlock = $0.numBytes
+    }
+    return ShapedArray(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
+  }
+
+  private static func screen(
+    gameData: GameData,
+    emulatorHandle: UnsafeMutablePointer<CEmulator>?, 
+    forPlayer player: UInt32 = 0
+  ) -> ShapedArray<UInt8> {
+    let cScreen = emulatorGetScreen(emulatorHandle)!.pointee
+    let shape = [cScreen.height, cScreen.width, cScreen.channels]
+    let values = Array(UnsafeBufferPointer(start: cScreen.values, count: shape.reduce(1, *)))
+    let screen = ShapedArray(shape: shape, scalars: values)
+    let cropInformation = gameDataCropInfo(gameData.handle, player)!.pointee
+    let x = cropInformation.x
+    let y = cropInformation.y
+
+    var width = cropInformation.width
+    var height = cropInformation.height
+    if width == 0 || x + width > cScreen.width {
+      width = cScreen.width
+    } else {
+      width += x
+    }
+    if height == 0 || y + height > cScreen.height {
+      height = cScreen.height
+    } else {
+      height += y
+    }
+
+    if x == 0 && y == 0 && width == cScreen.width && height == cScreen.height {
+      return screen
+    } else {
+      // TODO !!!: return screen[y..<height, x..<width]
+      fatalError("Not implemented.")
+    }
   }
 }

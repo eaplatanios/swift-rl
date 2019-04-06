@@ -4,31 +4,47 @@ import Foundation
 public class GameData {
   internal var handle: UnsafeMutablePointer<CGameData>?
 
-  public lazy var buttonCombos: [[Int]] = gameDataValidActions(handle)
+  public lazy var buttonCombos: [[Int32]] = {
+    let cValidActions = gameDataValidActions(handle)!.pointee
+    return (0 ..< cValidActions.numActionsOuter).map { combo in
+      let numColumns = cValidActions.numActionsInner.advanced(by: combo).pointee
+      return Array(UnsafeBufferPointer(
+        start: cValidActions.actions.advanced(by: combo).pointee,
+        count: numColumns))
+    }
+  }()
 
-  public init(
-    withConfig config: EmulatorConfig,
+  public init<A: ActionSpaceType>(
+    withConfig config: EmulatorConfig<A>,
     for game: String,
     using integration: GameIntegration = .stable,
     dataFile: URL? = nil,
     scenarioFile: URL? = nil
-  ) {
+   ) throws {
     self.handle = gameDataCreate()
     let data = dataFile ?? config.gameFile(
-      "data.json", for: game, with: integration)
+      "data.json", for: game, using: integration)
     let scenario = scenarioFile ?? config.gameFile(
-      "scenario.json", for: game, with: integration)
-    load(dataFile: data, scenarioFile: scenario)
+      "scenario.json", for: game, using: integration)
+    if !load(dataFile: data, scenarioFile: scenario) {
+      throw RetroError.GameDataFailure(
+        message: "Failed to load game data from '\(dataFile?.path ?? "NOT_PROVIDED")'" + 
+                 "or game scenario from '\(scenarioFile?.path ?? "NOT_PROVIDED")'.")
+    }
   }
 
-  public init(
-    withConfig config: EmulatorConfig,
+  public init<A: ActionSpaceType>(
+    withConfig config: EmulatorConfig<A>,
     loadingFrom dataFile: URL,
     using integration: GameIntegration = .stable,
     scenarioFile: URL? = nil
-  ) {
+  ) throws {
     self.handle = gameDataCreate()
-    load(dataFile: dataFile, scenarioFile: scenarioFile)
+    if !load(dataFile: dataFile, scenarioFile: scenarioFile) {
+      throw RetroError.GameDataFailure(
+        message: "Failed to load game data from '\(dataFile.path)'" + 
+                 "or game scenario from '\(scenarioFile?.path ?? "NOT_PROVIDED")'.")
+    }
   }
 
   deinit {
@@ -59,7 +75,7 @@ public class GameData {
     set(newValue) { gameDataSetDoubleValue(handle, name, newValue) }
   }
 
-  
+
 }
 
 public struct GameMetadata: Codable {
