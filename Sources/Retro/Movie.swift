@@ -28,7 +28,7 @@ public class Movie {
     }
   }
 
-  public func configure<A: ActionSpaceType>(for game: String, in environment: Environment<A>) {
+  public func configure<A: RetroActions>(for game: String, in environment: Environment<A>) {
     movieConfigure(handle, game, environment.emulatorHandle)
   }
 

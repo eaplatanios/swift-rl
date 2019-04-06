@@ -39,7 +39,7 @@ public enum ObservationSpaceType: Int {
   case memory
 }
 
-public struct EmulatorConfig<A: ActionSpaceType> {
+public struct EmulatorConfig<A: RetroActions> {
   let coresInformationPath: URL
   let coresPath: URL
   let gameDataPath: URL
@@ -63,7 +63,7 @@ public struct EmulatorConfig<A: ActionSpaceType> {
   }
 }
 
-public extension EmulatorConfig where A == FilteredActionSpaceType {
+public extension EmulatorConfig where A == FilteredRetroActions {
   init(
     coresInformationPath: URL,
     coresPath: URL,
@@ -74,7 +74,7 @@ public extension EmulatorConfig where A == FilteredActionSpaceType {
       coresInformationPath: coresInformationPath,
       coresPath: coresPath,
       gameDataPath: gameDataPath,
-      actionSpaceType: FilteredActionSpaceType(),
+      actionSpaceType: FilteredRetroActions(),
       observationSpaceType: observationSpaceType)
   }
 }

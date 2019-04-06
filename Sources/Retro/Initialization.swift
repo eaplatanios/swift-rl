@@ -11,7 +11,7 @@ public internal(set) var supportedExtensions = [String: String]()
 //   try initializeRetro(withConfig: config)
 // }
 
-public func initializeRetro<A: ActionSpaceType>(withConfig config: EmulatorConfig<A>) throws {
+public func initializeRetro<A: RetroActions>(withConfig config: EmulatorConfig<A>) throws {
   let files = try FileManager.default.contentsOfDirectory(
     at: config.coresInformationPath,
     includingPropertiesForKeys: [.nameKey])

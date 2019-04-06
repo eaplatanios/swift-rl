@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents different types of action space for the environment.
-public protocol ActionSpaceType {
+public protocol RetroActions {
   associatedtype ActionSpace: Space
 
   func space(
@@ -12,7 +12,7 @@ public protocol ActionSpaceType {
 }
 
 /// Multi-binary action space with no filtered actions.
-public struct FullActionSpaceType: ActionSpaceType {
+public struct FullRetroActions: RetroActions {
   public typealias ActionSpace = MultiBinary
 
   public func space(
@@ -25,7 +25,7 @@ public struct FullActionSpaceType: ActionSpaceType {
 }
 
 /// Multi-binary action space with invalid or not allowed actions filtered out.
-public struct FilteredActionSpaceType: ActionSpaceType {
+public struct FilteredRetroActions: RetroActions {
   public typealias ActionSpace = MultiBinary
 
   public func space(
@@ -38,7 +38,7 @@ public struct FilteredActionSpaceType: ActionSpaceType {
 }
 
 /// Discrete action space for filtered actions.
-public struct DiscreteActionSpaceType: ActionSpaceType {
+public struct DiscreteRetroActions: RetroActions {
   public typealias ActionSpace = Discrete
 
   public func space(
@@ -52,7 +52,7 @@ public struct DiscreteActionSpaceType: ActionSpaceType {
 }
 
 /// Multi-discete action space for filtered actions.
-public struct MultiDiscreteActionSpaceType: ActionSpaceType {
+public struct MultiDiscreteRetroActions: RetroActions {
   public typealias ActionSpace = MultiDiscrete
 
   public func space(

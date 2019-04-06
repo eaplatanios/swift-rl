@@ -14,7 +14,7 @@ public class GameData {
     }
   }()
 
-  public init<A: ActionSpaceType>(
+  public init<A: RetroActions>(
     withConfig config: EmulatorConfig<A>,
     for game: String,
     using integration: GameIntegration = .stable,
@@ -33,7 +33,7 @@ public class GameData {
     }
   }
 
-  public init<A: ActionSpaceType>(
+  public init<A: RetroActions>(
     withConfig config: EmulatorConfig<A>,
     loadingFrom dataFile: URL,
     using integration: GameIntegration = .stable,

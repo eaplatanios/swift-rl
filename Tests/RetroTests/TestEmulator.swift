@@ -3,7 +3,7 @@ import XCTest
 @testable import Retro
 
 class EmulatorTests: XCTestCase {
-  let emulatorConfig: EmulatorConfig<FilteredActionSpaceType> = {
+  let emulatorConfig: EmulatorConfig<FilteredRetroActions> = {
     let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift/retro")
     return EmulatorConfig(
       coresInformationPath: retroURL.appendingPathComponent("cores"),

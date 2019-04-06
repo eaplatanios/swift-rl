@@ -16,7 +16,7 @@ public enum State {
   case custom(String)
 }
 
-public class Environment<A: ActionSpaceType> {
+public class Environment<A: RetroActions> {
   public let config: EmulatorConfig<A>
   public let game: String
   public let numPlayers: UInt32
