@@ -36,6 +36,7 @@ public class Movie {
     return String(cString: movieGetGameName(handle))
   }
 
+  @discardableResult
   public func step() -> Bool {
     return movieStep(handle)
   }
@@ -48,11 +49,8 @@ public class Movie {
     return moviePlayers(handle)
   }
 
-  public func get(key: Int32, forPlayer player: UInt32) -> Bool {
-    return movieGetKey(handle, key, player)
-  }
-
-  public func set(key: Int32, forPlayer player: UInt32, to value: Bool) {
-    movieSetKey(handle, key, value, player)
+  public subscript(key: Int, forPlayer player: UInt32) -> Bool {
+    get { return movieGetKey(handle, Int32(key), player) }
+    set { movieSetKey(handle, Int32(key), newValue, player) }
   }
 }

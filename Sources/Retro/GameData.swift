@@ -74,8 +74,6 @@ public class GameData {
     get { return gameDataLookupDoubleValue(handle, name) }
     set(newValue) { gameDataSetDoubleValue(handle, name, newValue) }
   }
-
-
 }
 
 public struct GameMetadata: Codable {

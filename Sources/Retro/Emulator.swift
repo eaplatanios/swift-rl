@@ -16,6 +16,12 @@ public enum State {
   case custom(String)
 }
 
+public struct EnvironmentStepResult {
+  public let observation: ShapedArray<UInt8>
+  public let reward: [Float]
+  public let finished: Bool
+}
+
 public class Environment<A: RetroActions> {
   public let config: EmulatorConfig<A>
   public let game: String
@@ -119,7 +125,9 @@ public class Environment<A: RetroActions> {
     if let state = self.state {
       try loadState(named: state, using: integration)
     }
-  }
+
+    reset()
+   }
 
   deinit {
     emulatorDelete(emulatorHandle)
@@ -131,6 +139,36 @@ public class Environment<A: RetroActions> {
     return strongSeed
   }
 
+  public func step(taking action: ShapedArray<A.ActionSpace.Scalar>) -> EnvironmentStepResult {
+    for p in 0..<numPlayers {
+      let encodedAction = config.actionSpaceType.encodeAction(
+        action, for: gameData, buttons: buttons, player: p)
+      var playerAction = [UInt8](repeating: 0, count: buttons.count)
+      for i in 0..<buttons.count {
+        playerAction[i] = UInt8((encodedAction >> i) & 1)
+        movie?[i, forPlayer: p] = playerAction[i] > 0
+      }
+      playerAction.withUnsafeBufferPointer {
+        emulatorSetButtonMask(emulatorHandle, $0.baseAddress, playerAction.count, p)
+      }
+    }
+
+    movie?.step()
+    emulatorStep(emulatorHandle)
+    gameDataUpdateRam(gameData.handle)
+
+    // TODO: What about the 'info' dict?
+    return EnvironmentStepResult(
+      observation: updateCachedObservations(),
+      reward: (0..<numPlayers).map { gameDataCurrentReward(gameData.handle, $0) },
+      finished: gameDataIsDone(gameData.handle))
+  }
+
+  public func reset() {
+    // TODO
+    fatalError("Not implemented.")
+  }
+
   public func loadState(named state: String, using integration: GameIntegration = .stable) throws {
     let file = state.hasSuffix(".state") ? state : "\(state).state"
     let fileURL = config.gameFile(file, for: game, using: integration)
@@ -139,21 +177,26 @@ public class Environment<A: RetroActions> {
     self.state = state
   }
 
-  public func updateCachedScreen() {
+  @discardableResult
+  public func updateCachedScreen() -> ShapedArray<UInt8> {
     self.screen = Environment.getScreen(
       gameData: self.gameData,
       emulatorHandle: self.emulatorHandle,
       forPlayer: 0)
+    return self.screen!
   }
 
-  public func updateCachedMemory() {
+  @discardableResult
+  public func updateCachedMemory() -> ShapedArray<UInt8> {
     self.memory = Environment.getMemory(gameData: self.gameData)
+    return self.memory!
   }
 
-  private func updateCachedObservations() {
+  @discardableResult
+  private func updateCachedObservations() -> ShapedArray<UInt8> {
     switch config.observationSpaceType {
-    case .screen: updateCachedScreen()
-    case .memory: updateCachedMemory()
+    case .screen: return updateCachedScreen()
+    case .memory: return updateCachedMemory()
     }
   }
 
