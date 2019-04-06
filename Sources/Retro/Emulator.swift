@@ -162,6 +162,11 @@ public class Environment<A: RetroActions> {
       finished: gameDataIsDone(gameData.handle))
   }
 
+  public func render<R: Renderer>(using renderer: R) where R.Data == ShapedArray<UInt8> {
+    let screen = self.screen ?? updateCachedScreen()
+    renderer.render(screen)
+  }
+
   public func reset() {
     // Reset the initial state.
     if let state = initialState {
