@@ -10,6 +10,10 @@ let package = Package(
             name: "Retro",
             targets: ["Retro"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.1.0")
+        .package(url: "https://github.com/1024jp/GzipSwift.git", from: "5.0.0")
+    ],
     targets: [
         .target(
             name: "CRetro",
@@ -24,7 +28,7 @@ let package = Package(
         .testTarget(name: "RetroTests", dependencies: ["Retro"]),
         .target(
             name: "Retro",
-            dependencies: ["CRetro"],
+            dependencies: ["CRetro", "AnyCodable"],
             path: "Sources/Retro")
     ]
 )

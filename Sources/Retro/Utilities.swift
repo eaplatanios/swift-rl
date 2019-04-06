@@ -2,10 +2,13 @@ import Foundation
 
 public enum RetroError: Error {
   case ROMFileNotFound(game: String)
+  case UnsupportedROMFile(romURL: URL)
+  case UnsupportedCore(core: String)
+  case GameDataFailure(message: String)
 }
 
 public extension Encodable {
-  func toJson(pretty: Bool = true) throws -> String {
+  func json(pretty: Bool = true) throws -> String {
     let encoder = JSONEncoder()
     if pretty {
       encoder.outputFormatting = .prettyPrinted
@@ -16,8 +19,8 @@ public extension Encodable {
 }
 
 public extension Decodable {
-  static func from(json: String) throws -> Self {
+  init(fromJson json: String) throws {
     let jsonDecoder = JSONDecoder()
-    return try jsonDecoder.decode(Self.self, from: json.data(using: .utf8)!)
+    self = try jsonDecoder.decode(Self.self, from: json.data(using: .utf8)!)
   }
 }

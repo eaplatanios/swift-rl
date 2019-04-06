@@ -1,3 +1,4 @@
+import AnyCodable
 import CRetro
 import Foundation
 
@@ -8,28 +9,6 @@ internal let libExtension = "so"
 #else
 internal let libExtension = "dll"
 #endif
-
-public private(set) var supportedCores = [String: CoreInformation]()
-public private(set) var supportedExtensions = [String: String]()
-
-internal func initializeRetroCoreInformation(withConfig config: EmulatorConfig) throws {
-  let files = try FileManager.default.contentsOfDirectory(
-    at: config.coresInformationPath,
-    includingPropertiesForKeys: [.nameKey])
-  for file in files {
-    if file.pathExtension == "json" {
-      let json = try String(contentsOf: file, encoding: .utf8)
-      retroLoadCoreInfo(json)
-      let cores = try [String: CoreInformation].from(json: json)
-      supportedCores.merge(cores, uniquingKeysWith: { return $1 })
-      for (core, coreInformation) in cores {
-        for ext in coreInformation.extensions {
-          supportedExtensions[".\(ext)"] = core
-        }
-      }
-    }
-  }
-}
 
 public struct CoreInformation: Codable {
   public let library: String
@@ -51,15 +30,37 @@ public struct CoreInformation: Codable {
   }
 }
 
+/// Represents different types of action spaces for the environment.
+public enum ActionSpaceType {
+  /// Multi-binary action space with no filtered actions.
+  case all
+
+  /// Multi-binary action space with invalid or not allowed actions filtered out.
+  case filtered
+
+  /// Discrete action space for filtered actions.
+  case discrete
+
+  /// Multi-discete action space for filtered actions.
+  case multiDiscrete
+}
+
 public struct EmulatorConfig: Codable {
   let coresInformationPath: URL
   let coresPath: URL
   let gameDataPath: URL
+  let actionSpaceType: ActionSpaceType = .filtered
 
-  public init(coresInformationPath: URL, coresPath: URL, gameDataPath: URL) {
+  public init(
+    coresInformationPath: URL,
+    coresPath: URL,
+    gameDataPath: URL,
+    actionSpaceType: ActionSpaceType = .filtered
+  ) {
     self.coresInformationPath = coresInformationPath
     self.coresPath = coresPath
     self.gameDataPath = gameDataPath
+    self.actionSpaceType = actionSpaceType
     retroCorePath(coresPath.path)
     retroDataPath(gameDataPath.path)
   }
@@ -82,7 +83,7 @@ public extension EmulatorConfig {
   func gameFile(
     _ file: String, 
     for game: String, 
-    with integration: GameIntegration = .stable
+    using integration: GameIntegration = .stable
   ) -> URL? {
     for path in integration.paths {
       let possibleFile = gameDataPath
@@ -98,7 +99,7 @@ public extension EmulatorConfig {
 
   func gameROMFile(
     for game: String, 
-    with integration: GameIntegration = .stable
+    using integration: GameIntegration = .stable
   ) throws -> URL {
     for ext in supportedExtensions.keys {
       let possibleFile = gameFile("rom\(ext)", for: game, with: integration)
@@ -109,13 +110,13 @@ public extension EmulatorConfig {
     throw RetroError.ROMFileNotFound(game: game)
   }
 
-  func games(for integration: GameIntegration = .stable) -> [String] {
+  func games(using integration: GameIntegration = .stable) -> [String] {
     var games: Set<String> = []
     for path in integration.paths {
       let pathFiles = FileManager.default.enumerator(
         atPath: gameDataPath.appendingPathComponent(path).path)
       while let game = pathFiles?.nextObject() as? String {
-        if let _ = gameFile("rom.sha", for: game, with: integration) {
+        if let _ = gameFile("rom.sha", for: game, using: integration) {
           games.insert(game)
         }
       }
@@ -123,7 +124,7 @@ public extension EmulatorConfig {
     return Array(games).sorted()
   }
 
-  func states(for game: String, with integration: GameIntegration = .stable) -> [String] {
+  func states(for game: String, using integration: GameIntegration = .stable) -> [String] {
     var states: Set<String> = []
     for path in integration.paths {
       let gamePath = gameDataPath
@@ -138,5 +139,29 @@ public extension EmulatorConfig {
       }
     }
     return Array(states).sorted()
+  }
+
+  func scenarios(for game: String, using integration: GameIntegration = .stable) -> [String] {
+    var scenarios: Set<String> = []
+    for path in integration.paths {
+      let gamePath = gameDataPath
+        .appendingPathComponent(path)
+        .appendingPathComponent(game)
+      let pathFiles = FileManager.default.enumerator(atPath: gamePath.path)
+      while let file = pathFiles?.nextObject() as? String {
+        if file.hasSuffix(".json") {
+          let fileURL = gamePath.appendingPathComponent(file)
+          guard let json = try? String(contentsOf: fileURL) else { continue }
+          guard let decoded = try? [String: AnyCodable](fromJson: json) else { continue }
+          if decoded.keys.contains("reward") || 
+              decoded.keys.contains("rewards") || 
+              decoded.keys.contains("done") {
+            let endIndex = file.index(file.endIndex, offsetBy: -5)
+            scenarios.insert(String(file.prefix(upTo: endIndex)))
+          }
+        }
+      }
+    }
+    return Array(scenarios).sorted()
   }
 }

@@ -37,6 +37,7 @@ class EmulatorTests: XCTestCase {
 
   func testGames() {
     print(emulatorConfig.states(for: "Pong-Atari2600"))
+    print(emulatorConfig.scenarios(for: "Pong-Atari2600"))
     XCTAssert(emulatorConfig.games().contains("Pong-Atari2600"))
   }
 
