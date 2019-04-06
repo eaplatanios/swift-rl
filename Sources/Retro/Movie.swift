@@ -18,13 +18,11 @@ public class Movie {
       return Data(bytes: cBytes.bytes, count: cBytes.numBytes)
     }
     set (newValue) {
-      let bytes = [UInt8](newValue)      
-      var cBytes = UnsafeMutablePointer<UInt8>.allocate(capacity: bytes.count)
-      // TODO !!!: Need to provide a deallocator maybe?
-      defer { cBytes.deallocate() }
-      cBytes.initialize(from: bytes, count: bytes.count)
-      var cBytesStruct = CBytes(bytes: cBytes, numBytes: bytes.count)
-      movieSetState(handle, &cBytesStruct)
+      let bytes = [UInt8](newValue)
+      bytes.withUnsafeBufferPointer {
+        var cBytesStruct = CBytes(bytes: $0.baseAddress, numBytes: bytes.count)
+        movieSetState(handle, &cBytesStruct)
+      }
     }
   }
 

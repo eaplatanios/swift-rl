@@ -125,9 +125,7 @@ public class Environment<A: RetroActions> {
     if let state = self.state {
       try loadState(named: state, using: integration)
     }
-
-    reset()
-   }
+  }
 
   deinit {
     emulatorDelete(emulatorHandle)
@@ -155,7 +153,7 @@ public class Environment<A: RetroActions> {
 
     movie?.step()
     emulatorStep(emulatorHandle)
-    gameDataUpdateRam(gameData.handle)
+    gameData.updateMemory()
 
     // TODO: What about the 'info' dict?
     return EnvironmentStepResult(
@@ -165,8 +163,57 @@ public class Environment<A: RetroActions> {
   }
 
   public func reset() {
-    // TODO
-    fatalError("Not implemented.")
+    // Reset the initial state.
+    if let state = initialState {
+      let bytes = [UInt8](state)
+      bytes.withUnsafeBufferPointer {
+        var cBytesStruct = CBytes(bytes: $0.baseAddress, numBytes: bytes.count)
+        emulatorSetState(emulatorHandle, &cBytesStruct)
+      }
+    }
+
+    // Reset the button masks.
+    for p in 0..<numPlayers {
+      [UInt8](repeating: 0, count: buttons.count).withUnsafeBufferPointer {
+        emulatorSetButtonMask(emulatorHandle, $0.baseAddress, buttons.count, p)
+      }
+    }
+
+    emulatorStep(emulatorHandle)
+    gameData.reset()
+    gameData.updateMemory()
+    updateCachedObservations()
+
+    // Reset the recording.
+    if let url = movieURL {
+      let stateName = String(state!.split(separator: ".")[0])
+      let movieFilename = "\(game)-\(stateName)-\(String(format: "%06d", movieID)).bk2"
+      startRecording(at: url.appendingPathComponent(movieFilename))
+      movieID += 1
+    }
+
+    movie?.step()
+  }
+
+  public func startRecording(at url: URL) {
+    movie = Movie(at: url, recording: true, numPlayers: numPlayers)
+    movie!.configure(for: self)
+    if let state = initialState {
+      movie!.state = state
+    }
+  }
+
+  public func enableRecording(at url: URL? = nil) {
+    movieURL = url ?? config.movieURL
+  }
+
+  public func disableRecording() {
+    movieID = 0
+    movieURL = nil
+    if let m = movie {
+      m.close()
+      movie = nil
+    }
   }
 
   public func loadState(named state: String, using integration: GameIntegration = .stable) throws {
@@ -245,26 +292,5 @@ public class Environment<A: RetroActions> {
       numBytesPerBlock = $0.numBytes
     }
     return ShapedArray(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
-  }
-
-  public func recordMovie(at url: URL) {
-    movie = Movie(at: url, recording: true, numPlayers: numPlayers)
-    movie!.configure(for: self)
-    if let state = initialState {
-      movie!.state = state
-    }
-  }
-
-  public func startAutoRecording(at url: URL? = nil) {
-    movieURL = url ?? config.movieURL
-  }
-
-  public func stopAutoRecording() {
-    movieID = 0
-    movieURL = nil
-    if let m = movie {
-      m.close()
-      movie = nil
-    }
   }
 }

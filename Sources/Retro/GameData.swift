@@ -74,6 +74,14 @@ public class GameData {
     get { return gameDataLookupDoubleValue(handle, name) }
     set(newValue) { gameDataSetDoubleValue(handle, name, newValue) }
   }
+
+  public func updateMemory() {
+    gameDataUpdateRam(handle)
+  }
+
+  public func reset() {
+    gameDataReset(handle)
+  }
 }
 
 public struct GameMetadata: Codable {
