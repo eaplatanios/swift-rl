@@ -33,6 +33,9 @@ public class Environment<A: RetroActions> {
   public private(set) var movieID: Int
   public private(set) var movieURL: URL?
 
+  public private(set) var memory: ShapedArray<UInt8>? = nil
+  public private(set) var screen: ShapedArray<UInt8>? = nil
+
   internal var emulatorHandle: UnsafeMutablePointer<CEmulator>?
 
   private var state: String? = nil
@@ -103,14 +106,14 @@ public class Environment<A: RetroActions> {
     // Configure the observation space.
     switch config.observationSpaceType {
     case .screen:
-      let screen = Environment.screen(
+      self.screen = Environment.getScreen(
         gameData: self.gameData,
         emulatorHandle: self.emulatorHandle,
         forPlayer: 0)
-      self.observationSpace = Box(low: 0, high: 255, shape: screen.shape)
+      self.observationSpace = Box(low: 0, high: 255, shape: screen!.shape)
     case .memory:
-      let memory = Environment.memory(gameData: self.gameData)
-      self.observationSpace = Box(low: 0, high: 255, shape: memory.shape)
+      self.memory = Environment.getMemory(gameData: self.gameData)
+      self.observationSpace = Box(low: 0, high: 255, shape: memory!.shape)
     }
 
     if let state = self.state {
@@ -136,31 +139,25 @@ public class Environment<A: RetroActions> {
     self.state = state
   }
 
-  public func memory() -> ShapedArray<UInt8> {
-    return Environment.memory(gameData: gameData)
+  public func updateCachedScreen() {
+    self.screen = Environment.getScreen(
+      gameData: self.gameData,
+      emulatorHandle: self.emulatorHandle,
+      forPlayer: 0)
   }
 
-  public func screen(forPlayer player: UInt32 = 0) -> ShapedArray<UInt8> {
-    return Environment.screen(
-      gameData: gameData,
-      emulatorHandle: emulatorHandle,
-      forPlayer: player)
+  public func updateCachedMemory() {
+    self.memory = Environment.getMemory(gameData: self.gameData)
   }
 
-  private static func memory(gameData: GameData) -> ShapedArray<UInt8> {
-    let handle = gameDataMemory(gameData.handle)
-    let cBlocks = memoryViewBlocks(handle)!.pointee
-    let blocks = Array(UnsafeBufferPointer(start: cBlocks.blocks, count: cBlocks.numBlocks))
-    var memoryBytes = [UInt8]()
-    var numBytesPerBlock = 0
-    blocks.sorted(by: { $0.address > $1.address }).forEach {
-      memoryBytes += Array(UnsafeBufferPointer(start: $0.bytes, count: $0.numBytes))
-      numBytesPerBlock = $0.numBytes
+  private func updateCachedObservations() {
+    switch config.observationSpaceType {
+    case .screen: updateCachedScreen()
+    case .memory: updateCachedMemory()
     }
-    return ShapedArray(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
   }
 
-  private static func screen(
+  private static func getScreen(
     gameData: GameData,
     emulatorHandle: UnsafeMutablePointer<CEmulator>?, 
     forPlayer player: UInt32 = 0
@@ -192,6 +189,19 @@ public class Environment<A: RetroActions> {
       // TODO !!!: return screen[y..<height, x..<width]
       fatalError("Not implemented.")
     }
+  }
+
+  private static func getMemory(gameData: GameData) -> ShapedArray<UInt8> {
+    let handle = gameDataMemory(gameData.handle)
+    let cBlocks = memoryViewBlocks(handle)!.pointee
+    let blocks = Array(UnsafeBufferPointer(start: cBlocks.blocks, count: cBlocks.numBlocks))
+    var memoryBytes = [UInt8]()
+    var numBytesPerBlock = 0
+    blocks.sorted(by: { $0.address > $1.address }).forEach {
+      memoryBytes += Array(UnsafeBufferPointer(start: $0.bytes, count: $0.numBytes))
+      numBytesPerBlock = $0.numBytes
+    }
+    return ShapedArray(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
   }
 
   public func recordMovie(at url: URL) {
