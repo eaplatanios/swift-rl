@@ -4,8 +4,8 @@ import Foundation
 public class Movie {
   private var handle: UnsafeMutablePointer<CMovie>?
 
-  public init(name: String, recording: Bool, numPlayers: UInt32) {
-    self.handle = movieCreate(name, recording, numPlayers)
+  public init(at url: URL, recording: Bool, numPlayers: UInt32) {
+    self.handle = movieCreate(url.path, recording, numPlayers)
   }
 
   deinit {
@@ -28,8 +28,8 @@ public class Movie {
     }
   }
 
-  public func configure<A: RetroActions>(for game: String, in environment: Environment<A>) {
-    movieConfigure(handle, game, environment.emulatorHandle)
+  public func configure<A: RetroActions>(for environment: Environment<A>) {
+    movieConfigure(handle, environment.game, environment.emulatorHandle)
   }
 
   public func game() -> String {

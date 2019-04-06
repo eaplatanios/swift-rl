@@ -45,19 +45,22 @@ public struct EmulatorConfig<A: RetroActions> {
   let gameDataPath: URL
   let actionSpaceType: A
   let observationSpaceType: ObservationSpaceType
+  let movieURL: URL?
 
   public init(
     coresInformationPath: URL,
     coresPath: URL,
     gameDataPath: URL,
     actionSpaceType: A,
-    observationSpaceType: ObservationSpaceType = .screen
+    observationSpaceType: ObservationSpaceType = .screen,
+    movieURL: URL? = nil
   ) {
     self.coresInformationPath = coresInformationPath
     self.coresPath = coresPath
     self.gameDataPath = gameDataPath
     self.actionSpaceType = actionSpaceType
     self.observationSpaceType = observationSpaceType
+    self.movieURL = movieURL
     retroCorePath(coresPath.path)
     retroDataPath(gameDataPath.path)
   }
@@ -68,14 +71,16 @@ public extension EmulatorConfig where A == FilteredRetroActions {
     coresInformationPath: URL,
     coresPath: URL,
     gameDataPath: URL,
-    observationSpaceType: ObservationSpaceType = .screen
+    observationSpaceType: ObservationSpaceType = .screen,
+    movieURL: URL? = nil
   ) {
     self.init(
       coresInformationPath: coresInformationPath,
       coresPath: coresPath,
       gameDataPath: gameDataPath,
       actionSpaceType: FilteredRetroActions(),
-      observationSpaceType: observationSpaceType)
+      observationSpaceType: observationSpaceType,
+      movieURL: movieURL)
   }
 }
 

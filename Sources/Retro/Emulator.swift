@@ -25,9 +25,13 @@ public class Environment<A: RetroActions> {
   public let actionSpace: A.ActionSpace
   public let observationSpace: Box<UInt8>
 
+  public private(set) var rng: SeedableRandomNumberGenerator
   public private(set) var gameData: GameData
   public private(set) var gameDataFile: URL?
   public private(set) var gameScenarioFile: URL?
+  public private(set) var movie: Movie?
+  public private(set) var movieID: Int
+  public private(set) var movieURL: URL?
 
   internal var emulatorHandle: UnsafeMutablePointer<CEmulator>?
 
@@ -41,19 +45,25 @@ public class Environment<A: RetroActions> {
     using integration: GameIntegration = .stable,
     numPlayers: UInt32 = 1,
     gameDataFile: String = "data.json",
-    gameScenarioFile: String = "scenario.json"
+    gameScenarioFile: String = "scenario.json",
+    randomSeed: UInt64? = nil
    ) throws {
     let gameROMFile = try config.gameROMFile(for: game, using: integration)
     let gameMetadataFile = config.gameFile("metadata.json", for: game, using: integration)
-    
+    let seed = hashSeed(createSeed(using: randomSeed))
+
     self.config = config
     self.game = game
     self.numPlayers = numPlayers
     self.core = try getCore(forROM: gameROMFile)
+    self.rng = PhiloxRandomNumberGenerator(seed: seed)
     self.gameData = try GameData(withConfig: config, for: game, using: integration)
     self.gameDataFile = config.gameFile(gameDataFile, for: game, using: integration)
     self.gameScenarioFile = config.gameFile(gameScenarioFile, for: game, using: integration)
-    
+    self.movie = nil
+    self.movieID = 0
+    self.movieURL = config.movieURL
+
     switch state {
     case .none:
       self.state = nil
@@ -106,14 +116,16 @@ public class Environment<A: RetroActions> {
     if let state = self.state {
       try loadState(named: state, using: integration)
     }
-
-
-
-
   }
 
   deinit {
     emulatorDelete(emulatorHandle)
+  }
+
+  public func seed(using seed: UInt64? = nil) -> UInt64 {
+    let strongSeed = hashSeed(createSeed(using: seed))
+    self.rng = PhiloxRandomNumberGenerator(seed: strongSeed)
+    return strongSeed
   }
 
   public func loadState(named state: String, using integration: GameIntegration = .stable) throws {
@@ -179,6 +191,27 @@ public class Environment<A: RetroActions> {
     } else {
       // TODO !!!: return screen[y..<height, x..<width]
       fatalError("Not implemented.")
+    }
+  }
+
+  public func recordMovie(at url: URL) {
+    movie = Movie(at: url, recording: true, numPlayers: numPlayers)
+    movie!.configure(for: self)
+    if let state = initialState {
+      movie!.state = state
+    }
+  }
+
+  public func startAutoRecording(at url: URL? = nil) {
+    movieURL = url ?? config.movieURL
+  }
+
+  public func stopAutoRecording() {
+    movieID = 0
+    movieURL = nil
+    if let m = movie {
+      m.close()
+      movie = nil
     }
   }
 }
