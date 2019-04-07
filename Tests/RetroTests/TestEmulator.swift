@@ -62,7 +62,9 @@ class EmulatorTests: XCTestCase {
 extension EmulatorTests {
   static var allTests : [(String, (EmulatorTests) -> () throws -> Void)] {
     return [
-      ("testEmulatorScreenRate", testEmulatorScreenRate)
+      ("testSupportedCores", testSupportedCores),
+      ("testSupportedExtensions", testSupportedExtensions),
+      ("testGames", testGames)
     ]
   }
 }
