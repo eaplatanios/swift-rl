@@ -2,6 +2,20 @@
 changing rapidly. I expect it to be more stable within 
 about a week or two.
 
+# Prerequisites
+
+For MacOS:
+
+```bash
+brew install --HEAD git glfw3
+```
+
+For Linux:
+
+```bash
+sudo apt install libglfw3-dev libglfw3
+```
+
 # Installation
 
 First, you need to compile the Retro native library. This 

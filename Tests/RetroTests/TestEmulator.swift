@@ -3,6 +3,8 @@ import XCTest
 @testable import CRetro
 @testable import Retro
 
+import Darwin
+
 class EmulatorTests: XCTestCase {
   let emulatorConfig: EmulatorConfig<FilteredRetroActions> = {
     let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift/retro")
@@ -42,18 +44,24 @@ class EmulatorTests: XCTestCase {
     // print(emulatorConfig.states(for: "Pong-Atari2600"))
     // print(emulatorConfig.scenarios(for: "Pong-Atari2600"))
 
-    let renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
+    // var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
+    var renderer = try! SingleImageRenderer(initialMaxWidth: 800)
     let environment = try! Environment(for: "Airstriker-Genesis", withConfig: emulatorConfig)
     environment.reset()
-    environment.render(using: renderer)
+    try! environment.render(using: &renderer)
     let numButtons = environment.buttons.count
     let action = ShapedArray<Int32>(
       shape: [numButtons],
       scalars: [Int32](repeating: 1, count: numButtons))
-    for _ in 0..<1000 {
-      print(environment.step(taking: action).reward[0])
+    for _ in 0..<1000000 {
+      let reward = environment.step(taking: action).reward[0]
+      try! environment.render(using: &renderer)
+      usleep(500)
+      if reward != 0 {
+        print(reward)
+      }
     }
-    environment.render(using: renderer)
+    try! environment.render(using: &renderer)
   }
 
 	// func testEmulatorScreenRate() {

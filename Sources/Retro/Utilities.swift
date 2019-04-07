@@ -6,6 +6,7 @@ public enum RetroError: Error {
   case UnsupportedROMFile(romURL: URL)
   case UnsupportedCore(core: String)
   case GameDataFailure(message: String)
+  case GLFWError(message: String)
 }
 
 public extension Encodable {

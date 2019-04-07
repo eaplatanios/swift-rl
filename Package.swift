@@ -24,7 +24,8 @@ let package = Package(
             linkerSettings: [
                 .linkedLibrary("retro"),
                 .linkedLibrary("retro-base"),
-                .unsafeFlags(["-L", "retro"])
+                .linkedLibrary("glfw"),
+                .unsafeFlags(["-L", "retro", "-L", "/usr/local/lib"])
             ]),
         .testTarget(name: "RetroTests", dependencies: ["Retro"]),
         .target(
