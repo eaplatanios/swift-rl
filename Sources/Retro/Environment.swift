@@ -136,6 +136,7 @@ public class Environment<A: RetroActions> {
     return strongSeed
   }
 
+  @discardableResult
   public func step(taking action: ShapedArray<A.ActionSpace.Scalar>) -> EnvironmentStepResult {
     for p in 0..<numPlayers {
       let encodedAction = config.actionSpaceType.encodeAction(

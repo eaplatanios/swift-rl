@@ -1,3 +1,4 @@
+import TensorFlow
 import XCTest
 @testable import CRetro
 @testable import Retro
@@ -44,6 +45,14 @@ class EmulatorTests: XCTestCase {
     let renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
     let environment = try! Environment(for: "Airstriker-Genesis", withConfig: emulatorConfig)
     environment.reset()
+    environment.render(using: renderer)
+    let numButtons = environment.buttons.count
+    let action = ShapedArray<Int32>(
+      shape: [numButtons],
+      scalars: [Int32](repeating: 1, count: numButtons))
+    for _ in 0..<1000 {
+      print(environment.step(taking: action).reward[0])
+    }
     environment.render(using: renderer)
   }
 
