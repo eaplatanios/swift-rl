@@ -49,8 +49,6 @@ class EmulatorTests: XCTestCase {
 
     let environment = try! Environment(for: "Airstriker-Genesis", withConfig: emulatorConfig)
     environment.reset()
-    // TODO: I think the result of this is wrong.
-    print(environment.gameData.buttonCombos)
     try! environment.render(using: &renderer)
     for _ in 0..<1000000 {
       let action = environment.sampleAction()
