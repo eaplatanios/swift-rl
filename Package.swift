@@ -23,9 +23,7 @@ let package = Package(
             publicHeadersPath: "Sources/CRetro/include",
             linkerSettings: [
                 .linkedLibrary("retro"),
-                .linkedLibrary("retro-base"),
-                .linkedLibrary("glfw"),
-                .unsafeFlags(["-L", "retro", "-L", "/usr/local/lib"])
+                .unsafeFlags(["-L", "retro"])
             ]),
         .testTarget(name: "RetroTests", dependencies: ["Retro"]),
         .target(

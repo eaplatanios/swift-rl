@@ -4,33 +4,50 @@ about a week or two.
 
 # Prerequisites
 
-For MacOS:
+In order to use the image renderer you need to first 
+install GLFW. You can do so, as follows:
 
 ```bash
+# For MacOS:
 brew install --HEAD git glfw3
+
+# For Linux:
+sudo apt install libglfw3-dev libglfw3
 ```
 
-For Linux:
+Then, in order to use it you need to provide the following
+extra flags when using `swift build` or any other SwiftPM 
+command: `-Xcc -DGLFW -Xswiftc -DGLFW`. Furthermore, if 
+`libglfw.so` or `libglfw.dylib` is not in your 
+`LD_LIBRARY_PATH`, you also need to provide the following 
+flags: `-Xlinker -lglfw -Xlinker -L<path>`, where `<path>` 
+represents the path to the dynamic library. For example:
 
 ```bash
-sudo apt install libglfw3-dev libglfw3
+swift test \
+  -Xcc -DGLFW -Xswiftc -DGLFW \
+  -Xlinker -lglfw -Xlinker -L/usr/local/lib
 ```
 
 # Installation
 
-First, you need to compile the Retro native library. This 
-can be done by executing the following commands:
+If `libretro.so` or `libretro.dylib` is not in your 
+`LD_LIBRARY_PATH`, you need to provide the following 
+extra flags when using `swift build` or any other SwiftPM 
+command: `-Xlinker -L<path>`, where `<path>` represents the 
+path to the dynamic library. The simplest way to start is 
+to execute the following commands from within your code 
+directory:
 
 ```bash
-cd <WORKING_DIRECTORY>
 git clone git@github.com:eaplatanios/retro.git
 cd retro
-git checkout bug
+git checkout c-api
 cmake . -G 'Unix Makefiles' -DBUILD_PYTHON=OFF -DBUILD_C=ON
 make -j4 retro-c
 ```
 
-This will result in a `libretro.dylib` file in the working 
-directory and in compiled core files for multiple gaming 
-platforms in `<WORKING_DIRECTORY>/retro/cores`, among other 
-things.
+This will result in a `libretro.so` or `libretro.dylib` 
+file in the `retro` subdirectory and in compiled core files 
+for multiple gaming platforms in the `retro/cores`
+subdirectory.

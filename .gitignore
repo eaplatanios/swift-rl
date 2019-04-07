@@ -1,0 +1,16 @@
+# MacOS
+.DS_Store
+
+# Swift Package Manager
+/.build
+/Packages
+/*.xcodeproj
+
+# VS Code
+/.vscode
+
+# CLion
+/.idea
+
+# Cloned retro repository
+retro

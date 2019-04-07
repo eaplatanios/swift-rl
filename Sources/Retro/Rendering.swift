@@ -1,4 +1,3 @@
-import CRetro
 import TensorFlow
 
 public protocol Renderer {
@@ -31,6 +30,9 @@ public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
       includeInfo: includeInfo))
   }
 }
+
+#if GLFW
+import CRetro
 
 public class SingleImageRenderer: Renderer {
   public typealias Data = ShapedArray<UInt8>
@@ -154,3 +156,5 @@ public class SingleImageRenderer: Renderer {
     return preprocessed
   }
 }
+
+#endif

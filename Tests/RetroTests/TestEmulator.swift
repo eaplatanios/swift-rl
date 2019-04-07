@@ -44,8 +44,12 @@ class EmulatorTests: XCTestCase {
     // print(emulatorConfig.states(for: "Pong-Atari2600"))
     // print(emulatorConfig.scenarios(for: "Pong-Atari2600"))
 
-    // var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
+    #if GLFW
     var renderer = try! SingleImageRenderer(initialMaxWidth: 800)
+    #else
+    var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
+    #endif
+
     let environment = try! Environment(for: "Airstriker-Genesis", withConfig: emulatorConfig)
     environment.reset()
     try! environment.render(using: &renderer)
@@ -53,7 +57,7 @@ class EmulatorTests: XCTestCase {
     let action = ShapedArray<Int32>(
       shape: [numButtons],
       scalars: [Int32](repeating: 1, count: numButtons))
-    for _ in 0..<1000000 {
+    for _ in 0..<1000 {
       let reward = environment.step(taking: action).reward[0]
       try! environment.render(using: &renderer)
       usleep(500)
