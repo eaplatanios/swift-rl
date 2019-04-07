@@ -14,7 +14,9 @@ public class Movie {
 
   public var state: Data {
     get {
-      let cBytes = movieGetState(handle)!.pointee
+      let cBytesPointer = movieGetState(handle)!
+      defer { cBytesPointer.deallocate() }
+      let cBytes = cBytesPointer.pointee
       return Data(bytes: cBytes.bytes, count: cBytes.numBytes)
     }
     set (newValue) {
