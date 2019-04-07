@@ -11,7 +11,7 @@ can be done by executing the following commands:
 cd <WORKING_DIRECTORY>
 git clone git@github.com:eaplatanios/retro.git
 cd retro
-git checkout c-api
+git checkout bug
 cmake . -G 'Unix Makefiles' -DBUILD_PYTHON=OFF -DBUILD_C=ON
 make -j4 retro-c
 ```
