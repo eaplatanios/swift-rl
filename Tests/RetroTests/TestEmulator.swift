@@ -7,8 +7,8 @@ class EmulatorTests: XCTestCase {
     let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift/retro")
     return EmulatorConfig(
       coresInformationPath: retroURL.appendingPathComponent("cores"),
-      coresPath: retroURL.appendingPathComponent("retro/cores"),
-      gameDataPath: retroURL.appendingPathComponent("retro/data"))
+      coresPathHint: retroURL.appendingPathComponent("retro/cores"),
+      gameDataPathHint: retroURL.appendingPathComponent("retro/data"))
   }()
 
   override func setUp() {
@@ -30,10 +30,10 @@ class EmulatorTests: XCTestCase {
       [[], ["BUTTON"]]])
   }
 
-  func testSupportedExtensions() {
-    XCTAssert(supportedExtensions.keys.contains(".a26"))
-    XCTAssert(supportedExtensions[".a26"]! == "Atari2600")
-  }
+  // func testSupportedExtensions() {
+  //   XCTAssert(supportedExtensions.keys.contains(".a26"))
+  //   XCTAssert(supportedExtensions[".a26"]! == "Atari2600")
+  // }
 
   func testGames() {
     XCTAssert(emulatorConfig.games().contains("Pong-Atari2600"))
@@ -41,13 +41,10 @@ class EmulatorTests: XCTestCase {
     // print(emulatorConfig.states(for: "Pong-Atari2600"))
     // print(emulatorConfig.scenarios(for: "Pong-Atari2600"))
 
-    let renderer = ShapedArrayPrinter<UInt8>()
+    let renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
     let environment = try! Environment(for: "Airstriker-Genesis", withConfig: emulatorConfig)
-    print("##################### - 0")
     environment.reset()
-    print("##################### - 1")
     environment.render(using: renderer)
-    print("##################### - 2")
   }
 
 	// func testEmulatorScreenRate() {

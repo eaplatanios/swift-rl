@@ -75,9 +75,7 @@ public class Environment<A: RetroActions> {
 
     self.emulatorHandle = emulatorCreate(gameROMFile.path)
     emulatorConfigureData(self.emulatorHandle, self.gameData.handle)
-    print("##################### - 0.4")
     emulatorStep(self.emulatorHandle)
-    print("##################### - 0.5")
 
     let coreInformation = try getInformation(forCore: self.core)
     if !self.gameData.load(dataFile: self.gameDataFile, scenarioFile: self.gameScenarioFile) {

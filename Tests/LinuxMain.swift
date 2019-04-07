@@ -1,5 +1,5 @@
 import XCTest
-@testable import RetroTestSuite
+@testable import RetroTests
 
 XCTMain([
     testCase(EmulatorTests.allTests)

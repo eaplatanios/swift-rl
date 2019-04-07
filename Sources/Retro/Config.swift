@@ -49,35 +49,41 @@ public struct EmulatorConfig<A: RetroActions> {
 
   public init(
     coresInformationPath: URL,
-    coresPath: URL,
-    gameDataPath: URL,
+    coresPathHint: URL,
+    gameDataPathHint: URL,
     actionSpaceType: A,
     observationSpaceType: ObservationSpaceType = .screen,
     movieURL: URL? = nil
   ) {
+    let cCoresPath = retroCorePath(coresPathHint.path)!
+    let cGameDataPath = retroDataPath(gameDataPathHint.path)!
+    
+    defer {
+      cCoresPath.deallocate()
+      cGameDataPath.deallocate()
+    }
+
     self.coresInformationPath = coresInformationPath
-    self.coresPath = coresPath
-    self.gameDataPath = gameDataPath
+    self.coresPath = URL(fileURLWithPath: String(cString: cCoresPath))
+    self.gameDataPath = URL(fileURLWithPath: String(cString: cGameDataPath))
     self.actionSpaceType = actionSpaceType
     self.observationSpaceType = observationSpaceType
     self.movieURL = movieURL
-    retroCorePath(coresPath.path)
-    retroDataPath(gameDataPath.path)
   }
 }
 
 public extension EmulatorConfig where A == FilteredRetroActions {
   init(
     coresInformationPath: URL,
-    coresPath: URL,
-    gameDataPath: URL,
+    coresPathHint: URL,
+    gameDataPathHint: URL,
     observationSpaceType: ObservationSpaceType = .screen,
     movieURL: URL? = nil
   ) {
     self.init(
       coresInformationPath: coresInformationPath,
-      coresPath: coresPath,
-      gameDataPath: gameDataPath,
+      coresPathHint: coresPathHint,
+      gameDataPathHint: gameDataPathHint,
       actionSpaceType: FilteredRetroActions(),
       observationSpaceType: observationSpaceType,
       movieURL: movieURL)

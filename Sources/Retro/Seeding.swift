@@ -4,7 +4,7 @@ import Foundation
 /// Creates a strong random seed.
 public func createSeed(using seed: UInt64? = nil) -> UInt64 {
   if let s = seed {
-    return UInt64(truncating: NSDecimalNumber(decimal: pow(Decimal(s % 2), 8 * 8)))
+    return UInt64(pow(Double(s % 2), Double(8 * 8)))
   } else {
     return UInt64.random(in: UInt64.min...UInt64.max)
   }

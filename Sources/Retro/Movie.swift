@@ -31,7 +31,9 @@ public class Movie {
   }
 
   public func game() -> String {
-    return String(cString: movieGetGameName(handle))
+    let cString = movieGetGameName(handle)!
+    defer { cString.deallocate() }
+    return String(cString: cString)
   }
 
   @discardableResult
