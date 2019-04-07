@@ -23,7 +23,7 @@ public func initializeRetro<A: RetroActions>(withConfig config: EmulatorConfig<A
       supportedCores.merge(cores, uniquingKeysWith: { return $1 })
       for (core, coreInformation) in cores {
         for ext in coreInformation.extensions {
-          supportedExtensions[".\(ext)"] = core
+          supportedExtensions[ext] = core
         }
       }
     }

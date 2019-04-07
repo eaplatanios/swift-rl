@@ -36,9 +36,18 @@ class EmulatorTests: XCTestCase {
   }
 
   func testGames() {
-    print(emulatorConfig.states(for: "Pong-Atari2600"))
-    print(emulatorConfig.scenarios(for: "Pong-Atari2600"))
     XCTAssert(emulatorConfig.games().contains("Pong-Atari2600"))
+
+    // print(emulatorConfig.states(for: "Pong-Atari2600"))
+    // print(emulatorConfig.scenarios(for: "Pong-Atari2600"))
+
+    let renderer = ShapedArrayPrinter<UInt8>()
+    let environment = try! Environment(for: "Airstriker-Genesis", withConfig: emulatorConfig)
+    print("##################### - 0")
+    environment.reset()
+    print("##################### - 1")
+    environment.render(using: renderer)
+    print("##################### - 2")
   }
 
 	// func testEmulatorScreenRate() {

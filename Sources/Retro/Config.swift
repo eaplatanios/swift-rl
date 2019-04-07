@@ -120,7 +120,7 @@ public extension EmulatorConfig {
     using integration: GameIntegration = .stable
   ) throws -> URL {
     for ext in supportedExtensions.keys {
-      let possibleFile = gameFile("rom\(ext)", for: game, using: integration)
+      let possibleFile = gameFile("rom.\(ext)", for: game, using: integration)
       if let file = possibleFile {
         return file
       }

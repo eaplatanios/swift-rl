@@ -48,15 +48,15 @@ public class Environment<A: RetroActions> {
   private var initialState: Data? = nil
 
   public init(
-    withConfig config: EmulatorConfig<A>,
     for game: String,
+    withConfig config: EmulatorConfig<A>,
     in state: State = .provided,
     using integration: GameIntegration = .stable,
     numPlayers: UInt32 = 1,
     gameDataFile: String = "data.json",
     gameScenarioFile: String = "scenario.json",
     randomSeed: UInt64? = nil
-   ) throws {
+  ) throws {
     let gameROMFile = try config.gameROMFile(for: game, using: integration)
     let gameMetadataFile = config.gameFile("metadata.json", for: game, using: integration)
     let seed = hashSeed(createSeed(using: randomSeed))
@@ -73,26 +73,11 @@ public class Environment<A: RetroActions> {
     self.movieID = 0
     self.movieURL = config.movieURL
 
-    switch state {
-    case .none:
-      self.state = nil
-    case .provided:
-      let gameMetadataJson = try? String(contentsOf: gameMetadataFile!)
-      let gameMetadata = try? GameMetadata(fromJson: gameMetadataJson!)
-      if let metadata = gameMetadata {
-        if metadata.defaultPlayerState != nil && numPlayers <= metadata.defaultPlayerState!.count {
-          self.state = metadata.defaultPlayerState![Int(numPlayers) - 1]
-        } else if metadata.defaultState != nil {
-          self.state = metadata.defaultState!
-        } else {
-          self.state = nil
-        }
-      } else {
-        self.state = nil
-      }
-    case .custom(let state):
-      self.state = state
-    }
+    self.emulatorHandle = emulatorCreate(gameROMFile.path)
+    emulatorConfigureData(self.emulatorHandle, self.gameData.handle)
+    print("##################### - 0.4")
+    emulatorStep(self.emulatorHandle)
+    print("##################### - 0.5")
 
     let coreInformation = try getInformation(forCore: self.core)
     if !self.gameData.load(dataFile: self.gameDataFile, scenarioFile: self.gameScenarioFile) {
@@ -100,10 +85,6 @@ public class Environment<A: RetroActions> {
         message: "Failed to load game data from '\(gameDataFile)'" + 
                  "or game scenario from '\(gameScenarioFile)'.")
     }
-
-    self.emulatorHandle = emulatorCreate(gameROMFile.path)
-    emulatorConfigureData(self.emulatorHandle, self.gameData.handle)
-    emulatorStep(self.emulatorHandle)
 
     self.buttons = coreInformation.buttons
     self.actionSpace = config.actionSpaceType.space(
@@ -122,8 +103,28 @@ public class Environment<A: RetroActions> {
       self.observationSpace = Box(low: 0, high: 255, shape: memory!.shape)
     }
 
-    if let state = self.state {
+    switch state {
+    case .none:
+      self.state = nil
+    case .provided:
+      let gameMetadataJson = try? String(contentsOf: gameMetadataFile!)
+      let gameMetadata = try? GameMetadata(fromJson: gameMetadataJson!)
+      if let metadata = gameMetadata {
+        if metadata.defaultPlayerState != nil && numPlayers <= metadata.defaultPlayerState!.count {
+          self.state = metadata.defaultPlayerState![Int(numPlayers) - 1]
+          try loadState(named: self.state!, using: integration)
+        } else if metadata.defaultState != nil {
+          self.state = metadata.defaultState!
+          try loadState(named: self.state!, using: integration)
+        } else {
+          self.state = nil
+        }
+      } else {
+        self.state = nil
+      }
+    case .custom(let state):
       try loadState(named: state, using: integration)
+      self.state = state
     }
   }
 
