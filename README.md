@@ -29,6 +29,11 @@ swift test \
   -Xlinker -lglfw -Xlinker -L/usr/local/lib
 ```
 
+**Note:** If the rendered image does not update according 
+to the specified frames per second value and you are using 
+MacOS 10.14, you should update to 10.14.4 because there is 
+a bug in previous releases of 10.14 which breaks VSync.
+
 # Installation
 
 If `libretro.so` or `libretro.dylib` is not in your 

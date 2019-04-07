@@ -31,7 +31,7 @@ public class Environment<A: RetroActions> {
   public let actionSpace: A.ActionSpace
   public let observationSpace: Box<UInt8>
 
-  public private(set) var rng: SeedableRandomNumberGenerator
+  public private(set) var rng: PhiloxRandomNumberGenerator
   public private(set) var gameData: GameData
   public private(set) var gameDataFile: URL?
   public private(set) var gameScenarioFile: URL?
@@ -160,6 +160,10 @@ public class Environment<A: RetroActions> {
       observation: updateCachedObservations(),
       reward: (0..<numPlayers).map { gameDataCurrentReward(gameData.handle, $0) },
       finished: gameDataIsDone(gameData.handle))
+  }
+
+  public func sampleAction() -> ShapedArray<A.ActionSpace.Scalar> {
+    return actionSpace.sample(generator: &rng)
   }
 
   public func render<R: Renderer>(

@@ -33,9 +33,12 @@ public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
 
 #if GLFW
 import CRetro
+import Foundation
 
 public class SingleImageRenderer: Renderer {
   public typealias Data = ShapedArray<UInt8>
+
+  public let framesPerSecond: Double?
 
   private var window: OpaquePointer?
   private var frameBuffer: GLuint = 0
@@ -45,8 +48,9 @@ public class SingleImageRenderer: Renderer {
 
   public private(set) var isOpen: Bool = true
 
-  public init(initialMaxWidth: Int32) throws {
+  public init(initialMaxWidth: Int32, framesPerSecond: Double? = nil) throws {
     self.initialMaxWidth = initialMaxWidth
+    self.framesPerSecond = framesPerSecond
   }
 
   deinit {
@@ -55,6 +59,10 @@ public class SingleImageRenderer: Renderer {
 
   public func render(_ data: ShapedArray<UInt8>) throws {
     if !isOpen { return }
+
+    if let fps = framesPerSecond {
+      Thread.sleep(forTimeInterval: 1 / fps)
+    }
 
     if self.window == nil {
       var width = Int32(data.shape[1])

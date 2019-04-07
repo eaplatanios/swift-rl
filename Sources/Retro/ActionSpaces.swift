@@ -29,7 +29,7 @@ public struct FullRetroActions: RetroActions {
     buttons: [String?],
     numPlayers: UInt32
   ) -> MultiBinary {
-    return MultiBinary(withSize: Int32(buttons.count) * Int32(numPlayers))
+    return MultiBinary(withSize: buttons.count * Int(numPlayers))
   }
 
   public func encodeAction(
@@ -58,7 +58,7 @@ public struct FilteredRetroActions: RetroActions {
     buttons: [String?],
     numPlayers: UInt32
   ) -> MultiBinary {
-    return MultiBinary(withSize: Int32(buttons.count) * Int32(numPlayers))
+    return MultiBinary(withSize: buttons.count * Int(numPlayers))
   }
 
   public func encodeAction(

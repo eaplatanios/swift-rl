@@ -87,6 +87,11 @@ public class GameData {
 public struct GameMetadata: Codable {
   public let defaultState: String?
   public let defaultPlayerState: [String]?
+
+  enum CodingKeys: String, CodingKey {
+    case defaultState = "default_state"
+    case defaultPlayerState = "default_player_state"
+  }
 }
 
 // public class SearchListHandle {

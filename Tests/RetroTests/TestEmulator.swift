@@ -1,9 +1,6 @@
-import TensorFlow
 import XCTest
 @testable import CRetro
 @testable import Retro
-
-import Darwin
 
 class EmulatorTests: XCTestCase {
   let emulatorConfig: EmulatorConfig<FilteredRetroActions> = {
@@ -52,17 +49,18 @@ class EmulatorTests: XCTestCase {
 
     let environment = try! Environment(for: "Airstriker-Genesis", withConfig: emulatorConfig)
     environment.reset()
+    // TODO: I think the result of this is wrong.
+    print(environment.gameData.buttonCombos)
     try! environment.render(using: &renderer)
-    let numButtons = environment.buttons.count
-    let action = ShapedArray<Int32>(
-      shape: [numButtons],
-      scalars: [Int32](repeating: 1, count: numButtons))
-    for _ in 0..<1000 {
-      let reward = environment.step(taking: action).reward[0]
+    for _ in 0..<1000000 {
+      let action = environment.sampleAction()
+      let result = environment.step(taking: action)
       try! environment.render(using: &renderer)
-      usleep(500)
-      if reward != 0 {
-        print(reward)
+      if result.reward[0] != 0 {
+        print(result.reward[0])
+      }
+      if result.finished {
+        environment.reset()
       }
     }
     try! environment.render(using: &renderer)

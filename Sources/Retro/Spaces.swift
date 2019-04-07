@@ -42,17 +42,20 @@ public struct Discrete: Space {
 public struct MultiBinary: Space {
   public typealias Scalar = Int32
   
-  public let size: Int32
+  public let size: Int
   public let shape: [Int]
 
-  public init(withSize size: Int32) {
+  public init(withSize size: Int) {
     self.size = size
-    self.shape = [Int(size)]
+    self.shape = [size]
   }
 
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
-    // TODO
-    fatalError("Not implemented.")
+    var scalars: [Scalar] = []
+    for _ in 0..<size {
+        scalars.append(Int32.random(in: 0...1, using: &generator))
+    }
+    return ShapedArray<Int32>(shape: [size], scalars: scalars)
   }
 
   public func contains(_ value: ShapedArray<Int32>) -> Bool {
