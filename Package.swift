@@ -21,10 +21,7 @@ let package = Package(
             path: ".", 
             sources: ["Sources/CRetro"],
             publicHeadersPath: "Sources/CRetro/include",
-            linkerSettings: [
-                .linkedLibrary("retro"),
-                .unsafeFlags(["-L", "retro"])
-            ]),
+            linkerSettings: [.linkedLibrary("retro")]),
         .testTarget(name: "RetroTests", dependencies: ["Retro"]),
         .target(
             name: "Retro",

@@ -40,9 +40,10 @@ If `libretro.so` or `libretro.dylib` is not in your
 `LD_LIBRARY_PATH`, you need to provide the following 
 extra flags when using `swift build` or any other SwiftPM 
 command: `-Xlinker -L<path>`, where `<path>` represents the 
-path to the dynamic library. The simplest way to start is 
-to execute the following commands from within your code 
-directory:
+path to the dynamic library. For MacOS, you also need to 
+use the following flags: `-Xlinker -rpath -Xlinker <path>`.
+The simplest way to start is to execute the following 
+commands from within your code directory:
 
 ```bash
 git clone git@github.com:eaplatanios/retro.git
@@ -55,4 +56,30 @@ make -j4 retro-c
 This will result in a `libretro.so` or `libretro.dylib` 
 file in the `retro` subdirectory and in compiled core files 
 for multiple gaming platforms in the `retro/cores`
-subdirectory.
+subdirectory. Then you can set `<path>` to 
+`<repository>/retro`, where `<repository>` is the path 
+where you cloned the Swift Retro repository.
+
+## Example
+
+This is how I can get things set up on my MacBook:
+
+```bash
+cd /Users/eaplatanios/Development/GitHub
+git clone git@github.com:eaplatanios/retro-swift.git
+cd retro-swift
+git clone git@github.com:eaplatanios/retro.git
+cd retro
+git checkout c-api
+cmake . -G 'Unix Makefiles' -DBUILD_PYTHON=OFF -DBUILD_C=ON
+make -j4 retro-c
+cd ..
+swift test \
+  -Xcc -DGLFW \
+  -Xswiftc -DGLFW \
+  -Xlinker -lglfw \
+  -Xlinker -L/usr/local/lib \
+  -Xlinker -L/Users/eaplatanios/Development/GitHub/retro-swift/retro \
+  -Xlinker -rpath \
+  -Xlinker /Users/eaplatanios/Development/GitHub/retro-swift/retro
+```
