@@ -2,6 +2,11 @@
 changing rapidly. I expect it to be more stable within 
 about a week or two.
 
+**NOTE:** The code is currently fully functional. I plan to 
+add support for automatically downloading and loading local 
+ROMs for games (as opposed to be always expecting them in 
+the game data directory which is the current situation).
+
 # Installation
 
 ## Prerequisites
@@ -86,4 +91,39 @@ swift test \
   -Xlinker -L/Users/eaplatanios/Development/GitHub/retro-swift/retro \
   -Xlinker -rpath \
   -Xlinker /Users/eaplatanios/Development/GitHub/retro-swift/retro
+```
+
+# Example
+
+The following code runs a random policy on the 
+`Airstriker-Genesis` game for which a ROM is provided by 
+Gym Retro.
+
+```swift
+let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift/retro")
+let config = try! Emulator.Config(
+  coreInformationLookupPath: retroURL.appendingPathComponent("cores"),
+  coreLookupPathHint: retroURL.appendingPathComponent("retro/cores"),
+  gameDataLookupPathHint: retroURL.appendingPathComponent("retro/data"))
+
+// We only use the OpenGL-based renderer if the GLFW flag is enabled.
+#if GLFW
+var renderer = try! SingleImageRenderer(initialMaxWidth: 800)
+#else
+var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
+#endif
+
+let game = emulatorConfig.game(called: "Airstriker-Genesis")!
+let emulator = try! Emulator(for: game, configuredAs: emulatorConfig)
+var environment = try! Environment(using: emulator, actionsType: FilteredActions())
+environment.reset()
+try! environment.render(using: &renderer)
+for _ in 0..<1000000 {
+  let action = environment.sampleAction()
+  let result = environment.step(taking: action)
+  try! environment.render(using: &renderer)
+  if result.finished {
+    environment.reset()
+  }
+}
 ```
