@@ -116,7 +116,6 @@ var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
 let game = emulatorConfig.game(called: "Airstriker-Genesis")!
 let emulator = try! Emulator(for: game, configuredAs: emulatorConfig)
 var environment = try! Environment(using: emulator, actionsType: FilteredActions())
-environment.reset()
 try! environment.render(using: &renderer)
 for _ in 0..<1000000 {
   let action = environment.sampleAction()
