@@ -28,8 +28,8 @@ public class Movie {
     }
   }
 
-  public func configure<A: RetroActions>(for environment: Environment<A>) {
-    movieConfigure(handle, environment.game, environment.emulatorHandle)
+  public func configure<ActionsType: Retro.ActionsType>(for environment: Environment<ActionsType>) {
+    movieConfigure(handle, environment.game().name, environment.emulator.handle)
   }
 
   public func game() -> String {

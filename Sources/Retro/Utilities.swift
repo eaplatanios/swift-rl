@@ -4,7 +4,7 @@ import TensorFlow
 public enum RetroError: Error {
   case ROMFileNotFound(game: String)
   case UnsupportedROMFile(romURL: URL)
-  case UnsupportedCore(core: String)
+  case UnsupportedCore(message: String)
   case GameDataFailure(message: String)
   case GLFWError(message: String)
 }
