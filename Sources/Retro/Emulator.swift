@@ -80,7 +80,6 @@ public class Emulator {
 
     self.gameData = try Game.Data(dataFile: game.dataFile, scenarioFile: self.scenario)
     emulatorConfigureData(self.handle, self.gameData.handle)
-    emulatorStep(self.handle)
   }
 
   deinit {

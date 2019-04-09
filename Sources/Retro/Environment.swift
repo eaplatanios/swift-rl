@@ -67,7 +67,9 @@ public struct Environment<ActionsType: Retro.ActionsType> {
       try self.emulator.loadStartingState(
         from: game().dataDir.appendingPathComponent("\(state).state"))
     }
-   }
+
+    reset()
+  }
 
   @inlinable
   public mutating func seed(using seed: UInt64? = nil) -> UInt64 {
