@@ -6,7 +6,7 @@ public struct Game: Hashable {
   public let name: String
   public let dataDir: URL
   public let rom: URL?
-  public let romHash: String
+  public let romHashes: [String]
   public let dataFile: URL?
   public let metadataFile: URL?
   public let states: [URL]
@@ -20,7 +20,7 @@ public extension Game {
     self.rom = Game.findRom(for: name, withDataIn: dataDir)
 
     // Go through the available game data files.
-    var romHash: String? = nil
+    var romHashes: [String] = []
     var dataFile: URL? = nil
     var metadataFile: URL? = nil
     var states: Set<URL> = []
@@ -32,7 +32,11 @@ public extension Game {
       } else if file.lastPathComponent == "metadata.json" {
         metadataFile = file
       } else if file.lastPathComponent == "rom.sha" {
-        romHash = try? String(contentsOf: file)
+        if let hashes = try? String(contentsOf: file) {
+          romHashes = hashes
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: "\n")
+        }
       } else if file.pathExtension == "state" && !file.lastPathComponent.hasPrefix("_") {
         states.insert(file)
       } else if file.pathExtension == "json" {
@@ -46,12 +50,11 @@ public extension Game {
       }
     }
 
-    if let hash = romHash {
-      self.romHash = hash
-    } else {
+    if romHashes.isEmpty {
       return nil
     }
 
+    self.romHashes = romHashes
     self.dataFile = dataFile
     self.metadataFile = metadataFile
     self.states = Array(states).sorted(by: { $0.path > $1.path })
