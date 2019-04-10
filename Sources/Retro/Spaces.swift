@@ -27,7 +27,7 @@ public struct Discrete: Space {
   }
 
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
-    return ShapedArray<Int32>(Int32.random(in: 0..<size, using: &generator))
+    return ShapedArray(Int32.random(in: 0..<size, using: &generator))
   }
 
   public func contains(_ value: ShapedArray<Int32>) -> Bool {
@@ -56,7 +56,7 @@ public struct MultiBinary: Space {
     for _ in 0..<size {
       scalars.append(Int32.random(in: 0...1, using: &generator))
     }
-    return ShapedArray<Int32>(shape: [size], scalars: scalars)
+    return ShapedArray(shape: [size], scalars: scalars)
   }
 
   public func contains(_ value: ShapedArray<Int32>) -> Bool {
@@ -84,7 +84,7 @@ public struct MultiDiscrete: Space {
     for size in sizes {
       scalars.append(Int32.random(in: 0..<size, using: &generator))
     }
-    return ShapedArray<Int32>(shape: shape, scalars: scalars)
+    return ShapedArray(shape: shape, scalars: scalars)
   }
 
   public func contains(_ value: ShapedArray<Int32>) -> Bool {
@@ -92,7 +92,9 @@ public struct MultiDiscrete: Space {
   }
 }
 
-public struct Box<Scalar: TensorFlowScalar & Comparable & Hashable & Codable>: Space {
+// TODO: How can we make this also support Scalar: BinaryFloatingPoint where 
+// Scalar.RawSignificand: FixedWidthInteger?
+public struct Box<Scalar: TensorFlowScalar & FixedWidthInteger & Codable>: Space {
   public let low: ShapedArray<Scalar>
   public let high: ShapedArray<Scalar>
   public let shape: [Int]
@@ -116,9 +118,11 @@ public struct Box<Scalar: TensorFlowScalar & Comparable & Hashable & Codable>: S
   }
 
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Scalar> {
-    // TODO: high = self.high if self.dtype.kind == 'f' else self.high.astype('int64') + 1
-    // TODO: return self.np_random.uniform(low=self.low, high=high, size=self.shape).astype(self.dtype)
-    fatalError("Not implemented.")
+    var scalars: [Scalar] = []
+    for (low, high) in zip(self.low.scalars, self.high.scalars) {
+      scalars.append(Scalar.random(in: low...high, using: &generator))
+    }
+    return ShapedArray(shape: shape, scalars: scalars)
   }
 
   public func contains(_ value: ShapedArray<Scalar>) -> Bool {
