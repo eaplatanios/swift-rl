@@ -13,7 +13,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.1.0"),
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "1.0.0"),
-        .package(url: "https://github.com/1024jp/GzipSwift.git", from: "4.1.0")
+        .package(url: "https://github.com/1024jp/GzipSwift.git", from: "4.1.0"),
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.8"))
     ],
     targets: [
         .target(
@@ -25,7 +26,7 @@ let package = Package(
         .testTarget(name: "RetroTests", dependencies: ["Retro"]),
         .target(
             name: "Retro",
-            dependencies: ["CRetro", "AnyCodable", "CryptoSwift", "Gzip"],
+            dependencies: ["CRetro", "AnyCodable", "CryptoSwift", "Gzip", "ZIPFoundation"],
             path: "Sources/Retro")
     ]
 )

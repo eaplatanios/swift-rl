@@ -9,7 +9,8 @@ class EmulatorTests: XCTestCase {
       coreInformationLookupPath: retroURL.appendingPathComponent("retro/cores"),
       coreLookupPathHint: retroURL.appendingPathComponent("retro/retro/cores"),
       gameDataLookupPathHint: retroURL.appendingPathComponent("retro/retro/data"),
-      gameROMLookupPaths: [URL(fileURLWithPath: "temp")])
+      gameROMLookupPaths: [URL(fileURLWithPath: "temp")],
+      gameRomsDownloadPath: URL(fileURLWithPath: "temp").appendingPathComponent("downloads"))
   }()
 
   func testSupportedCores() {
@@ -41,7 +42,8 @@ class EmulatorTests: XCTestCase {
     var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
     #endif
     
-    let game = emulatorConfig.game(called: "Airstriker-Genesis")!
+    // let game = emulatorConfig.game(called: "Airstriker-Genesis")!
+    let game = emulatorConfig.game(called: "SpaceInvaders-Atari2600")!
     let emulator = try! Emulator(for: game, configuredAs: emulatorConfig)
     var environment = try! Environment(using: emulator, actionsType: FilteredActions())
     try! environment.render(using: &renderer)

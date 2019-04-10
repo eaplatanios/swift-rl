@@ -2,12 +2,14 @@
 changing rapidly. I expect it to be more stable within 
 about a week or two.
 
-**NOTE:** The code is currently fully functional. I plan to 
-add support for automatically downloading and loading local 
-ROMs for games (as opposed to be always expecting them in 
-the game data directory which is the current situation).
+**NOTE:** The code is currently fully functional.
 
 # Installation
+
+For MacOS, you need to use the following flags whenver 
+executing a Swift Package Manager command 
+(e.g., `swift build`, `swift test`, or `swift run`): 
+`-Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.12"`.
 
 ## Prerequisites
 

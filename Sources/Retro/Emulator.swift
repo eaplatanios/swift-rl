@@ -217,12 +217,14 @@ public extension Emulator {
     public let coreLookupPath: URL
     public let gameDataLookupPath: URL?
     public let gameROMLookupPaths: [URL]
+    public let gameRomsDownloadPath: URL?
 
     public init(
       coreInformationLookupPath: URL,
       coreLookupPathHint: URL,
       gameDataLookupPathHint: URL? = nil,
-      gameROMLookupPaths: [URL] = []
+      gameROMLookupPaths: [URL] = [],
+      gameRomsDownloadPath: URL? = nil
     ) throws {
       // Load information about the supported cores.
       let files = try FileManager.default.contentsOfDirectory(
@@ -260,6 +262,7 @@ public extension Emulator {
       }
 
       self.gameROMLookupPaths = gameROMLookupPaths
+      self.gameRomsDownloadPath = gameRomsDownloadPath
     }
     
     @inlinable
@@ -286,7 +289,8 @@ public extension Emulator {
             if let game = Game(
               called: name,
               withDataIn: gameDataPath,
-              romLookupPaths: gameROMLookupPaths
+              romLookupPaths: gameROMLookupPaths,
+              romsDownloadPath: gameRomsDownloadPath
             ) {
               return game
             }

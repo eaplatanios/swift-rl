@@ -2,25 +2,46 @@ import AnyCodable
 import CRetro
 import CryptoSwift
 import Foundation
+import ZIPFoundation
 
 public struct Game: Hashable {
   public let name: String
   public let dataDir: URL
   public let romHashes: [String]
   public let romLookupPaths: [URL]
+  public let romsDownloadPath: URL?
   public let dataFile: URL?
   public let metadataFile: URL?
   public let states: [URL]
   public let scenarios: [URL]
 
+  public lazy var core: Core? = {
+    for (coreName, core) in supportedCores {
+      if name.hasSuffix("-\(coreName)") {
+        return core
+      }
+    }
+    return nil
+  }()
+
   public lazy var rom: URL? = {
-    return try? Game.findRom(
-      romHashes: romHashes, dataDir: dataDir, romLookupPaths: romLookupPaths)
+    let romFinder = RomFinder()
+    return try? romFinder.findRom(
+      core: core,
+      romHashes: romHashes,
+      gameDataDir: dataDir,
+      lookupPaths: romLookupPaths,
+      downloadPath: romsDownloadPath)
   }()
 }
 
 public extension Game {
-  init?(called name: String, withDataIn dataDir: URL, romLookupPaths: [URL] = []) {
+  init?(
+    called name: String,
+    withDataIn dataDir: URL,
+    romLookupPaths: [URL] = [],
+    romsDownloadPath: URL? = nil
+  ) {
     self.name = name
     self.dataDir = dataDir
 
@@ -62,6 +83,7 @@ public extension Game {
 
     self.romHashes = romHashes
     self.romLookupPaths = romLookupPaths
+    self.romsDownloadPath = romsDownloadPath
     self.dataFile = dataFile
     self.metadataFile = metadataFile
     self.states = Array(states).sorted(by: { $0.path > $1.path })
@@ -91,79 +113,6 @@ public extension Game {
     public static func +(left: Integration, right: Integration) -> Integration {
       return Integration(paths: left.paths + right.paths, name: "\(left.name) | \(right.name)")
     }
-  }
-}
-
-fileprivate extension Game {
-  static func findRom(
-    romHashes: [String],
-    dataDir: URL, 
-    romLookupPaths: [URL] = []
-  ) throws -> URL? {
-    // Check if the game data directory contains the ROM.
-    print("Attempting to obtain the game ROM from the game data directory.")
-    for ext in supportedExtensions.keys {
-      let possibleFile = dataDir.appendingPathComponent("rom.\(ext)")
-      if FileManager.default.fileExists(atPath: possibleFile.path) {
-        print("Found the game ROM from the game data directory.")
-        return possibleFile
-      }
-    }
-
-    // Check if the ROM can be found in the provided lookup directories.
-    print("Attempting to obtain the game ROM from the provided lookup paths.")
-    for dir in romLookupPaths {
-      let files = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil)
-      while let file = files?.nextObject() as? URL {
-        var bytes = [UInt8]()
-        if let data = NSData(contentsOfFile: file.path) {
-          var buffer = [UInt8](repeating: 0, count: data.length)
-          data.getBytes(&buffer, length: data.length)
-          bytes = buffer
-        }
-
-        // Obtain the ROM body and its SHA1 hash.
-        var hash: String
-        let ext = file.pathExtension.lowercased()
-        if ext == "smd" {
-          // Read the Super Magic Drive header.
-          let body = bytes[512...]
-          if body.count > 129 &&
-             body[128] == UInt8(ascii: "E") && 
-             body[129] == UInt8(ascii: "A") {
-            var converted = [UInt8]()
-            converted.reserveCapacity(body.count)
-            for i in 0..<(body.count / 16384) {
-              let block = body[(i * 16384)..<((i + 1) * 16384)]
-              for j in 0..<8192 {
-                converted.append(block[j + 8192])
-                converted.append(block[j])
-              }
-            }
-            bytes = converted
-          }
-          hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
-        } else if ext == "nes" {
-          hash = [UInt8](bytes[16...]).sha1().map{String(format: "%02X", $0)}.joined()
-        } else {
-          if bytes.count > 32 * 1024 * 1024 {
-            throw RetroError.GameROMTooBig(
-              "The ROM at '\(file)' is too big. Maximum supported size is 32MB.")
-          }
-          hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
-        }
-
-        if romHashes.contains(hash.lowercased()) {
-          let romURL = dataDir.appendingPathComponent("rom.\(ext)")
-          try Foundation.Data(bytes).write(to: romURL)
-          print("Found the game ROM in the provided lookup paths.")
-          return romURL
-        }
-      }
-    }
-
-    // TODO: Support automatically downloading ROMs.
-    return nil
   }
 }
 
@@ -245,5 +194,163 @@ internal extension Game {
       case defaultState = "default_state"
       case defaultPlayerState = "default_player_state"
     }
+  }
+}
+
+fileprivate extension Game {
+  struct RomFinder {
+    let atari2600RomsURLs: [String: URL] = [
+      "ROMS.zip": URL(string: "https://dl.dropboxusercontent.com/s/uyb07bkcfzv60hz/ROMS.zip?dl=0")!,
+      "HC ROMS.zip": URL(string: "https://dl.dropboxusercontent.com/s/qjzb553lxw5av8b/HC%20ROMS.zip?dl=0")!]
+
+    func findRom(
+      core: Core?,
+      romHashes: [String],
+      gameDataDir: URL,
+      lookupPaths: [URL] = [],
+      downloadPath: URL? = nil
+    ) throws -> URL? {
+      // Check if the game data directory contains the ROM.
+      if let rom = try findRom(for: romHashes, inGameDataDir: gameDataDir) {
+        return rom
+      }
+
+      // Check if the ROM can be found in the provided lookup directories.
+      if let rom = try findRom(
+        for: romHashes,
+        core: core,
+        inLookupPaths: lookupPaths,
+        gameDataDir: gameDataDir
+      ) {
+        return rom
+      }
+
+      // Check if the ROM can be downloaded automatically.
+      if let path = downloadPath {
+        print("Attempting to download the game ROM.")
+        let romDownloadPath = path.appendingPathComponent("roms")
+        for (name, url) in core?.romURLs() ?? [:] {
+          let file = romDownloadPath.appendingPathComponent(name)
+
+          // Download the data, if necessary.
+          try maybeDownload(from: url, to: file)
+
+          // Extract the data, if necessary.
+          let fileExtension = file.pathExtension
+          if fileExtension == "zip" {
+            let extractedPath = file.deletingPathExtension()
+            if !FileManager.default.fileExists(atPath: extractedPath.path) {
+              try FileManager.default.unzipItem(at: file, to: extractedPath)
+            }
+          }
+        }
+
+        if let rom = try findRom(
+          for: romHashes,
+          core: core,
+          inLookupPaths: [romDownloadPath],
+          gameDataDir: gameDataDir
+        ) {
+          let romFile = gameDataDir.appendingPathComponent("rom.\(core!.information.extensions[0])")
+          try FileManager.default.copyItem(at: rom, to: romFile)
+          print("Downloaded the game ROM successfully.")
+          return romFile
+        }
+      }
+
+      return nil
+    }
+
+    func findRom(for romHashes: [String], inGameDataDir dataDir: URL) throws -> URL? {
+      print("Attempting to obtain the game ROM from the game data directory.")
+      for ext in supportedExtensions.keys {
+        let possibleFile = dataDir.appendingPathComponent("rom.\(ext)")
+        if FileManager.default.fileExists(atPath: possibleFile.path) {
+          let (_, hash) = try computeROMHash(for: possibleFile)
+          if romHashes.contains(hash.lowercased()) {
+            print("Found the game ROM in the game data directory.")
+            return possibleFile
+          }
+        }
+      }
+      return nil
+    }
+
+    func findRom(
+      for romHashes: [String],
+      core: Core?,
+      inLookupPaths lookupPaths: [URL],
+      gameDataDir dataDir: URL
+    ) throws -> URL? {
+      print("Attempting to obtain the game ROM from the provided lookup paths.")
+      for dir in lookupPaths {
+        let files = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil)
+        while let file = files?.nextObject() as? URL {
+          let (bytes, hash) = try computeROMHash(for: file)
+          if romHashes.contains(hash.lowercased()) {
+            let ext = core?.information.extensions[0] ?? file.pathExtension.lowercased()
+            let romURL = dataDir.appendingPathComponent("rom.\(ext)")
+            try Foundation.Data(bytes).write(to: romURL)
+            print("Found the game ROM in the provided lookup paths.")
+            return romURL
+          }
+        }
+      }
+      return nil
+    }
+
+    func computeROMHash(for file: URL) throws -> (bytes: [UInt8], hash: String) {
+      var bytes = [UInt8]()
+      if let data = NSData(contentsOfFile: file.path) {
+        var buffer = [UInt8](repeating: 0, count: data.length)
+        data.getBytes(&buffer, length: data.length)
+        bytes = buffer
+      }
+
+      // Obtain the ROM body and its SHA1 hash.
+      var hash: String
+      let ext = file.pathExtension.lowercased()
+      if ext == "smd" {
+        // Read the Super Magic Drive header.
+        let body = bytes[512...]
+        if body.count > 129 &&
+          body[128] == UInt8(ascii: "E") && 
+          body[129] == UInt8(ascii: "A") {
+          var converted = [UInt8]()
+          converted.reserveCapacity(body.count)
+          for i in 0..<(body.count / 16384) {
+            let block = body[(i * 16384)..<((i + 1) * 16384)]
+            for j in 0..<8192 {
+              converted.append(block[j + 8192])
+              converted.append(block[j])
+            }
+          }
+          bytes = converted
+        }
+        hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+      } else if ext == "nes" {
+        hash = [UInt8](bytes[16...]).sha1().map{String(format: "%02X", $0)}.joined()
+      } else {
+        if bytes.count > 32 * 1024 * 1024 {
+          throw RetroError.GameROMTooBig(
+            "The ROM at '\(file)' is too big. Maximum supported size is 32MB.")
+        }
+        hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+      }
+      return (bytes: bytes, hash: hash)
+    }
+  }
+}
+
+fileprivate extension Core {
+  func romURLs() -> [String: URL] {
+    if name == "Atari2600" {
+      return [
+        "ROMS.zip": URL(
+          string: "https://dl.dropboxusercontent.com/s/uyb07bkcfzv60hz/ROMS.zip?dl=0")!,
+        "HC ROMS.zip": URL(
+          string: "https://dl.dropboxusercontent.com/s/qjzb553lxw5av8b/HC%20ROMS.zip?dl=0")!]
+    }
+    return [:]
   }
 }
