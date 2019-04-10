@@ -1,13 +1,6 @@
-
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-import Darwin
-#else
-import Glibc
-#endif
-
 import TensorFlow
 
-public protocol Space {
+public protocol Space: Hashable, Codable, CustomStringConvertible {
   associatedtype Scalar: TensorFlowScalar
 
   var shape: [Int] { get }
@@ -27,6 +20,10 @@ public struct Discrete: Space {
 
   public init(withSize size: Int32) {
     self.size = size
+  }
+
+  public var description: String {
+    return "Discrete(\(size))"
   }
 
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
@@ -50,6 +47,10 @@ public struct MultiBinary: Space {
     self.shape = [size]
   }
 
+  public var description: String {
+    return "MultiBinary(\(size))"
+  }
+
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
     var scalars: [Scalar] = []
     for _ in 0..<size {
@@ -59,8 +60,7 @@ public struct MultiBinary: Space {
   }
 
   public func contains(_ value: ShapedArray<Int32>) -> Bool {
-    // TODO
-    fatalError("Not implemented.")
+    return value.shape == shape && value.scalars.allSatisfy{$0 == 0 || $0 == 1}
   }
 }
 
@@ -75,29 +75,52 @@ public struct MultiDiscrete: Space {
     self.shape = sizes.map { Int($0) }
   }
 
+  public var description: String {
+    return "MultiDiscrete(\(sizes.map{String($0)}.joined(separator: ", ")))"
+  }
+
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
-    // TODO
+    // TODO: return (self.np_random.random_sample(self.nvec.shape)*self.nvec).astype(self.dtype)
     fatalError("Not implemented.")
   }
 
   public func contains(_ value: ShapedArray<Int32>) -> Bool {
-    // TODO
-    fatalError("Not implemented.")
+    return value.scalars.allSatisfy{$0 >= 0} && zip(value.scalars, sizes).allSatisfy{$0 < $1}
   }
 }
 
-public struct Box<Scalar: TensorFlowScalar>: Space {
-  public let low: Scalar
-  public let high: Scalar
+public struct Box<Scalar: TensorFlowScalar & Comparable & Hashable & Codable>: Space {
+  public let low: ShapedArray<Scalar>
+  public let high: ShapedArray<Scalar>
   public let shape: [Int]
 
+  public init(low: Scalar, high: Scalar, shape: [Int]) {
+    let count = shape.reduce(1, *)
+    self.low = ShapedArray(shape: shape, scalars: [Scalar](repeating: low, count: count))
+    self.high = ShapedArray(shape: shape, scalars: [Scalar](repeating: high, count: count))
+    self.shape = shape
+  }
+
+  public init(low: ShapedArray<Scalar>, high: ShapedArray<Scalar>) {
+    precondition(low.shape == high.shape, "'low' and 'high' must have the same shape.")
+    self.low = low
+    self.high = high
+    self.shape = low.shape
+  }
+
+  public var description: String {
+    return "Box(\(shape.map{String($0)}.joined(separator: ", ")))"
+  }
+
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Scalar> {
-    // TODO
+    // TODO: high = self.high if self.dtype.kind == 'f' else self.high.astype('int64') + 1
+    // TODO: return self.np_random.uniform(low=self.low, high=high, size=self.shape).astype(self.dtype)
     fatalError("Not implemented.")
   }
 
   public func contains(_ value: ShapedArray<Scalar>) -> Bool {
-    // TODO
-    fatalError("Not implemented.")
+    return value.shape == shape &&
+      zip(value.scalars, low.scalars).allSatisfy{$0 >= $1} &&
+      zip(value.scalars, high.scalars).allSatisfy{$0 <= $1}
   }
 }
