@@ -54,7 +54,7 @@ public struct MultiBinary: Space {
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
     var scalars: [Scalar] = []
     for _ in 0..<size {
-        scalars.append(Int32.random(in: 0...1, using: &generator))
+      scalars.append(Int32.random(in: 0...1, using: &generator))
     }
     return ShapedArray<Int32>(shape: [size], scalars: scalars)
   }
@@ -72,7 +72,7 @@ public struct MultiDiscrete: Space {
 
   public init(withSizes sizes: [Int32]) {
     self.sizes = sizes
-    self.shape = sizes.map { Int($0) }
+    self.shape = [sizes.count]
   }
 
   public var description: String {
@@ -80,8 +80,11 @@ public struct MultiDiscrete: Space {
   }
 
   public func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Int32> {
-    // TODO: return (self.np_random.random_sample(self.nvec.shape)*self.nvec).astype(self.dtype)
-    fatalError("Not implemented.")
+    var scalars: [Scalar] = []
+    for size in sizes {
+      scalars.append(Int32.random(in: 0..<size, using: &generator))
+    }
+    return ShapedArray<Int32>(shape: shape, scalars: scalars)
   }
 
   public func contains(_ value: ShapedArray<Int32>) -> Bool {
