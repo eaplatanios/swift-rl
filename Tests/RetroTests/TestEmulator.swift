@@ -4,11 +4,12 @@ import XCTest
 
 class EmulatorTests: XCTestCase {
   let emulatorConfig: Emulator.Config = {
-    let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift/retro")
+    let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift")
     return try! Emulator.Config(
-      coreInformationLookupPath: retroURL.appendingPathComponent("cores"),
-      coreLookupPathHint: retroURL.appendingPathComponent("retro/cores"),
-      gameDataLookupPathHint: retroURL.appendingPathComponent("retro/data"))
+      coreInformationLookupPath: retroURL.appendingPathComponent("retro/cores"),
+      coreLookupPathHint: retroURL.appendingPathComponent("retro/retro/cores"),
+      gameDataLookupPathHint: retroURL.appendingPathComponent("retro/retro/data"),
+      gameROMLookupPaths: [URL(fileURLWithPath: "temp")])
   }()
 
   func testSupportedCores() {

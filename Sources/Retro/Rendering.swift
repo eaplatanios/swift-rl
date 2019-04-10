@@ -110,13 +110,13 @@ public class SingleImageRenderer: Renderer {
   public func createWindow(width: Int32, height: Int32) throws {
     // Initialize GLFW.
     if glfwInit() == 0 {
-      throw RetroError.GLFWError(message: "Failed to initialize GLFW.")
+      throw RetroError.GLFWError("Failed to initialize GLFW.")
     }
 
     // Open a new window.
     guard let window = glfwCreateWindow(width, height, "Gym Retro", nil, nil) else {
       glfwTerminate()
-      throw RetroError.GLFWError(message: "Failed to open a GLFW window.")
+      throw RetroError.GLFWError("Failed to open a GLFW window.")
     }
 
     self.window = window

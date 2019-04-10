@@ -1,23 +1,28 @@
 import AnyCodable
 import CRetro
+import CryptoSwift
 import Foundation
 
 public struct Game: Hashable {
   public let name: String
   public let dataDir: URL
-  public let rom: URL?
   public let romHashes: [String]
+  public let romLookupPaths: [URL]
   public let dataFile: URL?
   public let metadataFile: URL?
   public let states: [URL]
   public let scenarios: [URL]
+
+  public lazy var rom: URL? = {
+    return try? Game.findRom(
+      romHashes: romHashes, dataDir: dataDir, romLookupPaths: romLookupPaths)
+  }()
 }
 
 public extension Game {
-  init?(called name: String, withDataIn dataDir: URL) {
+  init?(called name: String, withDataIn dataDir: URL, romLookupPaths: [URL] = []) {
     self.name = name
     self.dataDir = dataDir
-    self.rom = Game.findRom(for: name, withDataIn: dataDir)
 
     // Go through the available game data files.
     var romHashes: [String] = []
@@ -36,6 +41,7 @@ public extension Game {
           romHashes = hashes
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: "\n")
+            .map{$0.lowercased()}
         }
       } else if file.pathExtension == "state" && !file.lastPathComponent.hasPrefix("_") {
         states.insert(file)
@@ -55,6 +61,7 @@ public extension Game {
     }
 
     self.romHashes = romHashes
+    self.romLookupPaths = romLookupPaths
     self.dataFile = dataFile
     self.metadataFile = metadataFile
     self.states = Array(states).sorted(by: { $0.path > $1.path })
@@ -89,16 +96,73 @@ public extension Game {
 
 fileprivate extension Game {
   static func findRom(
-    for game: String,
-    withDataIn dataDir: URL
-  ) -> URL? {
-    // TODO: Support a game ROM registry.
+    romHashes: [String],
+    dataDir: URL, 
+    romLookupPaths: [URL] = []
+  ) throws -> URL? {
+    // Check if the game data directory contains the ROM.
+    print("Attempting to obtain the game ROM from the game data directory.")
     for ext in supportedExtensions.keys {
       let possibleFile = dataDir.appendingPathComponent("rom.\(ext)")
       if FileManager.default.fileExists(atPath: possibleFile.path) {
+        print("Found the game ROM from the game data directory.")
         return possibleFile
       }
     }
+
+    // Check if the ROM can be found in the provided lookup directories.
+    print("Attempting to obtain the game ROM from the provided lookup paths.")
+    for dir in romLookupPaths {
+      let files = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil)
+      while let file = files?.nextObject() as? URL {
+        var bytes = [UInt8]()
+        if let data = NSData(contentsOfFile: file.path) {
+          var buffer = [UInt8](repeating: 0, count: data.length)
+          data.getBytes(&buffer, length: data.length)
+          bytes = buffer
+        }
+
+        // Obtain the ROM body and its SHA1 hash.
+        var hash: String
+        let ext = file.pathExtension.lowercased()
+        if ext == "smd" {
+          // Read the Super Magic Drive header.
+          let body = bytes[512...]
+          if body.count > 129 &&
+             body[128] == UInt8(ascii: "E") && 
+             body[129] == UInt8(ascii: "A") {
+            var converted = [UInt8]()
+            converted.reserveCapacity(body.count)
+            for i in 0..<(body.count / 16384) {
+              let block = body[(i * 16384)..<((i + 1) * 16384)]
+              for j in 0..<8192 {
+                converted.append(block[j + 8192])
+                converted.append(block[j])
+              }
+            }
+            bytes = converted
+          }
+          hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+        } else if ext == "nes" {
+          hash = [UInt8](bytes[16...]).sha1().map{String(format: "%02X", $0)}.joined()
+        } else {
+          if bytes.count > 32 * 1024 * 1024 {
+            throw RetroError.GameROMTooBig(
+              "The ROM at '\(file)' is too big. Maximum supported size is 32MB.")
+          }
+          hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+        }
+
+        if romHashes.contains(hash.lowercased()) {
+          let romURL = dataDir.appendingPathComponent("rom.\(ext)")
+          try Foundation.Data(bytes).write(to: romURL)
+          print("Found the game ROM in the provided lookup paths.")
+          return romURL
+        }
+      }
+    }
+
+    // TODO: Support automatically downloading ROMs.
     return nil
   }
 }
@@ -122,8 +186,8 @@ internal extension Game {
       self.handle = gameDataCreate()
       if !load(dataFile: dataFile, scenarioFile: scenarioFile) {
         throw RetroError.GameDataFailure(
-          message: "Failed to load game data from '\(dataFile?.path ?? "NOT_PROVIDED")'" + 
-                   "or game scenario from '\(scenarioFile?.path ?? "NOT_PROVIDED")'.")
+          "Failed to load game data from '\(dataFile?.path ?? "NOT_PROVIDED")'" + 
+          "or game scenario from '\(scenarioFile?.path ?? "NOT_PROVIDED")'.")
       }
     }
 

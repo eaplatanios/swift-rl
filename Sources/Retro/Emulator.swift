@@ -62,11 +62,11 @@ public class Emulator {
     numPlayers: UInt32 = 1
   ) throws {
     if game.rom == nil {
-      throw RetroError.ROMFileNotFound(game: game.name)
+      throw RetroError.GameROMNotFound("ROM file not found for game called '\(game.name)'.")
     }
 
     guard let core = config.core(forROM: game.rom!) else {
-      throw RetroError.UnsupportedCore(message: "For ROM: \(game.rom!).")
+      throw RetroError.UnsupportedCore("For ROM: \(game.rom!).")
     }
 
     self.handle = emulatorCreate(game.rom!.path)
@@ -216,11 +216,13 @@ public extension Emulator {
     public let coreInformationLookupPath: URL
     public let coreLookupPath: URL
     public let gameDataLookupPath: URL?
+    public let gameROMLookupPaths: [URL]
 
     public init(
       coreInformationLookupPath: URL,
       coreLookupPathHint: URL,
-      gameDataLookupPathHint: URL? = nil
+      gameDataLookupPathHint: URL? = nil,
+      gameROMLookupPaths: [URL] = []
     ) throws {
       // Load information about the supported cores.
       let files = try FileManager.default.contentsOfDirectory(
@@ -256,6 +258,8 @@ public extension Emulator {
       } else {
         gameDataLookupPath = nil
       }
+
+      self.gameROMLookupPaths = gameROMLookupPaths
     }
     
     @inlinable
@@ -271,7 +275,7 @@ public extension Emulator {
     public func game(
       called gameName: String,
       using integration: Game.Integration = .stable
-    ) -> Game? {
+     ) -> Game? {
       if let lookupPath = gameDataLookupPath {
         for path in integration.paths {
           let paths = FileManager.default.enumerator(
@@ -279,7 +283,11 @@ public extension Emulator {
           while let gameDataPath = paths?.nextObject() as? URL {
             let name = gameDataPath.lastPathComponent
             if name != gameName { continue }
-            if let game = Game(called: name, withDataIn: gameDataPath) {
+            if let game = Game(
+              called: name,
+              withDataIn: gameDataPath,
+              romLookupPaths: gameROMLookupPaths
+            ) {
               return game
             }
           }
@@ -296,7 +304,11 @@ public extension Emulator {
             at: lookupPath.appendingPathComponent(path), includingPropertiesForKeys: nil)
           while let gameDataPath = paths?.nextObject() as? URL {
             let gameName = gameDataPath.lastPathComponent
-            if let game = Game(called: gameName, withDataIn: gameDataPath) {
+            if let game = Game(
+              called: gameName,
+              withDataIn: gameDataPath,
+              romLookupPaths: gameROMLookupPaths
+            ) {
               games.insert(game)
             }
           }

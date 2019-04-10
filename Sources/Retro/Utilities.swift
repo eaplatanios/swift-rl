@@ -2,11 +2,12 @@ import Foundation
 import TensorFlow
 
 public enum RetroError: Error {
-  case ROMFileNotFound(game: String)
-  case UnsupportedROMFile(romURL: URL)
-  case UnsupportedCore(message: String)
-  case GameDataFailure(message: String)
-  case GLFWError(message: String)
+  case UnsupportedROMFile(URL)
+  case UnsupportedCore(String)
+  case GameDataFailure(String)
+  case GameROMNotFound(String)
+  case GameROMTooBig(String)
+  case GLFWError(String)
 }
 
 public extension Encodable {
