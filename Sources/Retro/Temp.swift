@@ -1,39 +1,8 @@
-import TensorFlow
-
-public protocol Renderer {
-  associatedtype Data
-
-  mutating func render(_ data: Data) throws
-}
-
-public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
-  public typealias Data = ShapedArray<Scalar>
-
-  public let maxEntries: Int
-  public let flattened: Bool
-  public let includeInfo: Bool
-
-  public init(
-    maxEntries: Int = 6,
-    flattened: Bool = false,
-    includeInfo: Bool = true
-  ) {
-    self.maxEntries = maxEntries
-    self.flattened = flattened
-    self.includeInfo = includeInfo
-  }
-
-  public mutating func render(_ data: ShapedArray<Scalar>) throws {
-    print(data.summarize(
-      maxEntries: maxEntries,
-      flattened: flattened,
-      includeInfo: includeInfo))
-  }
-}
-
 #if GLFW
 import CRetro
 import Foundation
+import ReinforcementLearning
+import TensorFlow
 
 public class SingleImageRenderer: Renderer {
   public typealias Data = ShapedArray<UInt8>

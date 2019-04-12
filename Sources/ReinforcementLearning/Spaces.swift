@@ -1,15 +1,15 @@
 import TensorFlow
 
 public protocol Space: Hashable, Codable, CustomStringConvertible {
-  associatedtype Scalar: TensorFlowScalar
+  associatedtype Value
 
   var shape: [Int] { get }
 
   /// Uniformly randomly sample a random element of this space.
-  func sample<G: RandomNumberGenerator>(generator: inout G) -> ShapedArray<Scalar>
+  func sample<G: RandomNumberGenerator>(generator: inout G) -> Value
 
   /// Returns a boolean specifying if `value` is a valid member of this space.
-  func contains(_ value: ShapedArray<Scalar>) -> Bool
+  func contains(_ value: Value) -> Bool
 }
 
 public struct Discrete: Space {

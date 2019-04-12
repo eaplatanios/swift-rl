@@ -7,8 +7,11 @@ let package = Package(
     name: "Retro",
     products: [
         .library(
+            name: "ReinforcementLearning",
+            targets: ["ReinforcementLearning"]),
+        .library(
             name: "Retro",
-            targets: ["Retro"]),
+            targets: ["Retro"])
     ],
     dependencies: [
         .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.1.0"),
@@ -18,15 +21,21 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "ReinforcementLearning",
+            dependencies: ["CryptoSwift"],
+            path: "Sources/ReinforcementLearning"),
+        .target(
             name: "CRetro",
             path: ".", 
             sources: ["Sources/CRetro"],
             publicHeadersPath: "Sources/CRetro/include",
             linkerSettings: [.linkedLibrary("retro")]),
-        .testTarget(name: "RetroTests", dependencies: ["Retro"]),
         .target(
             name: "Retro",
-            dependencies: ["CRetro", "AnyCodable", "CryptoSwift", "Gzip", "ZIPFoundation"],
-            path: "Sources/Retro")
+            dependencies: [
+                "CRetro", "ReinforcementLearning",
+                "AnyCodable", "CryptoSwift", "Gzip", "ZIPFoundation"],
+            path: "Sources/Retro"),
+        .testTarget(name: "RetroTests", dependencies: ["Retro"])
     ]
 )

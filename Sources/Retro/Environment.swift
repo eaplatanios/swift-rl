@@ -1,10 +1,11 @@
 import CRetro
 import Foundation
 import Gzip
+import ReinforcementLearning
 import TensorFlow
 
-public struct Environment<ActionsType: Retro.ActionsType> {
-  public let emulator: Emulator
+public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
+  public let emulator: RetroEmulator
   public let actionsType: ActionsType
   public let actionSpace: ActionsType.Space
   public let observationsType: ObservationsType
@@ -18,8 +19,10 @@ public struct Environment<ActionsType: Retro.ActionsType> {
   public private(set) var movieID: Int
   public private(set) var movieURL: URL?
 
+  private var needsReset: Bool = true
+
   public init(
-    using emulator: Emulator,
+    using emulator: RetroEmulator,
     actionsType: ActionsType,
     observationsType: ObservationsType = .screen,
     startingState: StartingState = .provided,
@@ -45,7 +48,7 @@ public struct Environment<ActionsType: Retro.ActionsType> {
       self.startingState = nil
     case .provided:
       let gameMetadataJson = try? String(contentsOf: self.emulator.game.metadataFile!)
-      let gameMetadata = try? Game.Metadata(fromJson: gameMetadataJson!)
+      let gameMetadata = try? RetroGame.Metadata(fromJson: gameMetadataJson!)
       if let metadata = gameMetadata {
         let defaultState = metadata.defaultState
         let defaultPlayerState = metadata.defaultPlayerState
@@ -67,8 +70,6 @@ public struct Environment<ActionsType: Retro.ActionsType> {
       try self.emulator.loadStartingState(
         from: game().dataDir.appendingPathComponent("\(state).state"))
     }
-
-    reset()
   }
 
   @inlinable
@@ -79,7 +80,11 @@ public struct Environment<ActionsType: Retro.ActionsType> {
   }
 
   @discardableResult
-  public func step(taking action: ShapedArray<ActionsType.Space.Scalar>) -> StepResult {
+  public mutating func step(taking action: ActionsType.Space.Value) -> Step {
+    if needsReset {
+      return reset()
+    }
+    
     for p in 0..<numPlayers() {
       let numButtons = emulator.buttons().count
       let encodedAction = actionsType.encodeAction(action, for: p, in: emulator)
@@ -100,20 +105,21 @@ public struct Environment<ActionsType: Retro.ActionsType> {
       case .memory: return emulator.memory()
       }
     }()
-    let reward = (0..<numPlayers()).map { emulator.reward(for: $0) }
     let finished = emulator.finished()
 
+    if finished {
+      needsReset = true
+    }
+
     // TODO: What about the 'info' dict?
-    return StepResult(observation: observation, reward: reward, finished: finished)
+    return EnvironmentStep(
+      kind: finished ? .last : .transition,
+      observation: observation!,
+      reward: (0..<numPlayers()).map { emulator.reward(for: $0) })
   }
 
-  public func render<R: Renderer>(
-    using renderer: inout R
-  ) throws where R.Data == ShapedArray<UInt8> {
-    try renderer.render(emulator.screen()!)
-  }
-
-  public mutating func reset() {
+  @discardableResult
+  public mutating func reset() -> Step {
     emulator.reset()
 
     // Reset the recording.
@@ -125,6 +131,20 @@ public struct Environment<ActionsType: Retro.ActionsType> {
     }
 
     movie?.step()
+
+    let observation: ShapedArray<UInt8>? = {
+      switch observationsType {
+      case .screen: return emulator.screen()
+      case .memory: return emulator.memory()
+      }
+    }()
+    let reward = (0..<numPlayers()).map { emulator.reward(for: $0) }
+
+    needsReset = false
+    return EnvironmentStep(
+      kind: .first,
+      observation: observation!,
+      reward: reward)
   }
 
   public mutating func startRecording(at url: URL) {
@@ -149,7 +169,7 @@ public struct Environment<ActionsType: Retro.ActionsType> {
   }
 
   @inlinable
-  public func game() -> Game {
+  public func game() -> RetroGame {
     return emulator.game
   }
 
@@ -159,7 +179,9 @@ public struct Environment<ActionsType: Retro.ActionsType> {
   }
 }
 
-public extension Environment {
+public extension RetroEnvironment {
+  typealias Step = EnvironmentStep<ShapedArray<UInt8>, [Float], Float>
+
   /// Represents the initial state of the emulator.
   enum StartingState {
     /// Start the game at the power on screen of the emulator.
@@ -180,12 +202,6 @@ public extension Environment {
   }
 }
 
-public extension Environment {
-  mutating func sampleAction() -> ShapedArray<ActionsType.Space.Scalar> {
-    return actionSpace.sample(generator: &rng)
-  }
-}
-
 /// Represents different settings for the observation space of the environment.
 public enum ObservationsType: Int {
   /// Use RGB image observations.
@@ -197,29 +213,31 @@ public enum ObservationsType: Int {
 
 /// Represents different types of action space for the environment.
 public protocol ActionsType {
-  associatedtype Space: Retro.Space
+  associatedtype Scalar: TensorFlowScalar
+  associatedtype Space: ReinforcementLearning.Space where Space.Value == ShapedArray<Scalar>
 
-  func space(for emulator: Emulator) -> Space
+  func space(for emulator: RetroEmulator) -> Space
 
   func encodeAction(
-    _ action: ShapedArray<Space.Scalar>,
+    _ action: ShapedArray<Scalar>,
     for player: UInt32,
-    in emulator: Emulator
+    in emulator: RetroEmulator
   ) -> UInt16
 }
 
 /// Multi-binary action space with no filtered actions.
 public struct FullActions: ActionsType {
+  public typealias Scalar = Int32
   public typealias Space = MultiBinary
 
-  public func space(for emulator: Emulator) -> MultiBinary {
+  public func space(for emulator: RetroEmulator) -> MultiBinary {
     return MultiBinary(withSize: emulator.buttons().count * Int(emulator.numPlayers))
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Space.Scalar>,
+    _ action: ShapedArray<Int32>,
     for player: UInt32,
-    in emulator: Emulator
+    in emulator: RetroEmulator
   ) -> UInt16 {
     let startIndex = emulator.buttons().count * Int(player)
     let endIndex = emulator.buttons().count * Int(player + 1)
@@ -234,16 +252,17 @@ public struct FullActions: ActionsType {
 
 /// Multi-binary action space with invalid or not allowed actions filtered out.
 public struct FilteredActions: ActionsType {
+  public typealias Scalar = Int32
   public typealias Space = MultiBinary
 
-  public func space(for emulator: Emulator) -> MultiBinary {
+  public func space(for emulator: RetroEmulator) -> MultiBinary {
     return MultiBinary(withSize: emulator.buttons().count * Int(emulator.numPlayers))
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Space.Scalar>,
+    _ action: ShapedArray<Int32>,
     for player: UInt32,
-    in emulator: Emulator
+    in emulator: RetroEmulator
   ) -> UInt16 {
     let startIndex = emulator.buttons().count * Int(player)
     let endIndex = emulator.buttons().count * Int(player + 1)
@@ -258,17 +277,18 @@ public struct FilteredActions: ActionsType {
 
 /// Discrete action space for filtered actions.
 public struct DiscreteActions: ActionsType {
+  public typealias Scalar = Int32
   public typealias Space = Discrete
 
-  public func space(for emulator: Emulator) -> Discrete {
+  public func space(for emulator: RetroEmulator) -> Discrete {
     let numCombos = emulator.buttonCombos().map { Int32($0.count) } .reduce(1, *)
     return Discrete(withSize: Int32(pow(Float(numCombos), Float(emulator.numPlayers))))
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Space.Scalar>,
+    _ action: ShapedArray<Int32>,
     for player: UInt32,
-    in emulator: Emulator
+    in emulator: RetroEmulator
   ) -> UInt16 {
     var playerAction = UInt16(action.scalar!)
     var encodedAction = UInt16(0)
@@ -284,18 +304,19 @@ public struct DiscreteActions: ActionsType {
 
 /// Multi-discete action space for filtered actions.
 public struct MultiDiscreteActions: ActionsType {
+  public typealias Scalar = Int32
   public typealias Space = MultiDiscrete
 
-  public func space(for emulator: Emulator) -> MultiDiscrete {
+  public func space(for emulator: RetroEmulator) -> MultiDiscrete {
     return MultiDiscrete(withSizes: emulator.buttonCombos().map {
       Int32($0.count) * Int32(emulator.numPlayers)
     })
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Space.Scalar>,
+    _ action: ShapedArray<Int32>,
     for player: UInt32,
-    in emulator: Emulator
+    in emulator: RetroEmulator
   ) -> UInt16 {
     let startIndex = emulator.buttons().count * Int(player)
     let endIndex = emulator.buttons().count * Int(player + 1)
