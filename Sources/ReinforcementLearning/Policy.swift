@@ -35,47 +35,47 @@ public extension Policy where State == None {
   }
 }
 
-// public protocol BatchedPolicy: Policy {
-//   func initialState(batchSize: Int) -> State
+public protocol BatchedPolicy: Policy {
+  func initialState(batchSize: Int) -> State
 
-//   mutating func act(
-//     in state: State,
-//     using step: EnvironmentStep<Observation, Reward, Discount>,
-//     batchSize: Int
-//   ) -> PolicyStep<Action, State>
-// }
+  mutating func act(
+    in state: State,
+    using step: EnvironmentStep<Observation, Reward, Discount>,
+    batchSize: Int
+  ) -> PolicyStep<Action, State>
+}
 
-// public extension BatchedPolicy {
-//   @inlinable
-//   func initialState() -> State {
-//     return initialState(batchSize: 1)
-//   }
+public extension BatchedPolicy {
+  @inlinable
+  func initialState() -> State {
+    return initialState(batchSize: 1)
+  }
 
-//   @inlinable
-//   mutating func act(
-//     in state: State,
-//     using step: EnvironmentStep<Observation, Reward, Discount>
-//   ) -> PolicyStep<Action, State> {
-//     return act(in: state, using: step, batchSize: 1)
-//   }
-// }
+  @inlinable
+  mutating func act(
+    in state: State,
+    using step: EnvironmentStep<Observation, Reward, Discount>
+  ) -> PolicyStep<Action, State> {
+    return act(in: state, using: step, batchSize: 1)
+  }
+}
 
-// public extension BatchedPolicy where State == None {
-//   @inlinable
-//   mutating func act(
-//     using step: EnvironmentStep<Observation, Reward, Discount>,
-//     batchSize: Int
-//   ) -> PolicyStep<Action, State> {
-//     return act(in: None(), using: step, batchSize: batchSize)
-//   }
+public extension BatchedPolicy where State == None {
+  @inlinable
+  mutating func act(
+    using step: EnvironmentStep<Observation, Reward, Discount>,
+    batchSize: Int
+  ) -> PolicyStep<Action, State> {
+    return act(in: None(), using: step, batchSize: batchSize)
+  }
 
-//   @inlinable
-//   mutating func act(
-//     using step: EnvironmentStep<Observation, Reward, Discount>
-//   ) -> PolicyStep<Action, State> {
-//     return act(in: None(), using: step, batchSize: 1)
-//   }
-// }
+  @inlinable
+  mutating func act(
+    using step: EnvironmentStep<Observation, Reward, Discount>
+  ) -> PolicyStep<Action, State> {
+    return act(in: None(), using: step, batchSize: 1)
+  }
+}
 
 public struct None {
   public init() { }

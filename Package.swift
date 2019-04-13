@@ -22,8 +22,13 @@ let package = Package(
     targets: [
         .target(
             name: "ReinforcementLearning",
-            dependencies: ["CryptoSwift"],
+            dependencies: ["CryptoSwift", "GLFW"],
             path: "Sources/ReinforcementLearning"),
+        .target(
+            name: "GLFW",
+            path: ".", 
+            sources: ["Sources/GLFW"],
+            publicHeadersPath: "Sources/GLFW/include"),
         .target(
             name: "CRetro",
             path: ".", 

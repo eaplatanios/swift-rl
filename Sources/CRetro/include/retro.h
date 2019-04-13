@@ -2,10 +2,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifdef GLFW
-#include "glfw3.h"
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif

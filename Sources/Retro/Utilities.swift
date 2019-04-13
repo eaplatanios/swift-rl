@@ -6,5 +6,4 @@ public enum RetroError: Error {
   case GameDataFailure(String)
   case GameROMNotFound(String)
   case GameROMTooBig(String)
-  case GLFWError(String)
 }

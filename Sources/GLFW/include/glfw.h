@@ -1,3 +1,5 @@
+#ifdef GLFW
+
 /*************************************************************************
   * GLFW 3.2 - www.glfw.org
   * A library for OpenGL, window and input
@@ -752,4 +754,6 @@
  #endif
  
  #endif /* _glfw3_h_ */
+ 
+ #endif
  
