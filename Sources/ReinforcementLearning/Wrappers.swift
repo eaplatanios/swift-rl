@@ -4,12 +4,6 @@ public protocol Wrapper: Environment {
   var wrappedEnvironment: WrappedEnvironment { get set }
 }
 
-// public extension Wrapper where WrappedEnvironment: BatchedEnvironment {
-//   var batchSize: Int? {
-//     get { return wrappedEnvironment.batchSize }
-//   }
-// }
-
 public extension Wrapper where WrappedEnvironment.ActionSpace == ActionSpace {
   var actionSpace: ActionSpace {
     get { return wrappedEnvironment.actionSpace }
@@ -23,17 +17,18 @@ public extension Wrapper where WrappedEnvironment.ObservationSpace == Observatio
 }
 
 public extension Wrapper
-  where WrappedEnvironment.Action == Action,
-        WrappedEnvironment.Observation == Observation,
-        WrappedEnvironment.Reward == Reward,
-        WrappedEnvironment.Discount == Discount {
-  mutating func step(
-    taking action: Action
-  ) -> EnvironmentStep<Observation, Reward, Discount> {
+where
+  WrappedEnvironment.Action == Action,
+  WrappedEnvironment.Observation == Observation,
+  WrappedEnvironment.Reward == Reward
+{
+  @inlinable
+  mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
     return wrappedEnvironment.step(taking: action)
   }
 
-  mutating func reset() -> EnvironmentStep<Observation, Reward, Discount> {
+  @inlinable
+  mutating func reset() -> EnvironmentStep<Observation, Reward> {
     return wrappedEnvironment.reset()
   }
 }
@@ -43,24 +38,22 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
   public typealias Action = WrappedEnvironment.Action
   public typealias Observation = WrappedEnvironment.Observation
   public typealias Reward = WrappedEnvironment.Reward
-  public typealias Discount = WrappedEnvironment.Discount
   public typealias ActionSpace = WrappedEnvironment.ActionSpace
   public typealias ObservationSpace = WrappedEnvironment.ObservationSpace
 
   public var wrappedEnvironment: WrappedEnvironment
   public let limit: Int
 
-  private var numSteps: Int = 0
-  private var resetRequired: Bool = false
+  @usableFromInline internal var numSteps: Int = 0
+  @usableFromInline internal var resetRequired: Bool = false
 
   public init(wrapping environment: WrappedEnvironment, withLimit limit: Int) {
     self.wrappedEnvironment = environment
     self.limit = limit
   }
 
-  public mutating func step(
-    taking action: Action
-  ) -> EnvironmentStep<Observation, Reward, Discount> {
+  @inlinable
+  public mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
     if resetRequired {
       return reset()
     }
@@ -80,7 +73,8 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
     return result
   }
 
-  public mutating func reset() -> EnvironmentStep<Observation, Reward, Discount> {
+  @inlinable
+  public mutating func reset() -> EnvironmentStep<Observation, Reward> {
     numSteps = 0
     resetRequired = false
     return wrappedEnvironment.reset()
@@ -93,7 +87,6 @@ public struct ActionRepeat<WrappedEnvironment: Environment>: Wrapper
   public typealias Action = WrappedEnvironment.Action
   public typealias Observation = WrappedEnvironment.Observation
   public typealias Reward = WrappedEnvironment.Reward
-  public typealias Discount = WrappedEnvironment.Discount
   public typealias ActionSpace = WrappedEnvironment.ActionSpace
   public typealias ObservationSpace = WrappedEnvironment.ObservationSpace
 
@@ -106,9 +99,8 @@ public struct ActionRepeat<WrappedEnvironment: Environment>: Wrapper
     self.numRepeats = numRepeats
   }
 
-  public mutating func step(
-    taking action: Action
-  ) -> EnvironmentStep<Observation, Reward, Discount> {
+  @inlinable
+  public mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
     var result = wrappedEnvironment.step(taking: action)
     var reward = result.reward
     for _ in 1..<numRepeats {
@@ -127,7 +119,6 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
   public typealias Action = WrappedEnvironment.Action
   public typealias Observation = WrappedEnvironment.Observation
   public typealias Reward = WrappedEnvironment.Reward
-  public typealias Discount = WrappedEnvironment.Discount
   public typealias ActionSpace = WrappedEnvironment.ActionSpace
   public typealias ObservationSpace = WrappedEnvironment.ObservationSpace
 
@@ -150,9 +141,8 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
     self.wrappedEnvironment = environment
   }
 
-  public mutating func step(
-    taking action: Action
-  ) -> EnvironmentStep<Observation, Reward, Discount> {
+  @inlinable
+  public mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
     let result = wrappedEnvironment.step(taking: action)
     
     if result.kind == .first {
@@ -170,7 +160,8 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
     return result
   }
 
-  public mutating func reset() -> EnvironmentStep<Observation, Reward, Discount> {
+  @inlinable
+  public mutating func reset() -> EnvironmentStep<Observation, Reward> {
     numResets += 1
     numEpisodeSteps = 0
     return wrappedEnvironment.reset()

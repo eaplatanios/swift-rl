@@ -5,8 +5,14 @@ public protocol Driver {
   associatedtype ManagedPolicy: Policy
     where ManagedPolicy.Action == ManagedEnvironment.Action,
           ManagedPolicy.Observation == ManagedEnvironment.Observation,
-          ManagedPolicy.Reward == ManagedEnvironment.Reward,
-          ManagedPolicy.Discount == ManagedEnvironment.Discount
+          ManagedPolicy.Reward == ManagedEnvironment.Reward
+
+  typealias Action = ManagedEnvironment.Action
+  typealias Observation = ManagedEnvironment.Observation
+  typealias Reward = ManagedEnvironment.Reward
+  typealias State = ManagedPolicy.State
+
+  typealias Listener = (TrajectoryStep<Action, Observation, Reward, State>) -> Void
 
   var environment: ManagedEnvironment { get }
   var policy: ManagedPolicy { get }
@@ -15,53 +21,43 @@ public protocol Driver {
   @discardableResult
   mutating func run(
     startingIn state: State,
-    using step: EnvironmentStep<Observation, Reward, Discount>,
+    using step: EnvironmentStep<Observation, Reward>,
     updating listeners: [Listener]
-  ) -> (environmentStep: EnvironmentStep<Observation, Reward, Discount>, policyState: State)
-}
-
-public extension Driver {
-  typealias Action = ManagedEnvironment.Action
-  typealias Observation = ManagedEnvironment.Observation
-  typealias Reward = ManagedEnvironment.Reward
-  typealias Discount = ManagedEnvironment.Discount
-  typealias State = ManagedPolicy.State
-
-  typealias Listener = (TrajectoryStep<Action, Observation, Reward, Discount, State>) -> Void
+  ) -> (environmentStep: EnvironmentStep<Observation, Reward>, policyState: State)
 }
 
 public extension Driver where State == None {
-  @discardableResult
+  @inlinable @discardableResult
   mutating func run(
-    using step: EnvironmentStep<Observation, Reward, Discount>,
+    using step: EnvironmentStep<Observation, Reward>,
     updating listeners: [Listener]
-  ) -> EnvironmentStep<Observation, Reward, Discount> {
+  ) -> EnvironmentStep<Observation, Reward> {
     return run(startingIn: None(), using: step, updating: listeners).environmentStep
   }
 }
 
-public struct TrajectoryStep<Action, Observation, Reward, Discount, State> {
-  public let currentEnvironmentStep: EnvironmentStep<Observation, Reward, Discount>
-  public let nextEnvironmentStep: EnvironmentStep<Observation, Reward, Discount>
+public struct TrajectoryStep<Action, Observation, Reward, State> {
+  public let currentEnvironmentStep: EnvironmentStep<Observation, Reward>
+  public let nextEnvironmentStep: EnvironmentStep<Observation, Reward>
   public let policyStep: PolicyStep<Action, State>
 
   @inlinable
   public func isFirst() -> Bool {
-    return currentEnvironmentStep.isFirst()
+    return currentEnvironmentStep.kind == .first
   }
 
   @inlinable
   public func isTransition() -> Bool {
-    return currentEnvironmentStep.isTransition() && nextEnvironmentStep.isTransition()
+    return currentEnvironmentStep.kind == .transition && nextEnvironmentStep.kind == .transition
   }
 
   @inlinable
   public func isLast() -> Bool {
-    return nextEnvironmentStep.isLast()
+    return nextEnvironmentStep.kind == .last
   }
 
   @inlinable
   public func isBoundary() -> Bool {
-    return currentEnvironmentStep.isLast()
+    return currentEnvironmentStep.kind == .last
   }
 }

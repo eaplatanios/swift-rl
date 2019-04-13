@@ -180,7 +180,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 }
 
 public extension RetroEnvironment {
-  typealias Step = EnvironmentStep<ShapedArray<UInt8>, [Float], Float>
+  typealias Step = EnvironmentStep<ShapedArray<UInt8>, [Float]>
 
   /// Represents the initial state of the emulator.
   enum StartingState {

@@ -34,7 +34,7 @@ let package = Package(
             path: ".", 
             sources: ["Sources/CRetro"],
             publicHeadersPath: "Sources/CRetro/include",
-            linkerSettings: [.linkedLibrary("retro")]),
+            _linkerSettings: [.linkedLibrary("retro")]),
         .target(
             name: "Retro",
             dependencies: [

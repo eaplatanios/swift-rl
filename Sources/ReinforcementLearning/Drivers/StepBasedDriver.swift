@@ -1,11 +1,10 @@
 
-public struct StepBasedDriver<
-  ManagedEnvironment: Environment,
-  ManagedPolicy: Policy
->: Driver where ManagedEnvironment.Action == ManagedPolicy.Action,
-                ManagedEnvironment.Observation == ManagedPolicy.Observation,
-                ManagedEnvironment.Reward == ManagedPolicy.Reward,
-                ManagedEnvironment.Discount == ManagedPolicy.Discount {
+public struct StepBasedDriver<ManagedEnvironment: Environment, ManagedPolicy: Policy>
+where
+  ManagedEnvironment.Action == ManagedPolicy.Action,
+  ManagedEnvironment.Observation == ManagedPolicy.Observation,
+  ManagedEnvironment.Reward == ManagedPolicy.Reward
+{
   public let maxSteps: UInt
   public let maxEpisodes: UInt
 
@@ -41,13 +40,15 @@ public struct StepBasedDriver<
     self.environment = environment
     self.policy = policy
   }
+}
 
+extension StepBasedDriver: Driver {
   @discardableResult
   public mutating func run(
     startingIn state: State,
-    using step: EnvironmentStep<Observation, Reward, Discount>,
+    using step: EnvironmentStep<Observation, Reward>,
     updating listeners: [Listener]
-  ) -> (environmentStep: EnvironmentStep<Observation, Reward, Discount>, policyState: State) {
+  ) -> (environmentStep: EnvironmentStep<Observation, Reward>, policyState: State) {
     var currentState = state
     var currentEnvironmentStep = step
     var numSteps = 0
@@ -72,3 +73,14 @@ public struct StepBasedDriver<
     return (environmentStep: currentEnvironmentStep, policyState: currentState)
   }
 }
+
+// public extension StepBasedDriver: Driver where ManagedPolicy: BatchedPolicy {
+//   @discardableResult
+//   public mutating func run(
+//     startingIn state: State,
+//     using step: EnvironmentStep<Observation, Reward>,
+//     updating listeners: [Listener]
+//   ) -> (environmentStep: EnvironmentStep<Observation, Reward>, policyState: State) {
+//     fatalError("Not implemented yet.")
+//   }
+// }

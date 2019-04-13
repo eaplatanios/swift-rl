@@ -128,3 +128,61 @@ for _ in 0..<1000000 {
   }
 }
 ```
+
+# Reinforcement Learning Library Design Notes
+
+## Batching
+
+Batching can occur at two levels:
+
+  - __Environment:__
+  - __Policy:__
+
+For example, in the case of retro games, the environment 
+can only operate on one action at a time (i.e., it is not 
+batched). If we have a policy that is also not batched, 
+then we the process of collecting trajectories for training 
+looks as follows:
+
+```
+... → Policy → Environment → Policy → Environment → ...
+```
+
+In this diagram, the policy is invoked to produce the next 
+action and then the environment is invoked to take a step 
+using that action and return rewards, etc. If instead we 
+are using a policy that can be batched (e.g., a 
+convolutional neural network policy would be much more 
+efficient if executed in a batched manner), then we can 
+collect trajectories for training in the following manner:
+
+```
+               ↗ Environment ↘            ↗ Environment ↘
+... ⇒ Policy ⇒ → Environment → ⇒ Policy ⇒ → Environment → ...
+               ↘ Environment ↗            ↘ Environment ↗
+```
+
+where multiple copies of the environment are running 
+separately, producing rewards that are then batched and fed 
+all together to a single batched policy. This policy then 
+produces a batch of actions that is split up and each action 
+is in term fed to its corresponding environment. Similarly, 
+we can have a batched environment being used together with 
+an unbatched policy:
+
+```
+    ↗ Policy ↘                 ↗ Policy ↘
+... → Policy → ⇒ Environment ⇒ → Policy → ⇒ Environment ⇒ ...
+    ↘ Policy ↗                 ↘ Policy ↗
+```
+
+or, even better, a batched environment used together with a 
+batched policy:
+
+```
+... ⇒ Policy ⇒ Environment ⇒ Policy ⇒ Environment ⇒ ...
+```
+
+**NOTE:** Note that a batched policy is always usable as a 
+policy (the batch conversions are handled automatically), 
+and the same is true for batched environments.
