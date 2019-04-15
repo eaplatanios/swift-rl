@@ -1,6 +1,20 @@
 import CryptoSwift
 import Foundation
 
+public struct TensorFlowSeed {
+  public let graph: Int64
+  public let op: Int64
+}
+
+public extension UInt64 {
+  func tensorFlowSeed() -> TensorFlowSeed {
+    // TODO: Not sure what the right thing to do would be here.
+    let graph = Int64(bitPattern: self)
+    let op = graph
+    return TensorFlowSeed(graph: graph, op: op)
+  }
+}
+
 /// Creates a strong random seed.
 public func createSeed(using seed: UInt64? = nil) -> UInt64 {
   if let s = seed {
@@ -27,7 +41,7 @@ public func createSeed(using seed: String) -> UInt64 {
 ///   - http://stackoverflow.com/questions/1554958/how-different-do-random-seeds-need-to-be
 ///   - http://dl.acm.org/citation.cfm?id=1276928
 /// 
-/// Thus, for sanity we hash the seeds before using them. This scheme is likely not crypto-strength, 
+/// Thus, for sanity we hash the seeds before using them. This scheme is likely not crypto-strength,
 /// but it should be good enough to get rid of simple correlations.
 public func hashSeed(_ seed: UInt64) -> UInt64 {
   let bytes = [

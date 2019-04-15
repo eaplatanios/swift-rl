@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "Retro",
+    platforms: [.macOS(.v10_12)],
     products: [
         .library(
             name: "ReinforcementLearning",
@@ -17,30 +18,40 @@ let package = Package(
         .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.1.0"),
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "1.0.0"),
         .package(url: "https://github.com/1024jp/GzipSwift.git", from: "4.1.0"),
-        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.8"))
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .branch("master"))
     ],
     targets: [
         .target(
             name: "ReinforcementLearning",
             dependencies: ["CryptoSwift", "GLFW"],
-            path: "Sources/ReinforcementLearning"),
+            path: "Sources/ReinforcementLearning",
+            swiftSettings: [.define("GLFW")]),
         .target(
             name: "GLFW",
             path: ".", 
             sources: ["Sources/GLFW"],
-            publicHeadersPath: "Sources/GLFW/include"),
+            publicHeadersPath: "Sources/GLFW/include",
+            linkerSettings: [
+              .linkedLibrary("glfw"),
+              .unsafeFlags(["-L/usr/local/lib"])]),
         .target(
             name: "CRetro",
-            path: ".", 
+            path: ".",
             sources: ["Sources/CRetro"],
             publicHeadersPath: "Sources/CRetro/include",
-            _linkerSettings: [.linkedLibrary("retro")]),
+            linkerSettings: [
+              .linkedLibrary("retro"),
+              .unsafeFlags(["-L./retro"])]
+        ),
         .target(
             name: "Retro",
             dependencies: [
                 "CRetro", "ReinforcementLearning",
                 "AnyCodable", "CryptoSwift", "Gzip", "ZIPFoundation"],
             path: "Sources/Retro"),
-        .testTarget(name: "RetroTests", dependencies: ["Retro"])
+        .testTarget(
+            name: "RetroTests",
+            dependencies: ["Retro"],
+            swiftSettings: [.define("GLFW")])
     ]
 )

@@ -1,7 +1,7 @@
 import Foundation
 import TensorFlow
 
-public struct None {
+public struct None: Differentiable {
   public init() { }
 }
 
@@ -91,8 +91,8 @@ public func maybeDownload(from url: URL, to destination: URL) throws {
   if !FileManager.default.fileExists(atPath: destination.path) {
     // Create any potentially missing directories.
     try FileManager.default.createDirectory(
-        atPath: destination.deletingLastPathComponent().path,
-        withIntermediateDirectories: true)
+      atPath: destination.deletingLastPathComponent().path,
+      withIntermediateDirectories: true)
 
     // Create the URL session that will be used to download the dataset.
     let semaphore = DispatchSemaphore(value: 0)
@@ -118,9 +118,9 @@ internal class DataDownloadDelegate: NSObject, URLSessionDownloadDelegate {
   internal var logCount: Int64 = 0
 
   init(
-      destinationFileUrl: URL,
-      semaphore: DispatchSemaphore,
-      numBytesFrequency: Int64 = 1024 * 1024
+    destinationFileUrl: URL,
+    semaphore: DispatchSemaphore,
+    numBytesFrequency: Int64 = 1024 * 1024
   ) {
     self.destinationFileUrl = destinationFileUrl
     self.semaphore = semaphore
@@ -128,11 +128,11 @@ internal class DataDownloadDelegate: NSObject, URLSessionDownloadDelegate {
   }
 
   internal func urlSession(
-      _ session: URLSession,
-      downloadTask: URLSessionDownloadTask,
-      didWriteData bytesWritten: Int64,
-      totalBytesWritten: Int64,
-      totalBytesExpectedToWrite: Int64
+    _ session: URLSession,
+    downloadTask: URLSessionDownloadTask,
+    didWriteData bytesWritten: Int64,
+    totalBytesWritten: Int64,
+    totalBytesExpectedToWrite: Int64
   ) -> Void {
     if (totalBytesWritten / numBytesFrequency > logCount) {
       let mBytesWritten = String(format: "%.2f", Float(totalBytesWritten) / (1024 * 1024))
@@ -148,9 +148,9 @@ internal class DataDownloadDelegate: NSObject, URLSessionDownloadDelegate {
   }
 
   internal func urlSession(
-      _ session: URLSession,
-      downloadTask: URLSessionDownloadTask,
-      didFinishDownloadingTo location: URL
+    _ session: URLSession,
+    downloadTask: URLSessionDownloadTask,
+    didFinishDownloadingTo location: URL
   ) -> Void {
     logCount = 0
     do {

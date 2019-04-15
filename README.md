@@ -30,6 +30,9 @@ cd retro
 git checkout c-api
 cmake . -G 'Unix Makefiles' -DBUILD_PYTHON=OFF -DBUILD_C=ON
 make -j4 retro-c
+
+# The following is also necessary when you are on MacOS:
+install_name_tool -id "$(pwd)/libretro.dylib" libretro.dylib
 ```
 
 This will result in a `libretro.so` or `libretro.dylib` 
@@ -40,6 +43,10 @@ subdirectory. Then you can set `<path>` to
 where you cloned the Swift Retro repository.
 
 ### GLFW
+
+**NOTE:** The GLFW flag is not currently working and so the 
+GLFW library needs to be installed in order to use 
+`retro-swift`.
 
 In order to use the image renderer you need to first 
 install GLFW. You can do so, as follows:

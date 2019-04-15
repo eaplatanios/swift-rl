@@ -1,7 +1,7 @@
 import TensorFlow
 
 /// Represents a policy that takes completely random actions.
-public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Policy 
+public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Policy
   where ActionSpace.Value == Action {
   public typealias State = None
 

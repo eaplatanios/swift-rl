@@ -7,9 +7,9 @@ public protocol Driver {
           ManagedPolicy.Observation == ManagedEnvironment.Observation,
           ManagedPolicy.Reward == ManagedEnvironment.Reward
 
-  typealias Action = ManagedEnvironment.Action
-  typealias Observation = ManagedEnvironment.Observation
-  typealias Reward = ManagedEnvironment.Reward
+  typealias Action = ManagedPolicy.Action
+  typealias Observation = ManagedPolicy.Observation
+  typealias Reward = ManagedPolicy.Reward
   typealias State = ManagedPolicy.State
 
   typealias Listener = (TrajectoryStep<Action, Observation, Reward, State>) -> Void
@@ -35,6 +35,9 @@ public extension Driver where State == None {
     return run(startingIn: None(), using: step, updating: listeners).environmentStep
   }
 }
+
+public typealias Trajectory<Action, Observation, Reward, State> = 
+  [TrajectoryStep<Action, Observation, Reward, State>]
 
 public struct TrajectoryStep<Action, Observation, Reward, State> {
   public let currentEnvironmentStep: EnvironmentStep<Observation, Reward>
