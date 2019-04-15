@@ -67,6 +67,11 @@ public struct MultiBinary: Space {
       self.distribution = Categorical<Int32>(logits: Tensor<Float>(ones: [1, 2]))
     }
 
+    public func mode(seed: UInt64? = nil) -> Tensor<Int32> {
+      let modes = (0..<size).map{ _ in distribution.mode(seed: seed) }
+      return Tensor<Int32>(concatenating: modes)
+    }
+
     public func sample(seed: UInt64? = nil) -> Tensor<Int32> {
       let samples = (0..<size).map{ _ in distribution.sample(seed: seed) }
       return Tensor<Int32>(concatenating: samples)
@@ -105,6 +110,11 @@ public struct MultiDiscrete: Space {
       self.distributions = sizes.map {
         Categorical<Int32>(logits: Tensor<Float>(ones: [1, Int32($0)]))
       }
+    }
+
+    public func mode(seed: UInt64? = nil) -> Tensor<Int32> {
+      let modes = distributions.map { $0.mode(seed: seed) }
+      return Tensor<Int32>(concatenating: modes)
     }
 
     public func sample(seed: UInt64? = nil) -> Tensor<Int32> {
@@ -161,6 +171,10 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
 
     public init(distribution: Uniform<Float>) {
       self.distribution = distribution
+    }
+
+    public func mode(seed: UInt64? = nil) -> Tensor<Scalar> {
+      return Tensor<Scalar>(distribution.mode(seed: seed))
     }
 
     public func sample(seed: UInt64? = nil) -> Tensor<Scalar> {

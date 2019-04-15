@@ -17,6 +17,10 @@ public struct Uniform<ValueDataType: TensorFlowFloatingPoint>: Distribution, Dif
     self.upperBound = upperBound
   }
 
+  public func mode(seed: UInt64?) -> Tensor<ValueDataType> {
+    return sample(seed: seed)
+  }
+
   public func sample(seed: UInt64? = nil) -> Tensor<ValueDataType> {
     let tfSeed = seed?.tensorFlowSeed() ?? TensorFlowSeed(graph: 0, op: 0)
     let sample: Tensor<ValueDataType> = Raw.randomUniform(

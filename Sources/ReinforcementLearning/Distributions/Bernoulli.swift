@@ -16,12 +16,16 @@ public struct Bernoulli<ValueDataType: TensorFlowInteger>: Distribution, Differe
     self.probabilities = sigmoid(logits)
   }
 
+  public func mode(seed: UInt64?) -> Tensor<ValueDataType> {
+    return Tensor<ValueDataType>(probabilities .> 0.5)
+  }
+
   public func sample(seed: UInt64? = nil) -> Tensor<ValueDataType> {
     let tfSeed = seed?.tensorFlowSeed() ?? TensorFlowSeed(graph: 0, op: 0)
     let uniform: Tensor<Float> = Raw.randomUniform(
       shape: probabilities.shapeTensor,
       seed: tfSeed.graph,
       seed2: tfSeed.op)
-    return Tensor<ValueDataType>(uniform .> probabilities)
+    return Tensor<ValueDataType>(probabilities .< uniform)
   }
 }

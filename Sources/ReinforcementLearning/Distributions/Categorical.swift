@@ -18,14 +18,19 @@ public struct Categorical<ValueDataType: TensorFlowInteger>: Distribution, Diffe
     self = Categorical(logits: log(probabilities), domain: domain)
   }
 
+  public func mode(seed: UInt64?) -> Tensor<ValueDataType> {
+    let indices = logits.argmax(squeezingAxis: 1)
+    return domain.gathering(atIndices: indices, alongAxis: 1)
+  }
+
   public func sample(seed: UInt64? = nil) -> Tensor<ValueDataType> {
     let tfSeed = seed?.tensorFlowSeed() ?? TensorFlowSeed(graph: 0, op: 0)
-    let samples: Tensor<Int32> = Raw.multinomial(
+    let indices: Tensor<Int32> = Raw.multinomial(
       logits: logits,
       numSamples: Tensor<Int32>(1),
       seed: tfSeed.graph,
       seed2: tfSeed.op).gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
-    return domain.gathering(atIndices: samples, alongAxis: 1)
+    return domain.gathering(atIndices: indices, alongAxis: 1)
   }
 }
 

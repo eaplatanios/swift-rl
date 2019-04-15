@@ -7,6 +7,10 @@ public struct Deterministic<ValueDataType: TensorFlowScalar>: Distribution {
     self.value = value
   }
 
+  public func mode(seed: UInt64?) -> Tensor<ValueDataType> {
+    return value
+  }
+
   public func sample(seed: UInt64? = nil) -> Tensor<ValueDataType> {
     return value
   }
