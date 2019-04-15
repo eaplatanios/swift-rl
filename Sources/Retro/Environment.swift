@@ -9,7 +9,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let actionsType: ActionsType
   public let actionSpace: ActionsType.Space
   public let observationsType: ObservationsType
-  public let observationSpace: Box<UInt8>
+  public let observationSpace: DiscreteBox<UInt8>
   public let startingState: String?
   public let randomSeed: UInt64
 
@@ -34,8 +34,10 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     self.actionSpace = actionsType.space(for: emulator)
     self.observationsType = observationsType
     switch observationsType {
-    case .screen: self.observationSpace = Box(low: 0, high: 255, shape: emulator.screen()!.shape)
-    case .memory: self.observationSpace = Box(low: 0, high: 255, shape: emulator.memory()!.shape)
+    case .screen: self.observationSpace = DiscreteBox(
+      shape: emulator.screen()!.shape, lowerBound: 0, upperBound: 255)
+    case .memory: self.observationSpace = DiscreteBox(
+      shape: emulator.memory()!.shape, lowerBound: 0, upperBound: 255)
     }
     self.randomSeed = hashSeed(createSeed(using: randomSeed))
     self.rng = PhiloxRandomNumberGenerator(seed: self.randomSeed)
@@ -309,7 +311,7 @@ public struct MultiDiscreteActions: ActionsType {
 
   public func space(for emulator: RetroEmulator) -> MultiDiscrete {
     return MultiDiscrete(withSizes: emulator.buttonCombos().map {
-      Int32($0.count) * Int32(emulator.numPlayers)
+      $0.count * Int(emulator.numPlayers)
     })
   }
 

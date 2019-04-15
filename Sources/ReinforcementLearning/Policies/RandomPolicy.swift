@@ -8,7 +8,6 @@ public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Pol
   public let randomSeed: UInt64
 
   @usableFromInline internal let actionSpace: ActionSpace
-  @usableFromInline internal var rng: PhiloxRandomNumberGenerator
 
   public init<E: Environment>(
     for environment: E,
@@ -19,7 +18,6 @@ public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Pol
           E.ActionSpace == ActionSpace {
     self.actionSpace = environment.actionSpace
     self.randomSeed = hashSeed(createSeed(using: randomSeed))
-    self.rng = PhiloxRandomNumberGenerator(seed: self.randomSeed)
   }
 
   @inlinable
@@ -27,7 +25,7 @@ public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Pol
     in state: State,
     using step: EnvironmentStep<Observation, Reward>
   ) -> PolicyStep<Action, State> {
-    let action = actionSpace.sample(generator: &rng)
+    let action = actionSpace.sample(seed: randomSeed)
     return PolicyStep(action: action, state: None())
   }
 }

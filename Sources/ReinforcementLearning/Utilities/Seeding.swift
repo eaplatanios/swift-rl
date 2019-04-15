@@ -8,7 +8,7 @@ public struct TensorFlowSeed {
 
 public extension UInt64 {
   func tensorFlowSeed() -> TensorFlowSeed {
-    // TODO: Not sure what the right thing to do would be here.
+    // TODO: Not sure what the right thing to do here would be.
     let graph = Int64(bitPattern: self)
     let op = graph
     return TensorFlowSeed(graph: graph, op: op)
