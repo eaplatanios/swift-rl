@@ -1,3 +1,4 @@
+import TensorFlow
 
 public protocol Batchable {
   associatedtype Batched
@@ -30,6 +31,19 @@ extension Int: Batchable {
   }
 }
 
+extension Tensor: Batchable {
+  public typealias Batched = Tensor
+
+  public static func batch(_ values: [Tensor]) -> Tensor {
+    // TODO: return Tensor(stacking: values, alongAxis: 0)
+    fatalError("Not implemented yet.")
+  }
+
+  public static func unbatch(_ values: Tensor) -> [Tensor] {
+    // TODO: return values.unstacked()?
+    fatalError("Not implemented yet.")
+  }
+}
+
 // TODO: Array
 // TODO: ShapedArray
-// TODO: Tensor

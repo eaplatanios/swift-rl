@@ -52,9 +52,9 @@ public class RetroEmulator {
   @usableFromInline internal var gameData: RetroGame.Data
   @usableFromInline internal var startingStateData: Data? = nil
   @usableFromInline internal var cachedScreenUpdated: Bool = false
-  @usableFromInline internal var cachedScreen: ShapedArray<UInt8>? = nil
+  @usableFromInline internal var cachedScreen: Tensor<UInt8>? = nil
   @usableFromInline internal var cachedMemoryUpdated: Bool = false
-  @usableFromInline internal var cachedMemory: ShapedArray<UInt8>? = nil
+  @usableFromInline internal var cachedMemory: Tensor<UInt8>? = nil
 
   public init(
     for game: RetroGame,
@@ -86,7 +86,7 @@ public class RetroEmulator {
   deinit {
     emulatorDelete(handle)
   }
-  
+
   public func loadStartingState(from url: URL) throws {
     let compressedData = try Data(contentsOf: url)
     startingStateData = try compressedData.gunzipped()
@@ -143,12 +143,12 @@ public class RetroEmulator {
   }
 
   @inlinable
-  public func screen() -> ShapedArray<UInt8>? {
+  public func screen() -> Tensor<UInt8>? {
     return cachedScreenUpdated ? cachedScreen : updateCachedScreen()
   }
 
   @inlinable
-  public func memory() -> ShapedArray<UInt8>? {
+  public func memory() -> Tensor<UInt8>? {
     return cachedMemoryUpdated ? cachedMemory : updateCachedMemory()
   }
 
@@ -161,13 +161,15 @@ public class RetroEmulator {
   public func finished() -> Bool {
     return gameDataIsDone(gameData.handle)
   }
-  
+
   @usableFromInline @discardableResult
-  internal func updateCachedScreen() -> ShapedArray<UInt8> {
+  internal func updateCachedScreen() -> Tensor<UInt8> {
     let cScreen = emulatorGetScreen(handle)!.pointee
     let shape = [cScreen.height, cScreen.width, cScreen.channels]
     let values = Array(UnsafeBufferPointer(start: cScreen.values, count: shape.reduce(1, *)))
-    let screen = ShapedArray(shape: shape, scalars: values)
+    let screen = Tensor(shape: TensorShape(shape.map {
+      Int32($0)
+    }), scalars: values)
     let cropInformation = gameDataCropInfo(gameData.handle, 0)!.pointee
     let x = cropInformation.x
     let y = cropInformation.y
@@ -196,7 +198,7 @@ public class RetroEmulator {
   }
 
   @usableFromInline @discardableResult
-  internal func updateCachedMemory() -> ShapedArray<UInt8> {
+  internal func updateCachedMemory() -> Tensor<UInt8> {
     let memoryHandle = gameDataMemory(gameData.handle)
     let cBlocks = memoryViewBlocks(memoryHandle)!.pointee
     let blocks = Array(UnsafeBufferPointer(start: cBlocks.blocks, count: cBlocks.numBlocks))
@@ -206,7 +208,8 @@ public class RetroEmulator {
       memoryBytes += Array(UnsafeBufferPointer(start: $0.bytes, count: $0.numBytes))
       numBytesPerBlock = $0.numBytes
     }
-    self.cachedMemory = ShapedArray(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
+    self.cachedMemory = Tensor(
+      shape: [Int32(blocks.count), Int32(numBytesPerBlock)], scalars: memoryBytes)
     self.cachedMemoryUpdated = true
     return self.cachedMemory!
   }

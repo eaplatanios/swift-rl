@@ -6,6 +6,27 @@ public protocol Renderer {
   mutating func render(_ data: Data) throws
 }
 
+public struct TensorPrinter<Scalar: TensorFlowScalar & LosslessStringConvertible>: Renderer {
+  public typealias Data = Tensor<Scalar>
+
+  private var printer: ShapedArrayPrinter<Scalar>
+
+  public init(
+    maxEntries: Int = 6,
+    flattened: Bool = false,
+    includeInfo: Bool = true
+  ) {
+    self.printer = ShapedArrayPrinter<Scalar>(
+      maxEntries: maxEntries,
+      flattened: flattened,
+      includeInfo: includeInfo)
+  }
+
+  public mutating func render(_ data: Tensor<Scalar>) throws {
+    try printer.render(data.array)
+  }
+}
+
 public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
   public typealias Data = ShapedArray<Scalar>
 
@@ -35,7 +56,22 @@ public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
 import GLFW
 import Foundation
 
-public class SingleImageRenderer: Renderer {
+public struct TensorImageRenderer: Renderer {
+  public typealias Data = Tensor<UInt8>
+
+  private var renderer: ShapedArrayImageRenderer
+
+  public init(initialMaxWidth: Int32, framesPerSecond: Double? = nil) throws {
+    self.renderer = try ShapedArrayImageRenderer(
+      initialMaxWidth: initialMaxWidth, framesPerSecond: framesPerSecond)
+  }
+
+  public mutating func render(_ data: Tensor<UInt8>) throws {
+    try renderer.render(data.array)
+  }
+}
+
+public class ShapedArrayImageRenderer: Renderer {
   public typealias Data = ShapedArray<UInt8>
 
   public let framesPerSecond: Double?
@@ -87,7 +123,7 @@ public class SingleImageRenderer: Renderer {
       glClear(UInt32(GL_COLOR_BUFFER_BIT))
       
       // Generate the image texture.
-      try SingleImageRenderer.preprocessData(data).withUnsafeBufferPointer {
+      try ShapedArrayImageRenderer.preprocessData(data).withUnsafeBufferPointer {
         glTexImage2D(
           GLenum(GL_TEXTURE_2D), 0, GL_RGB8, GLsizei(data.shape[1]), GLsizei(data.shape[0]), 
           0, GLenum(GL_RGB), GLenum(GL_UNSIGNED_BYTE), $0.baseAddress)

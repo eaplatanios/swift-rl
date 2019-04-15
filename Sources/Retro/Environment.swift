@@ -99,7 +99,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     movie?.step()
     emulator.step()
 
-    let observation: ShapedArray<UInt8>? = {
+    let observation: Tensor<UInt8>? = {
       switch observationsType {
       case .screen: return emulator.screen()
       case .memory: return emulator.memory()
@@ -132,7 +132,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 
     movie?.step()
 
-    let observation: ShapedArray<UInt8>? = {
+    let observation: Tensor<UInt8>? = {
       switch observationsType {
       case .screen: return emulator.screen()
       case .memory: return emulator.memory()
@@ -180,7 +180,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 }
 
 public extension RetroEnvironment {
-  typealias Step = EnvironmentStep<ShapedArray<UInt8>, [Float]>
+  typealias Step = EnvironmentStep<Tensor<UInt8>, [Float]>
 
   /// Represents the initial state of the emulator.
   enum StartingState {
@@ -196,7 +196,7 @@ public extension RetroEnvironment {
   }
 
   struct StepResult {
-    let observation: ShapedArray<UInt8>?
+    let observation: Tensor<UInt8>?
     let reward: [Float]
     let finished: Bool
   }
@@ -214,12 +214,12 @@ public enum ObservationsType: Int {
 /// Represents different types of action space for the environment.
 public protocol ActionsType {
   associatedtype Scalar: TensorFlowScalar
-  associatedtype Space: ReinforcementLearning.Space where Space.Value == ShapedArray<Scalar>
+  associatedtype Space: ReinforcementLearning.Space where Space.Value == Tensor<Scalar>
 
   func space(for emulator: RetroEmulator) -> Space
 
   func encodeAction(
-    _ action: ShapedArray<Scalar>,
+    _ action: Tensor<Scalar>,
     for player: UInt32,
     in emulator: RetroEmulator
   ) -> UInt16
@@ -235,7 +235,7 @@ public struct FullActions: ActionsType {
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Int32>,
+    _ action: Tensor<Int32>,
     for player: UInt32,
     in emulator: RetroEmulator
   ) -> UInt16 {
@@ -260,7 +260,7 @@ public struct FilteredActions: ActionsType {
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Int32>,
+    _ action: Tensor<Int32>,
     for player: UInt32,
     in emulator: RetroEmulator
   ) -> UInt16 {
@@ -286,7 +286,7 @@ public struct DiscreteActions: ActionsType {
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Int32>,
+    _ action: Tensor<Int32>,
     for player: UInt32,
     in emulator: RetroEmulator
   ) -> UInt16 {
@@ -302,7 +302,7 @@ public struct DiscreteActions: ActionsType {
   }
 }
 
-/// Multi-discete action space for filtered actions.
+/// Multi-discrete action space for filtered actions.
 public struct MultiDiscreteActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = MultiDiscrete
@@ -314,7 +314,7 @@ public struct MultiDiscreteActions: ActionsType {
   }
 
   public func encodeAction(
-    _ action: ShapedArray<Int32>,
+    _ action: Tensor<Int32>,
     for player: UInt32,
     in emulator: RetroEmulator
   ) -> UInt16 {
