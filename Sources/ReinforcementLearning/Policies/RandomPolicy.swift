@@ -1,11 +1,10 @@
-import TensorFlow
 
 /// Represents a policy that takes completely random actions.
-public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Policy
+public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: ProbabilisticPolicy
   where ActionSpace.Value == Action {
   public typealias State = None
 
-  public let randomSeed: UInt64
+  public let randomSeed: UInt64?
 
   @usableFromInline internal let actionSpace: ActionSpace
 
@@ -21,11 +20,10 @@ public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Pol
   }
 
   @inlinable
-  public mutating func act(
+  public func actionDistribution(
     in state: State,
     using step: EnvironmentStep<Observation, Reward>
-  ) -> PolicyStep<Action, State> {
-    let action = actionSpace.sample(seed: randomSeed)
-    return PolicyStep(action: action, state: None())
+  ) -> PolicyStep<ActionSpace.ValueDistribution, State> {
+    return PolicyStep(actionInformation: actionSpace.distribution, state: None())
   }
 }
