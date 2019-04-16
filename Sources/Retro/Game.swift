@@ -2,7 +2,7 @@ import AnyCodable
 import CRetro
 import CryptoSwift
 import Foundation
-import ReinforcementLearning
+import Gym
 import ZIPFoundation
 
 public struct RetroGame: Hashable {

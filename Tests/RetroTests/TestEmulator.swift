@@ -1,5 +1,6 @@
 import XCTest
 @testable import CRetro
+@testable import Gym
 @testable import ReinforcementLearning
 @testable import Retro
 

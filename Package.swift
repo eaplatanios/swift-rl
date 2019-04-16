@@ -8,6 +8,9 @@ let package = Package(
     platforms: [.macOS(.v10_12)],
     products: [
         .library(
+            name: "Gym",
+            targets: ["Gym"]),
+        .library(
             name: "ReinforcementLearning",
             targets: ["ReinforcementLearning"]),
         .library(
@@ -22,27 +25,30 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "ReinforcementLearning",
-            dependencies: ["CryptoSwift", "GLFW"],
-            path: "Sources/ReinforcementLearning",
-            swiftSettings: [.define("GLFW")]),
-        .target(
             name: "GLFW",
-            path: ".", 
+            path: ".",
             sources: ["Sources/GLFW"],
             publicHeadersPath: "Sources/GLFW/include",
             linkerSettings: [
-              .linkedLibrary("glfw"),
-              .unsafeFlags(["-L/usr/local/lib"])]),
+                .linkedLibrary("glfw"),
+                .unsafeFlags(["-L/usr/local/lib"])]),
+        .target(
+            name: "Gym",
+            dependencies: ["CryptoSwift", "GLFW"],
+            path: "Sources/Gym",
+            swiftSettings: [.define("GLFW")]),
+        .target(
+            name: "ReinforcementLearning",
+            dependencies: ["Gym"],
+            path: "Sources/ReinforcementLearning"),
         .target(
             name: "CRetro",
             path: ".",
             sources: ["Sources/CRetro"],
             publicHeadersPath: "Sources/CRetro/include",
             linkerSettings: [
-              .linkedLibrary("retro"),
-              .unsafeFlags(["-L./retro"])]
-        ),
+                .linkedLibrary("retro"),
+                .unsafeFlags(["-L./retro"])]),
         .target(
             name: "Retro",
             dependencies: [

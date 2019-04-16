@@ -1,3 +1,4 @@
+import Gym
 
 /// A driver takes steps in an environment using the provided policy.
 public protocol Driver {
