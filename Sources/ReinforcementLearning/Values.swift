@@ -53,7 +53,7 @@ public func discount<Scalar: TensorFlowNumeric>(
 }
 
 public protocol AdvantageFunction {
-  associatedtype Scalar: TensorFlowNumeric & ExpressibleByFloatLiteral
+  associatedtype Scalar: TensorFlowNumeric
 
   /// - Parameters:
   ///   - stepKinds: Contains the step kinds (represented using their integer values) for each step.
@@ -72,21 +72,7 @@ public protocol AdvantageFunction {
 ///
 /// The empirical advantage estimate at step `t` is defined as:
 /// `advantage[t] = reward[t] - value[t]`.
-public struct EmpiricalAdvantageEstimation<
-  Scalar: TensorFlowNumeric & ExpressibleByFloatLiteral
->: AdvantageFunction {
-  public let discountFactor: Scalar
-  public let discountWeight: Scalar
-
-  /// - Parameters:
-  ///   - discountFactor: Reward discount factor value, which must be between `0.0` and `1.0`.
-  ///   - discountWeight: A weight between `0.0` and `1.0` that is used for variance reduction in 
-  ///     the temporal differences.
-  public init(discountFactor: Scalar, discountWeight: Scalar = 1.0) {
-    self.discountFactor = discountFactor
-    self.discountWeight = discountWeight
-  }
-
+public struct EmpiricalAdvantageEstimation<Scalar: TensorFlowNumeric>: AdvantageFunction {
   /// - Parameters:
   ///   - stepKinds: Contains the step kinds (represented using their integer values) for each step.
   ///   - rewards: Contains the rewards for each step. These are typically already discounted
