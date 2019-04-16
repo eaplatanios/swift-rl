@@ -55,7 +55,7 @@ extension StepBasedDriver: Driver {
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let policyStep = policy.act(in: currentState, using: currentEnvironmentStep)
-      let nextEnvironmentStep = environment.step(taking: policyStep.action)
+      let nextEnvironmentStep = environment.step(taking: policyStep.actionInformation)
       let trajectoryStep = TrajectoryStep(
         currentEnvironmentStep: currentEnvironmentStep,
         nextEnvironmentStep: nextEnvironmentStep,
