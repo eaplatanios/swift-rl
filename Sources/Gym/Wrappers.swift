@@ -40,6 +40,8 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
   public typealias Reward = WrappedEnvironment.Reward
   public typealias ActionSpace = WrappedEnvironment.ActionSpace
   public typealias ObservationSpace = WrappedEnvironment.ObservationSpace
+  
+  public let batched: Bool = false
 
   public var wrappedEnvironment: WrappedEnvironment
   public let limit: Int
@@ -48,6 +50,7 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
   @usableFromInline internal var resetRequired: Bool = false
 
   public init(wrapping environment: WrappedEnvironment, withLimit limit: Int) {
+    precondition(environment.batched == false, "The wrapped environment must not be batched.")
     self.wrappedEnvironment = environment
     self.limit = limit
   }
@@ -65,7 +68,7 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
       result = result.copy(kind: .last)
     }
 
-    if result.kind == .last {
+    if result.kind.isLast().scalar! {
       numSteps = 0
       resetRequired = true
     }
@@ -90,10 +93,13 @@ public struct ActionRepeat<WrappedEnvironment: Environment>: Wrapper
   public typealias ActionSpace = WrappedEnvironment.ActionSpace
   public typealias ObservationSpace = WrappedEnvironment.ObservationSpace
 
+  public let batched: Bool = false
+
   public var wrappedEnvironment: WrappedEnvironment
   public let numRepeats: Int
 
   public init(wrapping environment: WrappedEnvironment, repeating numRepeats: Int) {
+    precondition(environment.batched == false, "The wrapped environment must not be batched.")
     precondition(numRepeats > 1, "'numRepeats' should be greater than 1.")
     self.wrappedEnvironment = environment
     self.numRepeats = numRepeats
@@ -106,7 +112,7 @@ public struct ActionRepeat<WrappedEnvironment: Environment>: Wrapper
     for _ in 1..<numRepeats {
       result = wrappedEnvironment.step(taking: action)
       reward += result.reward
-      if result.kind == .last {
+      if result.kind.isLast().scalar! {
         break
       }
     }
@@ -121,6 +127,8 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
   public typealias Reward = WrappedEnvironment.Reward
   public typealias ActionSpace = WrappedEnvironment.ActionSpace
   public typealias ObservationSpace = WrappedEnvironment.ObservationSpace
+
+  public let batched: Bool = false
 
   public var wrappedEnvironment: WrappedEnvironment
 
@@ -138,6 +146,7 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
   public private(set) var numTotalSteps: Int = 0
 
   public init(wrapping environment: WrappedEnvironment) {
+    precondition(environment.batched == false, "The wrapped environment must not be batched.")
     self.wrappedEnvironment = environment
   }
 
@@ -145,7 +154,7 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
   public mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
     let result = wrappedEnvironment.step(taking: action)
     
-    if result.kind == .first {
+    if result.kind.isFirst().scalar! {
       numResets += 1
       numEpisodeSteps = 0
     } else {
@@ -153,7 +162,7 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
       numTotalSteps += 1
     }
 
-    if result.kind == .last {
+    if result.kind.isLast().scalar! {
       numEpisodes += 1
     }
 

@@ -5,6 +5,8 @@ public struct RandomPolicy<Action, Observation, Reward, ActionSpace: Space>: Pro
   where ActionSpace.Value == Action {
   public typealias State = None
 
+  public let batched: Bool = false
+
   public let randomSeed: UInt64?
 
   @usableFromInline internal let actionSpace: ActionSpace

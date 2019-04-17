@@ -46,7 +46,7 @@ public func discount<Scalar: TensorFlowNumeric>(
     let discountedFutureReward = discountFactor * futureReward
     let discountedReward = rewards[t] + discountedFutureReward.replacing(
       with: Tensor<Scalar>(zerosLike: discountedFutureReward),
-      where: stepKinds[t] .== Int32(EnvironmentStepKind.last.rawValue))
+      where: stepKinds[t] .== EnvironmentStepKind.last.rawValue.scalar!)
     discountedRewards.append(discountedReward)
   }
   return discountedRewards.reversed()
@@ -114,7 +114,7 @@ public struct GeneralizedAdvantageEstimation<
   /// - Parameters:
   ///   - stepKinds: Contains the step kinds (represented using their integer values) for each step.
   ///   - rewards: Contains the rewards for each step. These are typically already discounted
-  ///     (i.e., the result of calling `discount(discountFactor:stepKinds:rewards:finalValue:`).
+  ///     (i.e., the result of calling `discount(discountFactor:stepKinds:rewards:finalValue:)`).
   ///   - values: Contains the value estimates for each step.
   ///   - finalValue: Estimated value at the final step.
   @inlinable
@@ -140,7 +140,7 @@ public struct GeneralizedAdvantageEstimation<
       let discountedFutureAdvantage = discountFactor * futureAdvantage
       let advantage = rewards[t] - values[t] + discountedFutureAdvantage.replacing(
         with: Tensor<Scalar>(zerosLike: discountedFutureAdvantage),
-        where: stepKinds[t] .== Int32(EnvironmentStepKind.last.rawValue))
+        where: stepKinds[t] .== EnvironmentStepKind.last.rawValue.scalar!)
       advantages.append(advantage)
     }
     return advantages.reversed()

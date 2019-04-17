@@ -1,4 +1,5 @@
 import Gym
+import TensorFlow
 
 /// A driver takes steps in an environment using the provided policy.
 public protocol Driver {
@@ -46,22 +47,23 @@ public struct TrajectoryStep<Action, Observation, Reward, State> {
   public let policyStep: PolicyStep<Action, State>
 
   @inlinable
-  public func isFirst() -> Bool {
-    return currentEnvironmentStep.kind == .first
+  public func isFirst() -> Tensor<Bool> {
+    return currentEnvironmentStep.kind.isFirst()
   }
 
   @inlinable
-  public func isTransition() -> Bool {
-    return currentEnvironmentStep.kind == .transition && nextEnvironmentStep.kind == .transition
+  public func isTransition() -> Tensor<Bool> {
+    return currentEnvironmentStep.kind.isTransition()
+      .elementsLogicalAnd(nextEnvironmentStep.kind.isTransition())
   }
 
   @inlinable
-  public func isLast() -> Bool {
-    return nextEnvironmentStep.kind == .last
+  public func isLast() -> Tensor<Bool> {
+    return nextEnvironmentStep.kind.isLast()
   }
 
   @inlinable
-  public func isBoundary() -> Bool {
-    return currentEnvironmentStep.kind == .last
+  public func isBoundary() -> Tensor<Bool> {
+    return currentEnvironmentStep.kind.isLast()
   }
 }

@@ -7,9 +7,11 @@ public protocol Policy {
   associatedtype Reward
   associatedtype State
 
+  var batched: Bool { get }
+
   func initialState() -> State
 
-  mutating func act(
+  func act(
     in state: State,
     using step: EnvironmentStep<Observation, Reward>
   ) -> PolicyStep<Action, State>
@@ -29,7 +31,7 @@ public extension Policy where State == None {
 
 public extension Policy where State == None {
   @inlinable
-  mutating func act(using step: EnvironmentStep<Observation, Reward>) -> PolicyStep<Action, State> {
+  func act(using step: EnvironmentStep<Observation, Reward>) -> PolicyStep<Action, State> {
     return act(in: None(), using: step)
   }
 }
@@ -45,6 +47,8 @@ public struct PolicyStep<ActionInformation, State> {
   }
 }
 
+public typealias StatelessPolicyStep<ActionInformation> = PolicyStep<ActionInformation, None>
+
 public extension PolicyStep where State == None {
   init(actionInformation: ActionInformation) {
     self.actionInformation = actionInformation
@@ -52,46 +56,5 @@ public extension PolicyStep where State == None {
   }
 }
 
-// extension PolicyStep: Differentiable where Action: Differentiable, State: Differentiable { }
-
-//public protocol BatchedPolicy: Policy
-//where
-//  Action: Batchable,
-//  Observation: Batchable,
-//  Reward: Batchable,
-//  State: Batchable
-//{
-//  func batchedInitialState(batchSize: Int) -> State.Batched
-//
-//  mutating func batchedAct(
-//    in state: State.Batched,
-//    using step: BatchedEnvironmentStep<Observation, Reward>
-//  ) -> PolicyStep<Action.Batched, State.Batched>
-//}
-//
-//public extension BatchedPolicy {
-//  @inlinable
-//  func initialState() -> State {
-//    return State.unbatch(batchedInitialState(batchSize: 1))[0]
-//  }
-//
-//  @inlinable
-//  mutating func act(
-//    in state: State,
-//    using step: EnvironmentStep<Observation, Reward>
-//  ) -> PolicyStep<Action, State> {
-//    let batchedStep = batchedAct(in: State.batch([state]), using: step.batched())
-//    return PolicyStep(
-//      action: Action.unbatch(batchedStep.action)[0],
-//      state: State.unbatch(batchedStep.state)[0])
-//  }
-//}
-//
-//public extension BatchedPolicy where State == None {
-//  @inlinable
-//  mutating func batchedAct(
-//    using step: BatchedEnvironmentStep<Observation, Reward>
-//  ) -> PolicyStep<Action.Batched, State.Batched> {
-//    return batchedAct(in: None(), using: step)
-//  }
-//}
+// extension PolicyStep: Differentiable
+// where ActionInformation: Differentiable, State: Differentiable { }

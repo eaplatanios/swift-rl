@@ -13,6 +13,8 @@ where
   public var policy: ManagedPolicy
 
   public init(for environment: ManagedEnvironment, using policy: ManagedPolicy, maxSteps: UInt) {
+    precondition(environment.batched == false, "The managed environment must not be batched.")
+    precondition(policy.batched == false, "The managed policy must not be batched.")
     precondition(maxSteps > 0, "The maximum number of steps must be greater than 0.")
     self.maxSteps = maxSteps
     self.maxEpisodes = UInt.max
@@ -65,8 +67,8 @@ extension StepBasedDriver: Driver {
         listener(trajectoryStep)
       }
 
-      numSteps += trajectoryStep.isBoundary() ? 0 : 1
-      numEpisodes += trajectoryStep.isLast() ? 1 : 0
+      numSteps += trajectoryStep.isBoundary().scalar! ? 0 : 1
+      numEpisodes += trajectoryStep.isLast().scalar! ? 1 : 0
 
       currentState = policyStep.state
       currentEnvironmentStep = nextEnvironmentStep
@@ -74,14 +76,3 @@ extension StepBasedDriver: Driver {
     return (environmentStep: currentEnvironmentStep, policyState: currentState)
   }
 }
-
-// public extension StepBasedDriver: Driver where ManagedPolicy: BatchedPolicy {
-//   @discardableResult
-//   public mutating func run(
-//     startingIn state: State,
-//     using step: EnvironmentStep<Observation, Reward>,
-//     updating listeners: [Listener]
-//   ) -> (environmentStep: EnvironmentStep<Observation, Reward>, policyState: State) {
-//     fatalError("Not implemented yet.")
-//   }
-// }

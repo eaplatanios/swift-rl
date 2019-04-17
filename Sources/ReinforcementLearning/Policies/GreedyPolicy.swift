@@ -12,8 +12,12 @@ public struct GreedyPolicy<
   WrappedPolicy.Reward == Reward,
   WrappedPolicy.State == State
 {
-  public private(set) var wrappedPolicy: WrappedPolicy
+  public let wrappedPolicy: WrappedPolicy
   public let randomSeed: UInt64?
+
+  public var batched: Bool {
+    return wrappedPolicy.batched
+  }
 
   public init(wrappedPolicy: WrappedPolicy) {
     self.wrappedPolicy = wrappedPolicy
@@ -24,7 +28,7 @@ public struct GreedyPolicy<
     return wrappedPolicy.initialState()
   }
 
-  public mutating func actionDistribution(
+  public func actionDistribution(
     in state: State,
     using step: EnvironmentStep<Observation, Reward>
   ) -> PolicyStep<Deterministic<Action>, State> {

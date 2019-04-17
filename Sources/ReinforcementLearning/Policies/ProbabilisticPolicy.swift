@@ -6,7 +6,7 @@ public protocol ProbabilisticPolicy: Policy {
   var randomSeed: UInt64? { get }
 
   /// Generates the distribution over next actions given the current environment step.
-  mutating func actionDistribution(
+  func actionDistribution(
     in state: State,
     using step: EnvironmentStep<Observation, Reward>
   ) -> PolicyStep<ActionDistribution, State>
@@ -14,7 +14,7 @@ public protocol ProbabilisticPolicy: Policy {
 
 public extension ProbabilisticPolicy where State == None {
   /// Generates the distribution over next actions given the current environment step.
-  mutating func actionDistribution(
+  func actionDistribution(
     using step: EnvironmentStep<Observation, Reward>
   ) -> PolicyStep<ActionDistribution, State> {
     return actionDistribution(in: None(), using: step)
@@ -22,7 +22,7 @@ public extension ProbabilisticPolicy where State == None {
 }
 
 public extension ProbabilisticPolicy {
-  mutating func act(
+  func act(
     in state: State,
     using step: EnvironmentStep<Observation, Reward>
   ) -> PolicyStep<Action, State> {

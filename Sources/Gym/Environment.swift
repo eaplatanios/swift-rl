@@ -1,4 +1,5 @@
 import Foundation
+import TensorFlow
 
 public protocol Environment {
   associatedtype Action
@@ -9,6 +10,7 @@ public protocol Environment {
 
   typealias Step = EnvironmentStep<Observation, Reward>
 
+  var batched: Bool { get }
   var actionSpace: ActionSpace { get }
   var observationSpace: ObservationSpace { get }
 
@@ -58,84 +60,36 @@ public struct EnvironmentStep<Observation, Reward> {
 }
 
 /// Represents the type of a step.
-public enum EnvironmentStepKind: Int {
-  /// Denotes the first step in a sequence.
-  case first = 0
-  /// Denotes an transition step in a sequence (i.e., not first or last).
-  case transition = 1
-  /// Denotes the last step in a sequence.
-  case last = 2
-}
+public struct EnvironmentStepKind {
+  public let rawValue: Tensor<Int32>
 
-public protocol BatchedEnvironment: Environment
-where Action: Batchable, Observation: Batchable, Reward: Batchable {
-  typealias BatchedStep = BatchedEnvironmentStep<Observation, Reward>
-
-  /// Updates the environment according to the provided action.
-  @discardableResult
-  mutating func batchedStep(taking action: Action.Batched) -> BatchedStep
-
-  /// Resets the environment.
-  @discardableResult
-  mutating func batchedReset(batchSize: Int) -> BatchedStep
-}
-
-public extension BatchedEnvironment {
-  /// Updates the environment according to the provided action.
-  @discardableResult
-  mutating func step(taking action: Action) -> Step {
-    let batched = batchedStep(taking: Action.batch([action]))
-    return EnvironmentStep(
-      kind: batched.kind[0],
-      observation: Observation.unbatch(batched.observation)[0],
-      reward: Reward.unbatch(batched.reward)[0])
-  }
-
-  /// Resets the environment.
-  @discardableResult
-  mutating func reset() -> Step {
-    let batched = batchedReset(batchSize: 1)
-    return EnvironmentStep(
-      kind: batched.kind[0],
-      observation: Observation.unbatch(batched.observation)[0],
-      reward: Reward.unbatch(batched.reward)[0])
-  }
-}
-
-/// Contains the data emitted by a batched environment at a single step of interaction.
-public struct BatchedEnvironmentStep<Observation: Batchable, Reward: Batchable> {
-  public let kind: [EnvironmentStepKind]
-  public let observation: Observation.Batched
-  public let reward: Reward.Batched
-
-  public init(
-    kind: [EnvironmentStepKind],
-    observation: Observation.Batched,
-    reward: Reward.Batched
-  ) {
-    self.kind = kind
-    self.observation = observation
-    self.reward = reward
+  public init(_ rawValue: Tensor<Int32>) {
+    self.rawValue = rawValue
   }
 
   @inlinable
-  public func copy(
-    kind: [EnvironmentStepKind]? = nil,
-    observation: Observation.Batched? = nil,
-    reward: Reward.Batched? = nil
-  ) -> BatchedEnvironmentStep<Observation, Reward> {
-    return BatchedEnvironmentStep(
-      kind: kind ?? self.kind,
-      observation: observation ?? self.observation,
-      reward: reward ?? self.reward)
+  public func isFirst() -> Tensor<Bool> {
+    return rawValue .== 0
+  }
+
+  @inlinable
+  public func isTransition() -> Tensor<Bool> {
+    return rawValue .== 1
+  }
+
+  @inlinable
+  public func isLast() -> Tensor<Bool> {
+    return rawValue .== 2
   }
 }
 
-public extension EnvironmentStep where Observation: Batchable, Reward: Batchable {
-  func batched() -> BatchedEnvironmentStep<Observation, Reward> {
-    return BatchedEnvironmentStep(
-      kind: [kind],
-      observation: Observation.batch([observation]),
-      reward: Reward.batch([reward]))
-  }
+public extension EnvironmentStepKind {
+  /// Denotes the first step in a sequence.
+  static let first = EnvironmentStepKind(Tensor<Int32>(0))
+
+  /// Denotes an transition step in a sequence (i.e., not first or last).
+  static let transition = EnvironmentStepKind(Tensor<Int32>(1))
+
+  /// Denotes the last step in a sequence.
+  static let last = EnvironmentStepKind(Tensor<Int32>(2))
 }
