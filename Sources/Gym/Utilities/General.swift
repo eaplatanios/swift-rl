@@ -1,10 +1,6 @@
 import Foundation
 import TensorFlow
 
-public struct None: Differentiable {
-  public init() { }
-}
-
 public extension Encodable {
   func json(pretty: Bool = true) throws -> String {
     let encoder = JSONEncoder()
