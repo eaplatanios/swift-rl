@@ -3,20 +3,13 @@ import TensorFlow
 
 public typealias Normalizer<Value> = (Value) -> Value
 
-public struct ActorPolicy<
-  Action,
-  ActionDistribution: Distribution,
-  Observation,
-  Reward,
-  State,
-  ActorNetwork: Network
->: ProbabilisticPolicy, Differentiable
-where
-  ActionDistribution.Value == Action,
-  ActorNetwork.Input == Observation,
-  ActorNetwork.Output == ActionDistribution,
-  ActorNetwork.State == State
-{
+public struct ActorPolicy<ActorNetwork: Network, Reward>: ProbabilisticPolicy, Differentiable
+where ActorNetwork.Output: Distribution {
+  public typealias ActionDistribution = ActorNetwork.Output
+  public typealias Action = ActorNetwork.Output.Value
+  public typealias Observation = ActorNetwork.Input
+  public typealias State = ActorNetwork.State
+
   @noDerivative public let batched: Bool = true
 
   public let actorNetwork: ActorNetwork

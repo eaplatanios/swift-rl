@@ -55,8 +55,8 @@ public extension Tensor {
   @inlinable
   func batchGathering(
     atIndices indices: Tensor<Int32>,
-    alongAxis axis: Int32,
-    numBatchDims batchDims: Int32
+    alongAxis axis: Int,
+    numBatchDims batchDims: Int
   ) -> Tensor {
     precondition(batchDims >= 0 && batchDims < indices.rank,
       "'numBatchDims' must be non-negative and less than 'indices.rank'.")
@@ -73,10 +73,11 @@ public extension Tensor {
       precondition(batchDims <= posAxis, "'batchDims' must be less than or equal to 'axis'.")
 
       // Move self[axis] up to self[batchDims].
-      let permutation = Tensor<Int32>(0 ..< batchDims).concatenated(with: [
-        Tensor<Int32>(axis).rankLifted(),
-        Tensor<Int32>(rangeFrom: batchDims, to: posAxis, stride: 1),
-        Tensor<Int32>(rangeFrom: axis + 1, to: rank, stride: 1)])
+      let permutation = Tensor<Int32>(concatenating: [
+        Tensor<Int32>(0 ..< Int32(batchDims)),
+        Tensor<Int32>(Int32(axis)).rankLifted(),
+        Tensor<Int32>(rangeFrom: Int32(batchDims), to: Int32(posAxis), stride: 1),
+        Tensor<Int32>(rangeFrom: Int32(axis) + 1, to: Int32(rank), stride: 1)])
       let tensor = transposed(withPermutations: permutation)
       let result = tensor.batchGathering(
         atIndices: indices, alongAxis: batchDims, numBatchDims: batchDims)
@@ -84,10 +85,11 @@ public extension Tensor {
       // Move the result dimensions corresponding to self[batchDims ..< axis] to just before
       // the dimensions corresponding to indices[batchDims ...].
       let start = indices.rank + posAxis - batchDims
-      let resultPermutation = Tensor<Int32>(0 ..< batchDims).concatenated(with: [
-        Tensor<Int32>(rangeFrom: indices.rank, to: start, stride: 1),
-        Tensor<Int32>(batchDims ..< indices.rank),
-        Tensor<Int32>(rangeFrom: start, to: result.rank, stride: 1)])
+      let resultPermutation = Tensor<Int32>(concatenating: [
+        Tensor<Int32>(0 ..< Int32(batchDims)),
+        Tensor<Int32>(rangeFrom: Int32(indices.rank), to: Int32(start), stride: 1),
+        Tensor<Int32>(Int32(batchDims) ..< Int32(indices.rank)),
+        Tensor<Int32>(rangeFrom: Int32(start), to: Int32(result.rank), stride: 1)])
       return result.transposed(withPermutations: resultPermutation)
     }
 

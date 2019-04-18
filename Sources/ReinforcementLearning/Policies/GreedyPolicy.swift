@@ -1,17 +1,11 @@
 import Gym
 
-public struct GreedyPolicy<
-  Action,
-  Observation,
-  Reward,
-  State,
-  WrappedPolicy: ProbabilisticPolicy
->: ProbabilisticPolicy where
-  WrappedPolicy.Action == Action,
-  WrappedPolicy.Observation == Observation,
-  WrappedPolicy.Reward == Reward,
-  WrappedPolicy.State == State
-{
+public struct GreedyPolicy<WrappedPolicy: ProbabilisticPolicy>: ProbabilisticPolicy {
+  public typealias Action = WrappedPolicy.Action
+  public typealias Observation = WrappedPolicy.Observation
+  public typealias Reward = WrappedPolicy.Reward
+  public typealias State = WrappedPolicy.State
+
   public let wrappedPolicy: WrappedPolicy
   public let randomSeed: UInt64?
 
@@ -19,7 +13,7 @@ public struct GreedyPolicy<
     return wrappedPolicy.batched
   }
 
-  public init(wrappedPolicy: WrappedPolicy) {
+  public init(wrapping wrappedPolicy: WrappedPolicy) {
     self.wrappedPolicy = wrappedPolicy
     self.randomSeed = wrappedPolicy.randomSeed
   }

@@ -19,12 +19,12 @@ public extension Space {
 }
 
 public struct Discrete: Space {
-  public let size: Int32
+  public let size: Int
   public let shape: TensorShape = []
 
   public let distribution: Categorical<Int32>
 
-  public init(withSize size: Int32) {
+  public init(withSize size: Int) {
     self.size = size
     self.distribution = Categorical<Int32>(logits: Tensor<Float>(ones: [1, size]))
   }
@@ -46,7 +46,7 @@ public struct MultiBinary: Space {
 
   public init(withSize size: Int) {
     self.size = size
-    self.shape = [Int32(size)]
+    self.shape = [size]
     self.distribution = ValueDistribution(size: size)
   }
 
@@ -88,7 +88,7 @@ public struct MultiDiscrete: Space {
 
   public init(withSizes sizes: [Int]) {
     self.sizes = sizes
-    self.shape = [Int32(sizes.count)]
+    self.shape = [sizes.count]
     self.distribution = ValueDistribution(sizes: sizes)
   }
 
@@ -108,7 +108,7 @@ public struct MultiDiscrete: Space {
     public init(sizes: [Int]) {
       self.sizes = sizes
       self.distributions = sizes.map {
-        Categorical<Int32>(logits: Tensor<Float>(ones: [1, Int32($0)]))
+        Categorical<Int32>(logits: Tensor<Float>(ones: [1, $0]))
       }
     }
 
@@ -137,7 +137,7 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
     self.upperBound = Tensor<Scalar>(upperBound)
     self.distribution = ValueDistribution(
       distribution: Uniform<Float>(
-        shape: Tensor<Int32>(shape.dimensions),
+        shape: Tensor<Int32>(shape.dimensions.map(Int32.init)),
         lowerBound: Tensor<Float>(self.lowerBound),
         upperBound: Tensor<Float>(self.upperBound)))
   }
@@ -150,7 +150,7 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
     self.upperBound = upperBound
     self.distribution = ValueDistribution(
       distribution: Uniform<Float>(
-        shape: Tensor<Int32>(shape.dimensions),
+        shape: Tensor<Int32>(shape.dimensions.map(Int32.init)),
         lowerBound: Tensor<Float>(self.lowerBound),
         upperBound: Tensor<Float>(self.upperBound)))
   }
@@ -195,7 +195,7 @@ public struct Box<Scalar: TensorFlowFloatingPoint>: Space {
     self.lowerBound = Tensor<Scalar>(lowerBound)
     self.upperBound = Tensor<Scalar>(upperBound)
     self.distribution = Uniform<Scalar>(
-      shape: Tensor<Int32>(shape.dimensions),
+      shape: Tensor<Int32>(shape.dimensions.map(Int32.init)),
       lowerBound: self.lowerBound,
       upperBound: self.upperBound)
   }
@@ -207,7 +207,7 @@ public struct Box<Scalar: TensorFlowFloatingPoint>: Space {
     self.lowerBound = lowerBound
     self.upperBound = upperBound
     self.distribution = Uniform<Scalar>(
-      shape: Tensor<Int32>(shape.dimensions),
+      shape: Tensor<Int32>(shape.dimensions.map(Int32.init)),
       lowerBound: self.lowerBound,
       upperBound: self.upperBound)
   }

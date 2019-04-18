@@ -167,9 +167,7 @@ public class RetroEmulator {
     let cScreen = emulatorGetScreen(handle)!.pointee
     let shape = [cScreen.height, cScreen.width, cScreen.channels]
     let values = Array(UnsafeBufferPointer(start: cScreen.values, count: shape.reduce(1, *)))
-    let screen = Tensor(shape: TensorShape(shape.map {
-      Int32($0)
-    }), scalars: values)
+    let screen = Tensor(shape: TensorShape(shape), scalars: values)
     let cropInformation = gameDataCropInfo(gameData.handle, 0)!.pointee
     let x = cropInformation.x
     let y = cropInformation.y
@@ -208,8 +206,7 @@ public class RetroEmulator {
       memoryBytes += Array(UnsafeBufferPointer(start: $0.bytes, count: $0.numBytes))
       numBytesPerBlock = $0.numBytes
     }
-    self.cachedMemory = Tensor(
-      shape: [Int32(blocks.count), Int32(numBytesPerBlock)], scalars: memoryBytes)
+    self.cachedMemory = Tensor(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
     self.cachedMemoryUpdated = true
     return self.cachedMemory!
   }

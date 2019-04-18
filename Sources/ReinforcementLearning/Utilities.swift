@@ -1,4 +1,4 @@
-import TensorFlow
+@_exported import TensorFlow
 
 public struct None: Differentiable {
   public init() { }

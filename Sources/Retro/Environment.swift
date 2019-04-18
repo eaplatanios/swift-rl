@@ -286,7 +286,7 @@ public struct DiscreteActions: ActionsType {
 
   public func space(for emulator: RetroEmulator) -> Discrete {
     let numCombos = emulator.buttonCombos().map { Int32($0.count) } .reduce(1, *)
-    return Discrete(withSize: Int32(pow(Float(numCombos), Float(emulator.numPlayers))))
+    return Discrete(withSize: Int(pow(Float(numCombos), Float(emulator.numPlayers))))
   }
 
   public func encodeAction(

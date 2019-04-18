@@ -37,15 +37,17 @@ public struct Categorical<ValueDataType: TensorFlowInteger>: Distribution, Diffe
 public extension Categorical where ValueDataType == Int32 {
   // @differentiable(wrt: logits)
   init(logits: Tensor<Float>) {
-    let range = Tensor<Int32>(rangeFrom: 0, to: logits.shape[1], stride: 1).rankLifted()
-    let domain = Tensor<Int32>(tiling: range, multiples: Tensor<Int32>([logits.shape[0], 1]))
+    let range = Tensor<Int32>(rangeFrom: 0, to: Int32(logits.shape[1]), stride: 1).rankLifted()
+    let domain = Tensor<Int32>(tiling: range, multiples: Tensor<Int32>([Int32(logits.shape[0]), 1]))
     self = Categorical<ValueDataType>(logits: logits, domain: domain)
   }
 
   // @differentiable(wrt: probabilities)
   init(probabilities: Tensor<Float>) {
-    let range = Tensor<Int32>(rangeFrom: 0, to: probabilities.shape[1], stride: 1).rankLifted()
-    let domain = Tensor<Int32>(tiling: range, multiples: Tensor<Int32>([probabilities.shape[0], 1]))
+    let range = Tensor<Int32>(
+      rangeFrom: 0, to: Int32(probabilities.shape[1]), stride: 1).rankLifted()
+    let domain = Tensor<Int32>(
+      tiling: range, multiples: Tensor<Int32>([Int32(probabilities.shape[0]), 1]))
     self = Categorical<ValueDataType>(probabilities: probabilities, domain: domain)
   }
 }
