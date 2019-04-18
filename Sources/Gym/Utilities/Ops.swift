@@ -8,10 +8,33 @@ public func sigmoid<T: TensorFlowFloatingPoint>(_ x: Tensor<T>) -> Tensor<T> {
 }
 
 @inlinable
-func _vjpSigmoid<T: TensorFlowFloatingPoint>(
+internal func _vjpSigmoid<T: TensorFlowFloatingPoint>(
   _ x: Tensor<T>
 ) -> (Tensor<T>, (Tensor<T>) -> Tensor<T>) {
   return (sigmoid(x), { v in Raw.sigmoidGrad(x, dy: v) })
+}
+
+/// Computes the log-sigmoid of the specified tensor element-wise. Specifically, 
+/// `y = log(1 / (1 + exp(-x)))`. For numerical stability, we use `y = -softplus(-x)`.
+@inlinable
+@differentiable
+public func logSigmoid<T: TensorFlowFloatingPoint>(_ x: Tensor<T>) -> Tensor<T> {
+  return -softplus(-x)
+}
+
+/// Computes the softplus function for the specified tensor element-wise. The softplus function is 
+/// defined as `log(exp(x) + 1)`.
+@inlinable
+@differentiable(vjp: _vjpSoftplus)
+public func softplus<T: TensorFlowFloatingPoint>(_ x: Tensor<T>) -> Tensor<T> {
+  return Raw.softplus(features: x)
+}
+
+@inlinable
+internal func _vjpSoftplus<T: TensorFlowFloatingPoint>(
+  _ x: Tensor<T>
+) -> (Tensor<T>, (Tensor<T>) -> Tensor<T>) {
+  return (softplus(x), { v in v * sigmoid(x) })
 }
 
 public extension Tensor {
@@ -41,6 +64,33 @@ public extension Tensor {
   // @differentiable(vjp: _vjpConcatenated where Scalar : TensorFlowFloatingPoint)
   func concatenated(with tensors: [Tensor], alongAxis axis: Int32 = 0) -> Tensor {
     return Raw.concatV2([self] + tensors, axis: Tensor<Int32>(axis))
+  }
+
+  @inlinable
+  @differentiable(wrt: self where Scalar : TensorFlowFloatingPoint)
+  func unstack(alongAxis axis: Int = 0) -> [Tensor] {
+    return split(numSplits: shape[axis], alongAxis: axis)
+  }
+
+  @inlinable
+  @differentiable(
+    wrt: self,
+    vjp: _vjpSplit(numSplits:alongAxis:) where Scalar : TensorFlowFloatingPoint)
+  func split(numSplits: Int, alongAxis axis: Int = 0) -> [Tensor] {
+    return Raw.split(
+      splitDim: Tensor<Int32>(Int32(axis)), value: self, numSplit: Int64(numSplits))
+  }
+
+  @inlinable
+  @differentiable(
+    wrt: self,
+    vjp: _vjpSplit(splitSizes:alongAxis:) where Scalar : TensorFlowFloatingPoint)
+  func split(splitSizes: Tensor<Int32>, alongAxis axis: Int = 0) -> [Tensor] {
+    return Raw.splitV(
+      value: self,
+      sizeSplits: splitSizes,
+      splitDim: Tensor<Int32>(Int32(axis)),
+      numSplit: Int64(splitSizes.shape[0]))
   }
 
   @inlinable
@@ -151,5 +201,25 @@ public extension Tensor where Scalar : Numeric {
   @inlinable
   init(rangeFrom start: Tensor<Scalar>, to end: Tensor<Scalar>, stride: Tensor<Scalar>) {
     self = Raw.range(start: start, limit: end, delta: stride)
+  }
+}
+
+public extension Tensor where Scalar : TensorFlowFloatingPoint {
+  @inlinable
+  internal func _vjpSplit(
+    numSplits: Int,
+    alongAxis axis: Int = 0
+  ) -> ([Tensor], (Array<Tensor>.DifferentiableView) -> Tensor) {
+    let result = split(numSplits: numSplits, alongAxis: axis)
+    return (result, { v in Tensor(concatenating: v.base, alongAxis: axis) })
+  }
+
+  @inlinable
+  internal func _vjpSplit(
+    splitSizes: Tensor<Int32>,
+    alongAxis axis: Int = 0
+  ) -> ([Tensor], (Array<Tensor>.DifferentiableView) -> Tensor) {
+    let result = split(splitSizes: splitSizes, alongAxis: axis)
+    return (result, { v in Tensor(concatenating: v.base, alongAxis: axis) })
   }
 }

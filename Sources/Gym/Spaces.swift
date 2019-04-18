@@ -42,12 +42,12 @@ public struct Discrete: Space {
 public struct MultiBinary: Space {
   public let size: Int
   public let shape: TensorShape
-  public let distribution: ValueDistribution
+  public let distribution: Bernoulli<Int32>
 
   public init(withSize size: Int) {
     self.size = size
     self.shape = [size]
-    self.distribution = ValueDistribution(size: size)
+    self.distribution = Bernoulli<Int32>(logits: Tensor<Float>(ones: [1, size]))
   }
 
   public var description: String {
@@ -56,26 +56,6 @@ public struct MultiBinary: Space {
 
   public func contains(_ value: Tensor<Int32>) -> Bool {
     return value.shape == shape && value.scalars.allSatisfy{$0 == 0 || $0 == 1}
-  }
-
-  public struct ValueDistribution: Distribution {
-    private let size: Int
-    private let distribution: Categorical<Int32>
-
-    public init(size: Int) {
-      self.size = size
-      self.distribution = Categorical<Int32>(logits: Tensor<Float>(ones: [1, 2]))
-    }
-
-    public func mode(seed: UInt64? = nil) -> Tensor<Int32> {
-      let modes = (0..<size).map{ _ in distribution.mode(seed: seed) }
-      return Tensor<Int32>(concatenating: modes)
-    }
-
-    public func sample(seed: UInt64? = nil) -> Tensor<Int32> {
-      let samples = (0..<size).map{ _ in distribution.sample(seed: seed) }
-      return Tensor<Int32>(concatenating: samples)
-    }
   }
 }
 
@@ -101,8 +81,8 @@ public struct MultiDiscrete: Space {
     return scalars.allSatisfy{$0 >= 0} && zip(scalars, sizes).allSatisfy{$0 < $1}
   }
 
-  public struct ValueDistribution: Distribution {
-    private let sizes: [Int]
+  public struct ValueDistribution: Distribution, Differentiable {
+    @noDerivative private let sizes: [Int]
     private let distributions: [Categorical<Int32>]
 
     public init(sizes: [Int]) {
@@ -110,6 +90,22 @@ public struct MultiDiscrete: Space {
       self.distributions = sizes.map {
         Categorical<Int32>(logits: Tensor<Float>(ones: [1, $0]))
       }
+    }
+
+    // TODO: @differentiable(wrt: self)
+    public func probability(of value: Tensor<Int32>) -> Tensor<Float> {
+      let probabilities = zip(value.unstack(), distributions).map {
+        $1.probability(of: $0)
+      }
+      return Tensor<Float>(stacking: probabilities)
+    }
+
+    // TODO: @differentiable(wrt: self)
+    public func logProbability(of value: Tensor<Int32>) -> Tensor<Float> {
+      let logProbabilities = zip(value.unstack(), distributions).map {
+        $1.logProbability(of: $0)
+      }
+      return Tensor<Float>(stacking: logProbabilities)
     }
 
     public func mode(seed: UInt64? = nil) -> Tensor<Int32> {
@@ -166,11 +162,21 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
       zip(scalars, upperBound.scalars).allSatisfy{$0 <= $1}
   }
 
-  public struct ValueDistribution: Distribution {
+  public struct ValueDistribution: Distribution, Differentiable {
     private let distribution: Uniform<Float>
 
     public init(distribution: Uniform<Float>) {
       self.distribution = distribution
+    }
+
+    @differentiable(wrt: self)
+    public func probability(of value: Tensor<Scalar>) -> Tensor<Float> {
+      return distribution.probability(of: Tensor<Float>(value))
+    }
+
+    @differentiable(wrt: self)
+    public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
+      return distribution.logProbability(of: Tensor<Float>(value))
     }
 
     public func mode(seed: UInt64? = nil) -> Tensor<Scalar> {

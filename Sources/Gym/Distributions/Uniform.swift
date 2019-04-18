@@ -5,8 +5,7 @@ public struct Uniform<ValueDataType: TensorFlowFloatingPoint>: Distribution, Dif
   public let lowerBound: Tensor<ValueDataType>
   public let upperBound: Tensor<ValueDataType>
 
-  // TODO: [AUTODIFF].
-  // @differentiable(wrt: (lowerBound, upperBound))
+  @differentiable(wrt: (lowerBound, upperBound))
   public init(
     shape: Tensor<Int32>,
     lowerBound: Tensor<ValueDataType> = Tensor<ValueDataType>(zeros: []),
@@ -15,6 +14,16 @@ public struct Uniform<ValueDataType: TensorFlowFloatingPoint>: Distribution, Dif
     self.shape = shape
     self.lowerBound = lowerBound
     self.upperBound = upperBound
+  }
+
+  @differentiable
+  public func probability(of value: Tensor<ValueDataType>) -> Tensor<Float> {
+    return 1.0 / Tensor<Float>(upperBound - lowerBound)
+  }
+
+  @differentiable
+  public func logProbability(of value: Tensor<ValueDataType>) -> Tensor<Float> {
+    return log(probability(of: value))
   }
 
   public func mode(seed: UInt64?) -> Tensor<ValueDataType> {
@@ -30,10 +39,9 @@ public struct Uniform<ValueDataType: TensorFlowFloatingPoint>: Distribution, Dif
 }
 
 public extension Uniform {
-  // TODO: [AUTODIFF] .shapeTensor is not differentiable.
-  // @differentiable(wrt: (lowerBound, upperBound))
+  @differentiable(wrt: (lowerBound, upperBound))
   init(lowerBound: Tensor<ValueDataType>, upperBound: Tensor<ValueDataType>) {
-    self.shape = lowerBound.shapeTensor
+    self.shape = lowerBound.withoutDerivative().shapeTensor
     self.lowerBound = lowerBound
     self.upperBound = upperBound
   }

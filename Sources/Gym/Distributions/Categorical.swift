@@ -1,32 +1,50 @@
 import TensorFlow
 
 public struct Categorical<ValueDataType: TensorFlowInteger>: Distribution, Differentiable {
-  /// Unnormalized log-probabilities of this categorical distribution.
-  public let logits: Tensor<Float>
+  /// Log-probabilities of this categorical distribution.
+  public let logProbabilities: Tensor<Float>
   @noDerivative public let domain: Tensor<ValueDataType>
 
-  @differentiable(wrt: logits)
-  public init(logits: Tensor<Float>, domain: Tensor<ValueDataType>) {
-    // TODO: Find a way to use this with `@differentiable`.
-    // precondition(logits.rank == 1, "'logits' must be a vector.")
-    self.logits = logits
+  @differentiable(wrt: logProbabilities)
+  public init(logProbabilities: Tensor<Float>, domain: Tensor<ValueDataType>) {
+    self.logProbabilities = logProbabilities
     self.domain = domain
   }
 
   @differentiable(wrt: probabilities)
   public init(probabilities: Tensor<Float>, domain: Tensor<ValueDataType>) {
-    self = Categorical(logits: log(probabilities), domain: domain)
+    self.logProbabilities = log(probabilities)
+    self.domain = domain
+  }
+
+  @differentiable(wrt: logits)
+  public init(logits: Tensor<Float>, domain: Tensor<ValueDataType>) {
+    self.logProbabilities = logSoftmax(logits)
+    self.domain = domain
+  }
+
+  // TODO: @differentiable(wrt: self)
+  public func probability(of value: Tensor<ValueDataType>) -> Tensor<Float> {
+    return exp(logProbability(of: value))
+  }
+
+  // TODO: @differentiable(wrt: self)
+  public func logProbability(of value: Tensor<ValueDataType>) -> Tensor<Float> {
+    return logProbabilities.batchGathering(
+      atIndices: Tensor<Int32>(value),
+      alongAxis: 1,
+      numBatchDims: 1)
   }
 
   public func mode(seed: UInt64?) -> Tensor<ValueDataType> {
-    let indices = logits.argmax(squeezingAxis: 1)
+    let indices = logProbabilities.argmax(squeezingAxis: 1)
     return domain.gathering(atIndices: indices, alongAxis: 1)
   }
 
   public func sample(seed: UInt64? = nil) -> Tensor<ValueDataType> {
     let tfSeed = seed?.tensorFlowSeed() ?? TensorFlowSeed(graph: 0, op: 0)
     let indices: Tensor<Int32> = Raw.multinomial(
-      logits: logits,
+      logits: logProbabilities,
       numSamples: Tensor<Int32>(1),
       seed: tfSeed.graph,
       seed2: tfSeed.op).gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
