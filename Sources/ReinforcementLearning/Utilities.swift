@@ -1,5 +1,3 @@
 @_exported import TensorFlow
 
-public struct None: Differentiable {
-  public init() { }
-}
+public typealias Normalizer<Value> = (Value) -> Value

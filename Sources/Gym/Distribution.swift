@@ -13,3 +13,21 @@ public protocol Distribution {
   /// Returns a random sample drawn from this distribution.
   func sample(seed: UInt64?) -> Value
 }
+
+// public protocol DifferentiableDistribution: Distribution, Differentiable {
+//   @differentiable(wrt: self)
+//   func probabilityD(of value: Value) -> Tensor<Float>
+
+//   @differentiable(wrt: self)
+//   func logProbabilityD(of value: Value) -> Tensor<Float>
+// }
+
+// public extension DifferentiableDistribution {
+//   func probability(of value: Value) -> Tensor<Float> {
+//     return probabilityD(of: value)
+//   }
+
+//   func logProbability(of value: Value) -> Tensor<Float> {
+//     return logProbabilityD(of: value)
+//   }
+// }

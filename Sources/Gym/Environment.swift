@@ -59,6 +59,28 @@ public struct EnvironmentStep<Observation, Reward> {
   }
 }
 
+extension EnvironmentStep: Stackable where Observation: Stackable, Reward: Stackable {
+  public static func stack(
+    _ values: [EnvironmentStep]
+  ) -> EnvironmentStep<Observation.Stacked, Reward.Stacked> {
+    return EnvironmentStep<Observation.Stacked, Reward.Stacked>(
+      kind: EnvironmentStepKind.stack(values.map { $0.kind }),
+      observation: Observation.stack(values.map { $0.observation }),
+      reward: Reward.stack(values.map { $0.reward }))
+  }
+
+  public static func unstack(
+    _ value: EnvironmentStep<Observation.Stacked, Reward.Stacked>
+  ) -> [EnvironmentStep] {
+    let kinds = EnvironmentStepKind.unstack(value.kind)
+    let observations = Observation.unstack(value.observation)
+    let rewards = Reward.unstack(value.reward)
+    return zip(kinds, observations, rewards).map {
+      EnvironmentStep(kind: $0, observation: $1, reward: $2)
+    }
+  }
+}
+
 /// Represents the type of a step.
 public struct EnvironmentStepKind {
   public let rawValue: Tensor<Int32>
@@ -92,4 +114,14 @@ public extension EnvironmentStepKind {
 
   /// Denotes the last step in a sequence.
   static let last = EnvironmentStepKind(Tensor<Int32>(2))
+}
+
+extension EnvironmentStepKind: Stackable {
+  public static func stack(_ values: [EnvironmentStepKind]) -> EnvironmentStepKind {
+    return EnvironmentStepKind(Tensor<Int32>.stack(values.map{ $0.rawValue }))
+  }
+
+  public static func unstack(_ value: EnvironmentStepKind) -> [EnvironmentStepKind] {
+    return Tensor<Int32>.unstack(value.rawValue).map(EnvironmentStepKind.init)
+  }
 }

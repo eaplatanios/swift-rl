@@ -1,25 +1,30 @@
 import TensorFlow
 
-public struct Deterministic<ValueDataType: TensorFlowScalar & Equatable>: Distribution {
-  public let value: Tensor<ValueDataType>
+public struct Deterministic<Scalar: TensorFlowScalar & Equatable>: Distribution {
+  public let value: Tensor<Scalar>
 
-  public init(at value: Value) {
+  @inlinable
+  public init(at value: Tensor<Scalar>) {
     self.value = value
   }
 
-  public func probability(of value: Tensor<ValueDataType>) -> Tensor<Float> {
+  @inlinable
+  public func probability(of value: Tensor<Scalar>) -> Tensor<Float> {
     return Tensor<Float>(value .== self.value)
   }
 
-  public func logProbability(of value: Tensor<ValueDataType>) -> Tensor<Float> {
+  @inlinable
+  public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
     return log(probability(of: value))
   }
 
-  public func mode(seed: UInt64?) -> Tensor<ValueDataType> {
+  @inlinable
+  public func mode(seed: UInt64?) -> Tensor<Scalar> {
     return value
   }
 
-  public func sample(seed: UInt64? = nil) -> Tensor<ValueDataType> {
+  @inlinable
+  public func sample(seed: UInt64? = nil) -> Tensor<Scalar> {
     return value
   }
 }

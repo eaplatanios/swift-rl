@@ -4,6 +4,12 @@ import Foundation
 public struct TensorFlowSeed {
   public let graph: Int64
   public let op: Int64
+
+  @inlinable
+  public init(graph: Int64, op: Int64) {
+    self.graph = graph
+    self.op = op
+  }
 }
 
 public extension UInt64 {

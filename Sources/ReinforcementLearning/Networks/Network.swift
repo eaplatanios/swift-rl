@@ -1,3 +1,4 @@
+import Gym
 import TensorFlow
 
 public protocol Network: Differentiable & KeyPathIterable
@@ -12,7 +13,7 @@ where AllDifferentiableVariables: KeyPathIterable {
   associatedtype Output: Differentiable
 
   /// Returns the initial state for this network.
-  func initialState() -> State
+  func initialState(for input: Input) -> State
 
   /// Returns the output obtained from applying the network to the given input.
   ///
@@ -30,7 +31,7 @@ public struct NetworkResult<Output: Differentiable, State: Differentiable>: Diff
 }
 
 public extension Network where State == None {
-  func initialState() -> None {
+  func initialState(for input: Input) -> None {
     return None()
   }
 

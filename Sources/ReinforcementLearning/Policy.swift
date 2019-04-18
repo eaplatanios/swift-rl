@@ -9,7 +9,7 @@ public protocol Policy {
 
   var batched: Bool { get }
 
-  func initialState() -> State
+  func initialState(for observation: Observation) -> State
 
   func act(
     in state: State,
@@ -24,14 +24,15 @@ public extension Policy {
 public extension Policy where State == None {
   @inlinable var isStateless: Bool { return true }
 
-  @inlinable func initialState() -> State {
+  @inlinable func initialState(for observation: Observation) -> State {
     return None()
   }
 }
 
 public extension Policy where State == None {
-  @inlinable
-  func act(using step: EnvironmentStep<Observation, Reward>) -> PolicyStep<Action, State> {
+  @inlinable func act(
+    using step: EnvironmentStep<Observation, Reward>
+  ) -> PolicyStep<Action, State> {
     return act(in: None(), using: step)
   }
 }
@@ -41,20 +42,20 @@ public struct PolicyStep<ActionInformation, State> {
   public let actionInformation: ActionInformation
   public let state: State
 
+  @differentiable(where ActionInformation: Differentiable, State: Differentiable)
   public init(actionInformation: ActionInformation, state: State) {
     self.actionInformation = actionInformation
     self.state = state
   }
 }
 
-public typealias StatelessPolicyStep<ActionInformation> = PolicyStep<ActionInformation, None>
-
 public extension PolicyStep where State == None {
+  @differentiable(where ActionInformation: Differentiable)
   init(actionInformation: ActionInformation) {
     self.actionInformation = actionInformation
     self.state = None()
   }
 }
 
-// extension PolicyStep: Differentiable
-// where ActionInformation: Differentiable, State: Differentiable { }
+extension PolicyStep: Differentiable
+where ActionInformation: Differentiable, State: Differentiable { }

@@ -81,8 +81,9 @@ public struct MultiDiscrete: Space {
     return scalars.allSatisfy{$0 >= 0} && zip(scalars, sizes).allSatisfy{$0 < $1}
   }
 
-  public struct ValueDistribution: Distribution, Differentiable {
-    @noDerivative private let sizes: [Int]
+  public struct ValueDistribution: Distribution {
+    // @noDerivative private let sizes: [Int]
+    private let sizes: [Int]
     private let distributions: [Categorical<Int32>]
 
     public init(sizes: [Int]) {
@@ -94,18 +95,20 @@ public struct MultiDiscrete: Space {
 
     // TODO: @differentiable(wrt: self)
     public func probability(of value: Tensor<Int32>) -> Tensor<Float> {
-      let probabilities = zip(value.unstack(), distributions).map {
-        $1.probability(of: $0)
-      }
-      return Tensor<Float>(stacking: probabilities)
+      fatalError("Not implemented yet.")
+      // let probabilities = zip(value.unstack(), distributions).map {
+      //   $1.probability(of: $0)
+      // }
+      // return Tensor<Float>(stacking: probabilities)
     }
 
     // TODO: @differentiable(wrt: self)
     public func logProbability(of value: Tensor<Int32>) -> Tensor<Float> {
-      let logProbabilities = zip(value.unstack(), distributions).map {
-        $1.logProbability(of: $0)
-      }
-      return Tensor<Float>(stacking: logProbabilities)
+      fatalError("Not implemented yet.")
+      // let logProbabilities = zip(value.unstack(), distributions).map {
+      //   $1.logProbability(of: $0)
+      // }
+      // return Tensor<Float>(stacking: logProbabilities)
     }
 
     public func mode(seed: UInt64? = nil) -> Tensor<Int32> {
