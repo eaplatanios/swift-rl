@@ -1,6 +1,6 @@
 import TensorFlow
 
-public struct Uniform<Scalar: TensorFlowFloatingPoint>: Distribution, Differentiable {
+public struct Uniform<Scalar: TensorFlowFloatingPoint>: DifferentiableDistribution {
   @noDerivative public let shape: Tensor<Int32>
   public let lowerBound: Tensor<Scalar>
   public let upperBound: Tensor<Scalar>
@@ -27,6 +27,12 @@ public struct Uniform<Scalar: TensorFlowFloatingPoint>: Distribution, Differenti
   @differentiable(wrt: self)
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
     return log(probability(of: value))
+  }
+
+  @inlinable
+  @differentiable(wrt: self)
+  public func entropy() -> Tensor<Float> {
+    return log(Tensor<Float>(upperBound - lowerBound))
   }
 
   @inlinable

@@ -19,6 +19,11 @@ public struct Deterministic<Scalar: TensorFlowScalar & Equatable>: Distribution 
   }
 
   @inlinable
+  public func entropy() -> Tensor<Float> {
+    return Tensor<Float>(zeros: value.shape)
+  }
+
+  @inlinable
   public func mode(seed: UInt64?) -> Tensor<Scalar> {
     return value
   }

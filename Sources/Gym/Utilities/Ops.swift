@@ -61,23 +61,23 @@ public extension Tensor {
   }
 
   @inlinable
-  // @differentiable(wrt: self where Scalar : TensorFlowFloatingPoint)
+  @differentiable(wrt: self where Scalar : TensorFlowFloatingPoint)
   func unstack(alongAxis axis: Int = 0) -> [Tensor] {
       return split(numSplits: shape[axis], alongAxis: axis)
   }
 
   @inlinable
-  // @differentiable(
-  //     vjp: _vjpSplit(numSplits:alongAxis:) where Scalar : TensorFlowFloatingPoint)
+  @differentiable(
+      vjp: _vjpSplit(numSplits:alongAxis:) where Scalar : TensorFlowFloatingPoint)
   func split(numSplits: Int, alongAxis axis: Int = 0) -> [Tensor] {
       return Raw.split(
           splitDim: Tensor<Int32>(Int32(axis)), value: self, numSplit: Int64(numSplits))
   }
 
   @inlinable
-  // @differentiable(
-  //     wrt: self,
-  //     vjp: _vjpSplit(splitSizes:alongAxis:) where Scalar : TensorFlowFloatingPoint)
+  @differentiable(
+      wrt: self,
+      vjp: _vjpSplit(splitSizes:alongAxis:) where Scalar : TensorFlowFloatingPoint)
   func split(splitSizes: Tensor<Int32>, alongAxis axis: Int = 0) -> [Tensor] {
       return Raw.splitV(
           value: self,
@@ -197,22 +197,22 @@ public extension Tensor where Scalar : Numeric {
   }
 }
 
-// public extension Tensor where Scalar : TensorFlowFloatingPoint {
-//     @inlinable
-//     internal func _vjpSplit(
-//         numSplits: Int,
-//         alongAxis axis: Int = 0
-//     ) -> ([Tensor], (Array<Tensor>.DifferentiableView) -> Tensor) {
-//         let result = split(numSplits: numSplits, alongAxis: axis)
-//         return (result, { v in Tensor(concatenating: v.base, alongAxis: axis) })
-//     }
+public extension Tensor where Scalar : TensorFlowFloatingPoint {
+    @inlinable
+    internal func _vjpSplit(
+        numSplits: Int,
+        alongAxis axis: Int = 0
+    ) -> ([Tensor], (Array<Tensor>.DifferentiableView) -> Tensor) {
+        let result = split(numSplits: numSplits, alongAxis: axis)
+        return (result, { v in Tensor(concatenating: v.base, alongAxis: axis) })
+    }
 
-//     @inlinable
-//     internal func _vjpSplit(
-//         splitSizes: Tensor<Int32>,
-//         alongAxis axis: Int = 0
-//     ) -> ([Tensor], (Array<Tensor>.DifferentiableView) -> Tensor) {
-//         let result = split(splitSizes: splitSizes, alongAxis: axis)
-//         return (result, { v in Tensor(concatenating: v.base, alongAxis: axis) })
-//     }
-// }
+    @inlinable
+    internal func _vjpSplit(
+        splitSizes: Tensor<Int32>,
+        alongAxis axis: Int = 0
+    ) -> ([Tensor], (Array<Tensor>.DifferentiableView) -> Tensor) {
+        let result = split(splitSizes: splitSizes, alongAxis: axis)
+        return (result, { v in Tensor(concatenating: v.base, alongAxis: axis) })
+    }
+}

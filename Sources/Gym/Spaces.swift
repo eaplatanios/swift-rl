@@ -111,6 +111,10 @@ public struct MultiDiscrete: Space {
       // return Tensor<Float>(stacking: logProbabilities)
     }
 
+    public func entropy() -> Tensor<Float> {
+      fatalError("Not implemented yet.")
+    }
+
     public func mode(seed: UInt64? = nil) -> Tensor<Int32> {
       let modes = distributions.map { $0.mode(seed: seed) }
       return Tensor<Int32>(concatenating: modes)
@@ -180,6 +184,10 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
     @differentiable(wrt: self)
     public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
       return distribution.logProbability(of: Tensor<Float>(value))
+    }
+
+    public func entropy() -> Tensor<Float> {
+      return distribution.entropy()
     }
 
     public func mode(seed: UInt64? = nil) -> Tensor<Scalar> {

@@ -2,13 +2,9 @@ import Foundation
 import TensorFlow
 
 public protocol Environment {
-  associatedtype Action
-  associatedtype Observation
+  associatedtype ActionSpace: Space
+  associatedtype ObservationSpace: Space
   associatedtype Reward
-  associatedtype ActionSpace: Space where ActionSpace.Value == Action
-  associatedtype ObservationSpace: Space where ObservationSpace.Value == Observation
-
-  typealias Step = EnvironmentStep<Observation, Reward>
 
   var batched: Bool { get }
   var actionSpace: ActionSpace { get }
@@ -24,6 +20,11 @@ public protocol Environment {
 }
 
 public extension Environment {
+  typealias Action = ActionSpace.Value
+  typealias Observation = ObservationSpace.Value
+
+  typealias Step = EnvironmentStep<Observation, Reward>
+
   /// Renders the last step observation using the provided renderer.
   @inlinable
   func render<R: Renderer>(

@@ -1,25 +1,25 @@
 import TensorFlow
 
-public struct Bernoulli<Scalar: TensorFlowInteger>: Distribution, Differentiable {
+public struct Bernoulli<Scalar: TensorFlowInteger>: DifferentiableDistribution {
   /// Unnormalized log-probabilities of this bernoulli distribution.
-  public let logProbabilities: Tensor<Float>
+  public let logits: Tensor<Float>
 
   @inlinable
-  // TODO: @differentiable
-  public init(logProbabilities: Tensor<Float>) {
-    self.logProbabilities = logProbabilities
-  }
-
-  @inlinable
-  // TODO: @differentiable
-  public init(probabilities: Tensor<Float>) {
-    self.logProbabilities = log(probabilities)
-  }
-
-  @inlinable
-  // TODO: @differentiable
+  // TODO: @differentiable(wrt: logits)
   public init(logits: Tensor<Float>) {
-    self.logProbabilities = logSigmoid(logits)
+    self.logits = logits
+  }
+
+  @inlinable
+  // TODO: @differentiable(wrt: logProbabilities)
+  public init(logProbabilities: Tensor<Float>) {
+    self.logits = logProbabilities
+  }
+
+  @inlinable
+  // TODO: @differentiable(wrt: probabilities)
+  public init(probabilities: Tensor<Float>) {
+    self.logits = log(probabilities)
   }
 
   @inlinable
@@ -31,18 +31,23 @@ public struct Bernoulli<Scalar: TensorFlowInteger>: Distribution, Differentiable
   @inlinable
   @differentiable(wrt: self)
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    let zeros = Tensor<Float>(value)
-    let ones = 1.0 - zeros
-    return zeros * log(1 - exp(logProbabilities)) + ones * logProbabilities
+    return max(logits, Tensor<Float>(0.0)) - logits * Tensor<Float>(value) + softplus(-abs(logits))
+  }
+
+  @inlinable
+  @differentiable(wrt: self)
+  public func entropy() -> Tensor<Float> {
+    return max(logits, Tensor<Float>(0.0)) - logits * sigmoid(logits) + softplus(-abs(logits))
   }
 
   @inlinable
   public func mode(seed: UInt64?) -> Tensor<Scalar> {
-    return Tensor<Scalar>(logProbabilities .> log(0.5))
+    return Tensor<Scalar>(logSigmoid(logits) .> log(0.5))
   }
 
   @inlinable
   public func sample(seed: UInt64? = nil) -> Tensor<Scalar> {
+    let logProbabilities = logSigmoid(logits)
     let tfSeed = seed?.tensorFlowSeed() ?? TensorFlowSeed(graph: 0, op: 0)
     let uniform: Tensor<Float> = Raw.randomUniform(
       shape: logProbabilities.shapeTensor,
