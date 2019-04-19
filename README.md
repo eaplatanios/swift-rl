@@ -2,7 +2,16 @@
 changing rapidly. I expect it to be more stable within 
 about a week or two.
 
-**NOTE:** The code is currently fully functional.
+Current issues with auto-diff:
+- If I mark the constructors of structs conforming to 
+  `DifferentiableDistribution` as `@differentiable`, the 
+  compiler crashes, while emitting other constructors or 
+  functions where these constructors are being invoked from.
+- Even though `DifferentiableDistribution` overrides some 
+  functions of `Distribution` marking them as 
+  `@differentiable`, the compiler complaints when these 
+  functions are used inside other differentiable functions,
+  saying that they were not marked as `@differentiable`.
 
 # Installation
 
