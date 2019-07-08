@@ -81,10 +81,9 @@ public struct MultiDiscrete: Space {
     return scalars.allSatisfy{$0 >= 0} && zip(scalars, sizes).allSatisfy{$0 < $1}
   }
 
-  public struct ValueDistribution: Distribution {
-    // @noDerivative private let sizes: [Int]
-    private let sizes: [Int]
-    private let distributions: [Categorical<Int32>]
+  public struct ValueDistribution: DifferentiableDistribution {
+    @noDerivative private let sizes: [Int]
+    private var distributions: [Categorical<Int32>]
 
     public init(sizes: [Int]) {
       self.sizes = sizes
@@ -93,26 +92,23 @@ public struct MultiDiscrete: Space {
       }
     }
 
-    // TODO: @differentiable(wrt: self)
-    public func probability(of value: Tensor<Int32>) -> Tensor<Float> {
-      fatalError("Not implemented yet.")
-      // let probabilities = zip(value.unstack(), distributions).map {
-      //   $1.probability(of: $0)
-      // }
-      // return Tensor<Float>(stacking: probabilities)
-    }
-
-    // TODO: @differentiable(wrt: self)
+    @differentiable(wrt: self)
     public func logProbability(of value: Tensor<Int32>) -> Tensor<Float> {
-      fatalError("Not implemented yet.")
-      // let logProbabilities = zip(value.unstack(), distributions).map {
-      //   $1.logProbability(of: $0)
-      // }
-      // return Tensor<Float>(stacking: logProbabilities)
+      let values = value.unstacked()
+      var logProbability = Tensor<Float>(0.0)
+      for i in 0..<sizes.count {
+        logProbability = logProbability + distributions[i].logProbability(of: values[i])
+      }
+      return logProbability
     }
 
+    @differentiable(wrt: self)
     public func entropy() -> Tensor<Float> {
-      fatalError("Not implemented yet.")
+      var entropy = Tensor<Float>(0.0)
+      for i in 0..<sizes.count {
+        entropy = entropy + distributions[i].entropy()
+      }
+      return entropy
     }
 
     public func mode(seed: UInt64? = nil) -> Tensor<Int32> {
@@ -169,33 +165,29 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
       zip(scalars, upperBound.scalars).allSatisfy{$0 <= $1}
   }
 
-  public struct ValueDistribution: Distribution, Differentiable {
-    private let distribution: Uniform<Float>
+  public struct ValueDistribution: DifferentiableDistribution {
+    private var distribution: Uniform<Float>
 
     public init(distribution: Uniform<Float>) {
       self.distribution = distribution
     }
 
     @differentiable(wrt: self)
-    public func probability(of value: Tensor<Scalar>) -> Tensor<Float> {
-      return distribution.probability(of: Tensor<Float>(value))
+    public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
+      distribution.logProbability(of: Tensor<Float>(value))
     }
 
     @differentiable(wrt: self)
-    public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-      return distribution.logProbability(of: Tensor<Float>(value))
-    }
-
     public func entropy() -> Tensor<Float> {
-      return distribution.entropy()
+      distribution.entropy()
     }
 
     public func mode(seed: UInt64? = nil) -> Tensor<Scalar> {
-      return Tensor<Scalar>(distribution.mode(seed: seed))
+      Tensor<Scalar>(distribution.mode(seed: seed))
     }
 
     public func sample(seed: UInt64? = nil) -> Tensor<Scalar> {
-      return Tensor<Scalar>(distribution.sample(seed: seed))
+      Tensor<Scalar>(distribution.sample(seed: seed))
     }
   }
 }
