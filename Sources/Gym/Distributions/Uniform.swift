@@ -2,11 +2,11 @@ import TensorFlow
 
 public struct Uniform<Scalar: TensorFlowFloatingPoint>: DifferentiableDistribution {
   @noDerivative public let shape: Tensor<Int32>
-  public let lowerBound: Tensor<Scalar>
-  public let upperBound: Tensor<Scalar>
+  public var lowerBound: Tensor<Scalar>
+  public var upperBound: Tensor<Scalar>
 
   @inlinable
-  // TODO: @differentiable(wrt: (lowerBound, upperBound))
+  @differentiable(wrt: (lowerBound, upperBound))
   public init(
     shape: Tensor<Int32>,
     lowerBound: Tensor<Scalar> = Tensor<Scalar>(zeros: []),
@@ -19,25 +19,19 @@ public struct Uniform<Scalar: TensorFlowFloatingPoint>: DifferentiableDistributi
 
   @inlinable
   @differentiable(wrt: self)
-  public func probability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    return 1.0 / Tensor<Float>(upperBound - lowerBound)
-  }
-
-  @inlinable
-  @differentiable(wrt: self)
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    return log(probability(of: value))
+    log(1.0) - log(Tensor<Float>(upperBound - lowerBound))
   }
 
   @inlinable
   @differentiable(wrt: self)
   public func entropy() -> Tensor<Float> {
-    return log(Tensor<Float>(upperBound - lowerBound))
+    log(Tensor<Float>(upperBound - lowerBound))
   }
 
   @inlinable
   public func mode(seed: UInt64?) -> Tensor<Scalar> {
-    return sample(seed: seed)
+    sample(seed: seed)
   }
 
   @inlinable
@@ -49,11 +43,11 @@ public struct Uniform<Scalar: TensorFlowFloatingPoint>: DifferentiableDistributi
   }
 }
 
-public extension Uniform {
+extension Uniform {
   @inlinable
-  // TODO: @differentiable(wrt: (lowerBound, upperBound))
-  init(lowerBound: Tensor<Scalar>, upperBound: Tensor<Scalar>) {
-    self.shape = lowerBound.withoutDerivative().shapeTensor
+  @differentiable(wrt: (lowerBound, upperBound))
+  public init(lowerBound: Tensor<Scalar>, upperBound: Tensor<Scalar>) {
+    self.shape = withoutDerivative(at: lowerBound.shapeTensor)
     self.lowerBound = lowerBound
     self.upperBound = upperBound
   }

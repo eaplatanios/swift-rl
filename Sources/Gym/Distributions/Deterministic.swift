@@ -9,13 +9,9 @@ public struct Deterministic<Scalar: TensorFlowScalar & Equatable>: Distribution 
   }
 
   @inlinable
-  public func probability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    return Tensor<Float>(value .== self.value)
-  }
-
-  @inlinable
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    return log(probability(of: value))
+    // TODO: What about NaNs?
+    return log(Tensor<Float>(value .== self.value))
   }
 
   @inlinable

@@ -2,47 +2,41 @@ import TensorFlow
 
 public struct Bernoulli<Scalar: TensorFlowInteger>: DifferentiableDistribution {
   /// Unnormalized log-probabilities of this bernoulli distribution.
-  public let logits: Tensor<Float>
+  public var logits: Tensor<Float>
 
   @inlinable
-  // TODO: @differentiable(wrt: logits)
+  @differentiable(wrt: logits)
   public init(logits: Tensor<Float>) {
     self.logits = logits
   }
 
   @inlinable
-  // TODO: @differentiable(wrt: logProbabilities)
+  @differentiable(wrt: logProbabilities)
   public init(logProbabilities: Tensor<Float>) {
     self.logits = logProbabilities
   }
 
   @inlinable
-  // TODO: @differentiable(wrt: probabilities)
+  @differentiable(wrt: probabilities)
   public init(probabilities: Tensor<Float>) {
     self.logits = log(probabilities)
   }
 
   @inlinable
   @differentiable(wrt: self)
-  public func probability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    return exp(logProbability(of: value))
-  }
-
-  @inlinable
-  @differentiable(wrt: self)
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    return max(logits, Tensor<Float>(0.0)) - logits * Tensor<Float>(value) + softplus(-abs(logits))
+    max(logits, Tensor<Float>(0.0)) - logits * Tensor<Float>(value) + softplus(-abs(logits))
   }
 
   @inlinable
   @differentiable(wrt: self)
   public func entropy() -> Tensor<Float> {
-    return max(logits, Tensor<Float>(0.0)) - logits * sigmoid(logits) + softplus(-abs(logits))
+    max(logits, Tensor<Float>(0.0)) - logits * sigmoid(logits) + softplus(-abs(logits))
   }
 
   @inlinable
   public func mode(seed: UInt64?) -> Tensor<Scalar> {
-    return Tensor<Scalar>(logSigmoid(logits) .> log(0.5))
+    Tensor<Scalar>(logSigmoid(logits) .> log(0.5))
   }
 
   @inlinable
