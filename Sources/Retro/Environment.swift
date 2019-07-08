@@ -12,8 +12,10 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let actionSpace: ActionsType.Space
   public let observationsType: ObservationsType
   public let observationSpace: DiscreteBox<UInt8>
-  public let startingState: String?
+  public let startingState: StartingState
   public let randomSeed: UInt64
+
+  private let startingStateData: String?
 
   @usableFromInline internal var rng: PhiloxRandomNumberGenerator
 
@@ -30,7 +32,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     startingState: StartingState = .provided,
     movieURL: URL? = nil,
     randomSeed: UInt64? = nil
-   ) throws {
+  ) throws {
     self.emulator = emulator
     self.actionsType = actionsType
     self.actionSpace = actionsType.space(for: emulator)
@@ -47,9 +49,10 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     self.movieID = 0
     self.movieURL = movieURL
 
+    self.startingState = startingState
     switch startingState {
     case .none:
-      self.startingState = nil
+      self.startingStateData = nil
     case .provided:
       let gameMetadataJson = try? String(contentsOf: self.emulator.game.metadataFile!)
       let gameMetadata = try? RetroGame.Metadata(fromJson: gameMetadataJson!)
@@ -57,20 +60,20 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
         let defaultState = metadata.defaultState
         let defaultPlayerState = metadata.defaultPlayerState
         if defaultPlayerState != nil && emulator.numPlayers <= defaultPlayerState!.count {
-          self.startingState = defaultPlayerState![Int(emulator.numPlayers) - 1]
+          self.startingStateData = defaultPlayerState![Int(emulator.numPlayers) - 1]
         } else if defaultState != nil {
-          self.startingState = defaultState!
+          self.startingStateData = defaultState!
         } else {
-          self.startingState = nil
+          self.startingStateData = nil
         }
       } else {
-        self.startingState = nil
+        self.startingStateData = nil
       }
     case .custom(let state):
-      self.startingState = state
+      self.startingStateData = state
     }
 
-    if let state = self.startingState {
+    if let state = self.startingStateData {
       try self.emulator.loadStartingState(
         from: game().dataDir.appendingPathComponent("\(state).state"))
     }
@@ -84,11 +87,13 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @discardableResult
-  public mutating func step(taking action: ActionsType.Space.Value) -> Step {
+  public mutating func step(
+    taking action: ActionsType.Space.Value
+  ) -> Step<Tensor<UInt8>, Tensor<Float>> {
     if needsReset {
       return reset()
     }
-    
+
     for p in 0..<numPlayers() {
       let numButtons = emulator.buttons().count
       let encodedAction = actionsType.encodeAction(action, for: p, in: emulator)
@@ -116,19 +121,19 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     }
 
     // TODO: What about the 'info' dict?
-    return EnvironmentStep(
+    return Step(
       kind: finished ? .last : .transition,
       observation: observation!,
-      reward: (0..<numPlayers()).map { emulator.reward(for: $0) })
+      reward: Tensor<Float>((0..<numPlayers()).map { emulator.reward(for: $0) }))
   }
 
   @discardableResult
-  public mutating func reset() -> Step {
+  public mutating func reset() -> Step<Tensor<UInt8>, Tensor<Float>> {
     emulator.reset()
 
     // Reset the recording.
     if let url = movieURL {
-      let state = String(startingState?.split(separator: ".")[0] ?? "none")
+      let state = String(startingStateData?.split(separator: ".")[0] ?? "none")
       let movieFilename = "\(game())-\(state)-\(String(format: "%06d", movieID)).bk2"
       startRecording(at: url.appendingPathComponent(movieFilename))
       movieID += 1
@@ -142,13 +147,21 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       case .memory: return emulator.memory()
       }
     }()
-    let reward = (0..<numPlayers()).map { emulator.reward(for: $0) }
+    let reward = Tensor<Float>((0..<numPlayers()).map { emulator.reward(for: $0) })
 
     needsReset = false
-    return EnvironmentStep(
-      kind: .first,
-      observation: observation!,
-      reward: reward)
+    return Step(kind: .first, observation: observation!, reward: reward)
+  }
+
+  @inlinable
+  public func copy() throws -> RetroEnvironment<ActionsType> {
+    return try RetroEnvironment(
+      using: emulator.copy(),
+      actionsType: actionsType,
+      observationsType: observationsType,
+      startingState: startingState,
+      movieURL: movieURL,
+      randomSeed: randomSeed)
   }
 
   public mutating func startRecording(at url: URL) {
@@ -184,8 +197,6 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 }
 
 public extension RetroEnvironment {
-  typealias Step = EnvironmentStep<Tensor<UInt8>, [Float]>
-
   /// Represents the initial state of the emulator.
   enum StartingState {
     /// Start the game at the power on screen of the emulator.
@@ -201,7 +212,7 @@ public extension RetroEnvironment {
 
   struct StepResult {
     let observation: Tensor<UInt8>?
-    let reward: [Float]
+    let reward: Tensor<Float>
     let finished: Bool
   }
 }

@@ -43,9 +43,10 @@ public struct RetroCore {
 public class RetroEmulator {
   @usableFromInline internal var handle: UnsafeMutablePointer<CEmulator>?
 
+  public private(set) var game: RetroGame
+
   public let config: Config
   public let core: RetroCore
-  public let game: RetroGame
   public let numPlayers: UInt32
   public let scenario: URL
 
@@ -62,18 +63,19 @@ public class RetroEmulator {
     playing scenario: URL? = nil,
     numPlayers: UInt32 = 1
   ) throws {
-    if game.rom == nil {
+    self.game = game
+
+    if self.game.rom == nil {
       throw RetroError.GameROMNotFound("ROM file not found for game called '\(game.name)'.")
     }
 
-    guard let core = config.core(forROM: game.rom!) else {
-      throw RetroError.UnsupportedCore("For ROM: \(game.rom!).")
+    guard let core = config.core(forROM: self.game.rom!) else {
+      throw RetroError.UnsupportedCore("For ROM: \(self.game.rom!).")
     }
 
-    self.handle = emulatorCreate(game.rom!.path)
+    self.handle = emulatorCreate(self.game.rom!.path)
     self.config = config
     self.core = core
-    self.game = game
     self.scenario = scenario ?? game.scenarios.first(where: {
       $0.lastPathComponent == "scenario.json"
     })!
@@ -140,6 +142,15 @@ public class RetroEmulator {
     gameData.updateMemory()
     cachedScreenUpdated = false
     cachedMemoryUpdated = false
+  }
+
+  @inlinable
+  public func copy() throws -> RetroEmulator {
+    return try RetroEmulator(
+      for: game,
+      configuredAs: config,
+      playing: scenario,
+      numPlayers: numPlayers)
   }
 
   @inlinable

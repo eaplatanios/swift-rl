@@ -43,16 +43,16 @@ class EmulatorTests: XCTestCase {
     #else
     var renderer = TensorPrinter<UInt8>(maxEntries: 10)
     #endif
-    
+
     // let game = emulatorConfig.game(called: "Airstriker-Genesis")!
     let game = emulatorConfig.game(called: "SpaceInvaders-Atari2600")!
     let emulator = try! RetroEmulator(for: game, configuredAs: emulatorConfig)
     var environment = try! RetroEnvironment(using: emulator, actionsType: FilteredActions())
     let policy = RandomPolicy(for: environment)
-    var driver = StepBasedDriver(for: environment, using: policy, maxSteps: 1000000)
+    var driver = StepBasedDriver(for: environment, using: policy, maxSteps: 1000000, batchSize: 1)
     driver.run(using: environment.reset(), updating: [{
       try! environment.render(
-        observation: $0.currentEnvironmentStep.observation,
+        observation: $0.currentStep.observation,
         using: &renderer)
     }])
   }
