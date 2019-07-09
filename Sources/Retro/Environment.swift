@@ -6,7 +6,7 @@ import TensorFlow
 
 public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let batched: Bool = false
-  
+
   public let emulator: RetroEmulator
   public let actionsType: ActionsType
   public let actionSpace: ActionsType.Space
