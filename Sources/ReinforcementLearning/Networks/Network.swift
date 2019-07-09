@@ -16,9 +16,4 @@ public extension Network {
 
 // extension Layer: Network {
 //   public typealias State = None
-
-//   @differentiable(wrt: self)
-//   public func applied(to input: Input, in state: State) -> NetworkResult<Output, State> {
-//     return NetworkResult(output: applied(to: input), state: state)
-//   }
 // }

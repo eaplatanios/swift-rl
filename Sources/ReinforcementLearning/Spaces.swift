@@ -30,12 +30,11 @@ public struct Discrete: Space {
   }
 
   public var description: String {
-    return "Discrete(\(size))"
+    "Discrete(\(size))"
   }
 
   public func contains(_ value: Tensor<Int32>) -> Bool {
-    let scalar = value.scalar ?? -1
-    return scalar >= 0 && scalar < size
+    value.rank < 2 && value >= 0 && value < Int32(size)
   }
 }
 

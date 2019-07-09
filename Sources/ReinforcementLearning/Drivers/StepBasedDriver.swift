@@ -91,7 +91,7 @@ extension StepBasedDriver: Driver {
         listener(trajectoryStep)
       }
 
-      if policy.batched {
+      if environment.batched {
         numSteps += Int(Tensor<Int32>(trajectoryStep.isBoundary()).sum().scalar!)
         numEpisodes += Int(Tensor<Int32>(trajectoryStep.isLast()).sum().scalar!)
       } else {
