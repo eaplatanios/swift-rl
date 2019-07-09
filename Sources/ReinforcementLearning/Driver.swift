@@ -5,8 +5,8 @@ import TensorFlow
 public protocol Driver {
   associatedtype ManagedEnvironment: Environment
   associatedtype ManagedPolicy: Policy
-    where ManagedPolicy.Action == ManagedEnvironment.Action,
-          ManagedPolicy.Observation == ManagedEnvironment.Observation,
+    where ManagedPolicy.Action == ManagedEnvironment.ActionSpace.Value,
+          ManagedPolicy.Observation == ManagedEnvironment.ObservationSpace.Value,
           ManagedPolicy.Reward == ManagedEnvironment.Reward
 
   typealias Action = ManagedPolicy.Action
@@ -23,18 +23,18 @@ public protocol Driver {
   @discardableResult
   mutating func run(
     startingIn state: State,
-    using step: EnvironmentStep<Observation, Reward>,
+    using step: Step<Observation, Reward>,
     updating listeners: [Listener]
-  ) -> (environmentStep: EnvironmentStep<Observation, Reward>, policyState: State)
+  ) -> Step<Observation, Reward>
 }
 
 public extension Driver where State == None {
   @inlinable @discardableResult
   mutating func run(
-    using step: EnvironmentStep<Observation, Reward>,
+    using step: Step<Observation, Reward>,
     updating listeners: [Listener]
-  ) -> EnvironmentStep<Observation, Reward> {
-    return run(startingIn: None(), using: step, updating: listeners).environmentStep
+  ) -> Step<Observation, Reward> {
+    run(startingIn: None(), using: step, updating: listeners)
   }
 }
 
@@ -42,28 +42,27 @@ public typealias Trajectory<Action, Observation, Reward, State> =
   [TrajectoryStep<Action, Observation, Reward, State>]
 
 public struct TrajectoryStep<Action, Observation, Reward, State> {
-  public let currentEnvironmentStep: EnvironmentStep<Observation, Reward>
-  public let nextEnvironmentStep: EnvironmentStep<Observation, Reward>
-  public let policyStep: PolicyStep<Action, State>
+  public let currentStep: Step<Observation, Reward>
+  public let nextStep: Step<Observation, Reward>
+  public let policyInformation: (action: Action, state: State)
 
   @inlinable
   public func isFirst() -> Tensor<Bool> {
-    return currentEnvironmentStep.kind.isFirst()
+    currentStep.kind.isFirst()
   }
 
   @inlinable
   public func isTransition() -> Tensor<Bool> {
-    return currentEnvironmentStep.kind.isTransition()
-      .elementsLogicalAnd(nextEnvironmentStep.kind.isTransition())
+    currentStep.kind.isTransition().elementsLogicalAnd(nextStep.kind.isTransition())
   }
 
   @inlinable
   public func isLast() -> Tensor<Bool> {
-    return nextEnvironmentStep.kind.isLast()
+    nextStep.kind.isLast()
   }
 
   @inlinable
   public func isBoundary() -> Tensor<Bool> {
-    return currentEnvironmentStep.kind.isLast()
+    currentStep.kind.isLast()
   }
 }

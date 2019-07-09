@@ -2,46 +2,68 @@ import Gym
 
 public struct StepBasedDriver<ManagedEnvironment: Environment, ManagedPolicy: Policy>
 where
-  ManagedEnvironment.Action == ManagedPolicy.Action,
-  ManagedEnvironment.Observation == ManagedPolicy.Observation,
-  ManagedEnvironment.Reward == ManagedPolicy.Reward
+  ManagedEnvironment.ActionSpace.Value == ManagedPolicy.Action,
+  ManagedEnvironment.ObservationSpace.Value == ManagedPolicy.Observation,
+  ManagedEnvironment.Reward == ManagedPolicy.Reward,
+  ManagedEnvironment.ActionSpace.Value: Stackable,
+  ManagedEnvironment.ActionSpace.Value.Stacked == ManagedEnvironment.ActionSpace.Value,
+  ManagedEnvironment.ObservationSpace.Value: Stackable,
+  ManagedEnvironment.ObservationSpace.Value.Stacked == ManagedEnvironment.ObservationSpace.Value,
+  ManagedEnvironment.Reward: Stackable,
+  ManagedEnvironment.Reward.Stacked == ManagedEnvironment.Reward,
+  ManagedPolicy.State: Stackable,
+  ManagedPolicy.State.Stacked == ManagedPolicy.State
 {
-  public let maxSteps: UInt
-  public let maxEpisodes: UInt
+  public let maxSteps: Int
+  public let maxEpisodes: Int
+  public let batchSize: Int
 
   public var environment: ManagedEnvironment
   public var policy: ManagedPolicy
 
-  public init(for environment: ManagedEnvironment, using policy: ManagedPolicy, maxSteps: UInt) {
+  public init(
+    for environment: ManagedEnvironment,
+    using policy: ManagedPolicy,
+    maxSteps: Int,
+    batchSize: Int
+  ) {
     precondition(environment.batched == false, "The managed environment must not be batched.")
     precondition(policy.batched == false, "The managed policy must not be batched.")
-    precondition(maxSteps > 0, "The maximum number of steps must be greater than 0.")
+    precondition(maxSteps > 0, "'maxSteps' must be > 0.")
     self.maxSteps = maxSteps
-    self.maxEpisodes = UInt.max
+    self.maxEpisodes = Int.max
     self.environment = environment
     self.policy = policy
-  }
-
-  public init(for environment: ManagedEnvironment, using policy: ManagedPolicy, maxEpisodes: UInt) {
-    precondition(maxEpisodes > 0, "The maximum number of episodes must be greater than 0.")
-    self.maxSteps = UInt.max
-    self.maxEpisodes = maxEpisodes
-    self.environment = environment
-    self.policy = policy
+    self.batchSize = batchSize
   }
 
   public init(
     for environment: ManagedEnvironment,
     using policy: ManagedPolicy,
-    maxSteps: UInt,
-    maxEpisodes: UInt
+    maxEpisodes: Int,
+    batchSize: Int
   ) {
-    precondition(maxSteps > 0 && maxEpisodes > 0, 
-                 "The maximum number of steps and episodes must both be greater than 0.")
+    precondition(maxEpisodes > 0, "'maxEpisodes' must be > 0.")
+    self.maxSteps = Int.max
+    self.maxEpisodes = maxEpisodes
+    self.environment = environment
+    self.policy = policy
+    self.batchSize = batchSize
+  }
+
+  public init(
+    for environment: ManagedEnvironment,
+    using policy: ManagedPolicy,
+    maxSteps: Int,
+    maxEpisodes: Int,
+    batchSize: Int
+  ) {
+    precondition(maxSteps > 0 && maxEpisodes > 0, "'maxSteps' and 'maxEpisodes' must be > 0.")
     self.maxSteps = maxSteps
     self.maxEpisodes = maxEpisodes
     self.environment = environment
     self.policy = policy
+    self.batchSize = batchSize
   }
 }
 
@@ -49,30 +71,38 @@ extension StepBasedDriver: Driver {
   @discardableResult
   public mutating func run(
     startingIn state: State,
-    using step: EnvironmentStep<Observation, Reward>,
+    using step: Step<Observation, Reward>,
     updating listeners: [Listener]
-  ) -> (environmentStep: EnvironmentStep<Observation, Reward>, policyState: State) {
-    var currentState = state
-    var currentEnvironmentStep = step
+  ) -> Step<Observation, Reward> {
+    policy.state = policy.batched ? State.stack([State](repeating: state, count: batchSize)) : state
+    var currentStep = policy.batched ? Step<Observation, Reward>.stack(
+      [Step<Observation, Reward>](repeating: step, count: batchSize)) : step
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
-      let policyStep = policy.act(in: currentState, using: currentEnvironmentStep)
-      let nextEnvironmentStep = environment.step(taking: policyStep.actionInformation)
+      let action = policy.action(for: currentStep)
+      // TODO: Unstack if the policy is batched and the environment is not.
+      let nextStep = environment.step(taking: action)
       let trajectoryStep = TrajectoryStep(
-        currentEnvironmentStep: currentEnvironmentStep,
-        nextEnvironmentStep: nextEnvironmentStep,
-        policyStep: policyStep)
+        currentStep: currentStep,
+        nextStep: nextStep,
+        policyInformation: (action: action, state: policy.state))
+
       for listener in listeners {
         listener(trajectoryStep)
       }
 
-      numSteps += trajectoryStep.isBoundary().scalar! ? 0 : 1
-      numEpisodes += trajectoryStep.isLast().scalar! ? 1 : 0
+      if policy.batched {
+        numSteps += Int(Tensor<Int32>(trajectoryStep.isBoundary()).sum().scalar!)
+        numEpisodes += Int(Tensor<Int32>(trajectoryStep.isLast()).sum().scalar!)
+      } else {
+        numSteps += Int(Tensor<Int32>(trajectoryStep.isBoundary()).scalar!)
+        numEpisodes += Int(Tensor<Int32>(trajectoryStep.isLast()).scalar!)
+      }
 
-      currentState = policyStep.state
-      currentEnvironmentStep = nextEnvironmentStep
+      currentStep = nextStep
     }
-    return (environmentStep: currentEnvironmentStep, policyState: currentState)
+
+    return currentStep
   }
 }
