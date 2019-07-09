@@ -10,11 +10,15 @@ public struct GreedyPolicy<
   public typealias Reward = WrappedPolicy.Reward
   public typealias State = WrappedPolicy.State
 
-  public let wrappedPolicy: WrappedPolicy
-  public let randomSeed: UInt64?
+  public private(set) var wrappedPolicy: WrappedPolicy
 
-  public var batched: Bool {
-    return wrappedPolicy.batched
+  public let randomSeed: TensorFlowSeed
+
+  public var batched: Bool { wrappedPolicy.batched }
+
+  public var state: State {
+    get { wrappedPolicy.state }
+    set { wrappedPolicy.state = newValue }
   }
 
   public init(wrapping wrappedPolicy: WrappedPolicy) {
@@ -22,16 +26,13 @@ public struct GreedyPolicy<
     self.randomSeed = wrappedPolicy.randomSeed
   }
 
-  public func initialState(for observation: Observation) -> State {
-    return wrappedPolicy.initialState(for: observation)
+  public func initialize(using observation: Observation) {
+    wrappedPolicy.initialize(using: observation)
   }
 
-  public func actionDistribution(
-    in state: State,
-    using step: EnvironmentStep<Observation, Reward>
-  ) -> PolicyStep<Deterministic<Scalar>, State> {
-    let step = wrappedPolicy.actionDistribution(in: state, using: step)
-    let action = step.actionInformation.mode(seed: randomSeed)
-    return PolicyStep(actionInformation: Deterministic(at: action), state: step.state)
+  public func actionDistribution(for step: Step<Observation, Reward>) -> Deterministic<Scalar> {
+    let distribution = wrappedPolicy.actionDistribution(for: step)
+    let action = distribution.mode(usingSeed: randomSeed)
+    return Deterministic(at: action)
   }
 }

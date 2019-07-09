@@ -3,31 +3,15 @@ import Gym
 public protocol ProbabilisticPolicy: Policy {
   associatedtype ActionDistribution: Distribution where ActionDistribution.Value == Action
 
-  var randomSeed: UInt64? { get }
+  var randomSeed: TensorFlowSeed { get }
 
   /// Generates the distribution over next actions given the current environment step.
-  func actionDistribution(
-    in state: State,
-    using step: EnvironmentStep<Observation, Reward>
-  ) -> PolicyStep<ActionDistribution, State>
-}
-
-public extension ProbabilisticPolicy where State == None {
-  /// Generates the distribution over next actions given the current environment step.
-  func actionDistribution(
-    using step: EnvironmentStep<Observation, Reward>
-  ) -> PolicyStep<ActionDistribution, State> {
-    return actionDistribution(in: None(), using: step)
-  }
+  func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution
 }
 
 public extension ProbabilisticPolicy {
-  func act(
-    in state: State,
-    using step: EnvironmentStep<Observation, Reward>
-  ) -> PolicyStep<Action, State> {
-    let step = actionDistribution(in: state, using: step)
-    let sampledAction = step.actionInformation.sample(seed: randomSeed)
-    return PolicyStep(actionInformation: sampledAction, state: step.state)
+  func action(for step: Step<Observation, Reward>) -> Action {
+    let distribution = actionDistribution(for: step)
+    return distribution.sample(usingSeed: randomSeed)
   }
 }

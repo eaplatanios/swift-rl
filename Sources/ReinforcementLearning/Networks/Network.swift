@@ -1,7 +1,7 @@
 import Gym
 import TensorFlow
 
-public protocol Network: Differentiable & KeyPathIterable
+public protocol Network: Differentiable, KeyPathIterable
 where AllDifferentiableVariables: KeyPathIterable {
   /// Input type of the network.
   associatedtype Input
@@ -12,8 +12,10 @@ where AllDifferentiableVariables: KeyPathIterable {
   /// Output type of the network.
   associatedtype Output: Differentiable
 
-  /// Returns the initial state for this network.
-  func initialState(for input: Input) -> State
+  var state: State { get set }
+
+  /// Initializes this network.
+  func initialize(using input: Input)
 
   /// Returns the output obtained from applying the network to the given input.
   ///
@@ -22,23 +24,11 @@ where AllDifferentiableVariables: KeyPathIterable {
   ///   - state: State of the network.
   /// - Returns: Output of the network along with the updated state.
   @differentiable(wrt: self)
-  func applied(to input: Input, in state: State) -> NetworkResult<Output, State>
+  func applied(to input: Input) -> Output
 }
 
-public struct NetworkResult<Output: Differentiable, State: Differentiable>: Differentiable {
-  public let output: Output
-  public let state: State
-}
-
-public extension Network where State == None {
-  func initialState(for input: Input) -> None {
-    return None()
-  }
-
-  @differentiable(wrt: self)
-  func applied(to input: Input) -> Output {
-    return applied(to: input, in: None()).output
-  }
+public extension Network {
+  func initialize(using input: Input) { }
 }
 
 // extension Layer: Network {
