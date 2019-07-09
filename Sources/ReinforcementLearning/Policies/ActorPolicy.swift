@@ -1,4 +1,3 @@
-import Gym
 import TensorFlow
 
 public struct ActorPolicy<
@@ -40,7 +39,6 @@ where ActorNetwork.Output: DifferentiableDistribution {
   @inlinable
   @differentiable(wrt: self)
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    let observation = observationsNormalizer(step.observation)
-    return actorNetwork.applied(to: observation)
+    actorNetwork(observationsNormalizer(step.observation))
   }
 }

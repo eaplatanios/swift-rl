@@ -12,14 +12,14 @@ public struct TensorPrinter<Scalar: TensorFlowScalar & LosslessStringConvertible
   private var printer: ShapedArrayPrinter<Scalar>
 
   public init(
-    maxEntries: Int = 6,
-    flattened: Bool = false,
-    includeInfo: Bool = true
+    lineWidth: Int = 80,
+    edgeElementCount: Int = 3,
+    summarizing: Bool = false
   ) {
     self.printer = ShapedArrayPrinter<Scalar>(
-      maxEntries: maxEntries,
-      flattened: flattened,
-      includeInfo: includeInfo)
+      lineWidth: lineWidth,
+      edgeElementCount: edgeElementCount,
+      summarizing: summarizing)
   }
 
   public mutating func render(_ data: Tensor<Scalar>) throws {
@@ -30,25 +30,25 @@ public struct TensorPrinter<Scalar: TensorFlowScalar & LosslessStringConvertible
 public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
   public typealias Data = ShapedArray<Scalar>
 
-  public let maxEntries: Int
-  public let flattened: Bool
-  public let includeInfo: Bool
+  public let lineWidth: Int
+  public let edgeElementCount: Int
+  public let summarizing: Bool
 
   public init(
-    maxEntries: Int = 6,
-    flattened: Bool = false,
-    includeInfo: Bool = true
+    lineWidth: Int = 80,
+    edgeElementCount: Int = 3,
+    summarizing: Bool = false
   ) {
-    self.maxEntries = maxEntries
-    self.flattened = flattened
-    self.includeInfo = includeInfo
+    self.lineWidth = lineWidth
+    self.edgeElementCount = edgeElementCount
+    self.summarizing = summarizing
   }
 
   public mutating func render(_ data: ShapedArray<Scalar>) throws {
-    print(data.summarize(
-      maxEntries: maxEntries,
-      flattened: flattened,
-      includeInfo: includeInfo))
+    print(data.description(
+      lineWidth: lineWidth,
+      edgeElementCount: edgeElementCount,
+      summarizing: summarizing))
   }
 }
 

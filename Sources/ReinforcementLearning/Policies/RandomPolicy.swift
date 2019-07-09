@@ -1,4 +1,3 @@
-import Gym
 
 /// Represents a policy that takes completely random actions.
 public struct RandomPolicy<Observation, Reward, ActionSpace: Space>: ProbabilisticPolicy {

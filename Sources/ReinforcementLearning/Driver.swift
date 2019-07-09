@@ -1,4 +1,3 @@
-import Gym
 import TensorFlow
 
 /// A driver takes steps in an environment using the provided policy.

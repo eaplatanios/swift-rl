@@ -1,4 +1,3 @@
-import Gym
 import TensorFlow
 
 public struct GreedyPolicy<

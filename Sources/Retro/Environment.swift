@@ -1,7 +1,7 @@
 import CRetro
 import Foundation
-import Gym
 import Gzip
+import ReinforcementLearning
 import TensorFlow
 
 public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
@@ -219,7 +219,7 @@ public enum ObservationsType: Int {
 /// Represents different types of action space for the environment.
 public protocol ActionsType {
   associatedtype Scalar: TensorFlowScalar
-  associatedtype Space: Gym.Space where Space.Value == Tensor<Scalar>
+  associatedtype Space: ReinforcementLearning.Space where Space.Value == Tensor<Scalar>
 
   func space(for emulator: RetroEmulator) -> Space
 

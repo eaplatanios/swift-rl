@@ -1,4 +1,3 @@
-import Gym
 
 public protocol ProbabilisticPolicy: Policy {
   associatedtype ActionDistribution: Distribution where ActionDistribution.Value == Action

@@ -1,4 +1,3 @@
-import Gym
 
 public struct StepBasedDriver<ManagedEnvironment: Environment, ManagedPolicy: Policy>
 where
