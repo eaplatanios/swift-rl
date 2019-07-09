@@ -19,7 +19,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.1.0"),
-        .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "1.0.0"),
         .package(url: "https://github.com/1024jp/GzipSwift.git", from: "4.1.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", .branch("master"))
     ],
@@ -34,7 +33,7 @@ let package = Package(
                 .unsafeFlags(["-L/usr/local/lib"])]),
         .target(
             name: "Gym",
-            dependencies: ["CryptoSwift", "GLFW"],
+            dependencies: ["GLFW"],
             path: "Sources/Gym",
             swiftSettings: [.define("GLFW")]),
         .target(
@@ -53,7 +52,7 @@ let package = Package(
             name: "Retro",
             dependencies: [
                 "CRetro", "ReinforcementLearning",
-                "AnyCodable", "CryptoSwift", "Gzip", "ZIPFoundation"],
+                "AnyCodable", "Gzip", "ZIPFoundation"],
             path: "Sources/Retro"),
         .testTarget(
             name: "RetroTests",

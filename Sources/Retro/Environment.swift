@@ -13,11 +13,9 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let observationsType: ObservationsType
   public let observationSpace: DiscreteBox<UInt8>
   public let startingState: StartingState
-  public let randomSeed: UInt64
+  public let randomSeed: TensorFlowSeed
 
   private let startingStateData: String?
-
-  @usableFromInline internal var rng: PhiloxRandomNumberGenerator
 
   public private(set) var movie: Movie?
   public private(set) var movieID: Int
@@ -31,7 +29,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     observationsType: ObservationsType = .screen,
     startingState: StartingState = .provided,
     movieURL: URL? = nil,
-    randomSeed: UInt64? = nil
+    randomSeed: TensorFlowSeed = Context.local.randomSeed
   ) throws {
     self.emulator = emulator
     self.actionsType = actionsType
@@ -43,8 +41,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     case .memory: self.observationSpace = DiscreteBox(
       shape: emulator.memory()!.shape, lowerBound: 0, upperBound: 255)
     }
-    self.randomSeed = hashSeed(createSeed(using: randomSeed))
-    self.rng = PhiloxRandomNumberGenerator(seed: self.randomSeed)
+    self.randomSeed = randomSeed
     self.movie = nil
     self.movieID = 0
     self.movieURL = movieURL
@@ -77,13 +74,6 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       try self.emulator.loadStartingState(
         from: game().dataDir.appendingPathComponent("\(state).state"))
     }
-  }
-
-  @inlinable
-  public mutating func seed(using seed: UInt64? = nil) -> UInt64 {
-    let strongSeed = hashSeed(createSeed(using: seed))
-    self.rng = PhiloxRandomNumberGenerator(seed: strongSeed)
-    return strongSeed
   }
 
   @discardableResult
@@ -155,7 +145,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 
   @inlinable
   public func copy() throws -> RetroEnvironment<ActionsType> {
-    return try RetroEnvironment(
+    try RetroEnvironment(
       using: emulator.copy(),
       actionsType: actionsType,
       observationsType: observationsType,

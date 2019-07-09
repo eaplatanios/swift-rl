@@ -1,6 +1,5 @@
 import AnyCodable
 import CRetro
-import CryptoSwift
 import Foundation
 import Gym
 import ZIPFoundation
@@ -328,15 +327,18 @@ fileprivate extension RetroGame {
           }
           bytes = converted
         }
-        hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+        let bytesHash = bytes.sha1()
+        hash = (0..<20).map{String(format: "%02X", bytesHash[$0])}.joined()
       } else if ext == "nes" {
-        hash = [UInt8](bytes[16...]).sha1().map{String(format: "%02X", $0)}.joined()
+        let bytesHash = [UInt8](bytes[16...]).sha1()
+        hash = (0..<20).map{String(format: "%02X", bytesHash[$0])}.joined()
       } else {
         if bytes.count > 32 * 1024 * 1024 {
           throw RetroError.GameROMTooBig(
             "The ROM at '\(file)' is too big. Maximum supported size is 32MB.")
         }
-        hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+        let bytesHash = bytes.sha1()
+        hash = (0..<20).map{String(format: "%02X", bytesHash[$0])}.joined()
       }
       return (bytes: bytes, hash: hash)
     }
