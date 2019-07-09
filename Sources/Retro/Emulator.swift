@@ -1,6 +1,7 @@
 import CRetro
 import Foundation
 import Gzip
+import ReinforcementLearning
 import TensorFlow
 
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
@@ -11,10 +12,10 @@ internal let libExtension = "so"
 internal let libExtension = "dll"
 #endif
 
-public internal(set) var supportedCores = [String: Core]()
-public internal(set) var supportedExtensions = [String: Core]()
+public internal(set) var supportedCores = [String: RetroCore]()
+public internal(set) var supportedExtensions = [String: RetroCore]()
 
-public struct Core {
+public struct RetroCore {
   public let name: String
   public let information: Information
 
@@ -39,53 +40,55 @@ public struct Core {
   }
 }
 
-public class Emulator {
+public class RetroEmulator {
   @usableFromInline internal var handle: UnsafeMutablePointer<CEmulator>?
 
+  public private(set) var game: RetroGame
+
   public let config: Config
-  public let core: Core
-  public let game: Game
+  public let core: RetroCore
   public let numPlayers: UInt32
   public let scenario: URL
 
-  @usableFromInline internal var gameData: Game.Data
+  @usableFromInline internal var gameData: RetroGame.Data
   @usableFromInline internal var startingStateData: Data? = nil
   @usableFromInline internal var cachedScreenUpdated: Bool = false
-  @usableFromInline internal var cachedScreen: ShapedArray<UInt8>? = nil
+  @usableFromInline internal var cachedScreen: Tensor<UInt8>? = nil
   @usableFromInline internal var cachedMemoryUpdated: Bool = false
-  @usableFromInline internal var cachedMemory: ShapedArray<UInt8>? = nil
+  @usableFromInline internal var cachedMemory: Tensor<UInt8>? = nil
 
   public init(
-    for game: Game,
+    for game: RetroGame,
     configuredAs config: Config,
     playing scenario: URL? = nil,
     numPlayers: UInt32 = 1
   ) throws {
-    if game.rom == nil {
+    self.game = game
+
+    if self.game.rom == nil {
       throw RetroError.GameROMNotFound("ROM file not found for game called '\(game.name)'.")
     }
 
-    guard let core = config.core(forROM: game.rom!) else {
-      throw RetroError.UnsupportedCore("For ROM: \(game.rom!).")
+    guard let core = config.core(forROM: self.game.rom!) else {
+      throw RetroError.UnsupportedCore("For ROM: \(self.game.rom!).")
     }
 
-    self.handle = emulatorCreate(game.rom!.path)
+    self.handle = emulatorCreate(self.game.rom!.path)
     self.config = config
     self.core = core
-    self.game = game
     self.scenario = scenario ?? game.scenarios.first(where: {
       $0.lastPathComponent == "scenario.json"
     })!
     self.numPlayers = numPlayers
 
-    self.gameData = try Game.Data(dataFile: game.dataFile, scenarioFile: self.scenario)
+    self.gameData = try RetroGame.Data(dataFile: game.dataFile, scenarioFile: self.scenario)
     emulatorConfigureData(self.handle, self.gameData.handle)
   }
 
   deinit {
     emulatorDelete(handle)
   }
-  
+
   public func loadStartingState(from url: URL) throws {
     let compressedData = try Data(contentsOf: url)
     startingStateData = try compressedData.gunzipped()
@@ -142,12 +145,21 @@ public class Emulator {
   }
 
   @inlinable
-  public func screen() -> ShapedArray<UInt8>? {
+  public func copy() throws -> RetroEmulator {
+    return try RetroEmulator(
+      for: game,
+      configuredAs: config,
+      playing: scenario,
+      numPlayers: numPlayers)
+  }
+
+  @inlinable
+  public func screen() -> Tensor<UInt8>? {
     return cachedScreenUpdated ? cachedScreen : updateCachedScreen()
   }
 
   @inlinable
-  public func memory() -> ShapedArray<UInt8>? {
+  public func memory() -> Tensor<UInt8>? {
     return cachedMemoryUpdated ? cachedMemory : updateCachedMemory()
   }
 
@@ -160,13 +172,13 @@ public class Emulator {
   public func finished() -> Bool {
     return gameDataIsDone(gameData.handle)
   }
-  
+
   @usableFromInline @discardableResult
-  internal func updateCachedScreen() -> ShapedArray<UInt8> {
+  internal func updateCachedScreen() -> Tensor<UInt8> {
     let cScreen = emulatorGetScreen(handle)!.pointee
     let shape = [cScreen.height, cScreen.width, cScreen.channels]
     let values = Array(UnsafeBufferPointer(start: cScreen.values, count: shape.reduce(1, *)))
-    let screen = ShapedArray(shape: shape, scalars: values)
+    let screen = Tensor(shape: TensorShape(shape), scalars: values)
     let cropInformation = gameDataCropInfo(gameData.handle, 0)!.pointee
     let x = cropInformation.x
     let y = cropInformation.y
@@ -195,7 +207,7 @@ public class Emulator {
   }
 
   @usableFromInline @discardableResult
-  internal func updateCachedMemory() -> ShapedArray<UInt8> {
+  internal func updateCachedMemory() -> Tensor<UInt8> {
     let memoryHandle = gameDataMemory(gameData.handle)
     let cBlocks = memoryViewBlocks(memoryHandle)!.pointee
     let blocks = Array(UnsafeBufferPointer(start: cBlocks.blocks, count: cBlocks.numBlocks))
@@ -205,13 +217,13 @@ public class Emulator {
       memoryBytes += Array(UnsafeBufferPointer(start: $0.bytes, count: $0.numBytes))
       numBytesPerBlock = $0.numBytes
     }
-    self.cachedMemory = ShapedArray(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
+    self.cachedMemory = Tensor(shape: [blocks.count, numBytesPerBlock], scalars: memoryBytes)
     self.cachedMemoryUpdated = true
     return self.cachedMemory!
   }
 }
 
-public extension Emulator {
+public extension RetroEmulator {
   struct Config {
     public let coreInformationLookupPath: URL
     public let coreLookupPath: URL
@@ -234,10 +246,10 @@ public extension Emulator {
         if file.pathExtension == "json" {
           let json = try String(contentsOf: file, encoding: .utf8)
           retroLoadCoreInfo(json)
-          let coresInformation = try [String: Core.Information](fromJson: json)
-          var cores = [String: Core]()
+          let coresInformation = try [String: RetroCore.Information](fromJson: json)
+          var cores = [String: RetroCore]()
           for (name, information) in coresInformation {
-            cores[name] = Core(name: name, information: information)
+            cores[name] = RetroCore(name: name, information: information)
           }
           supportedCores.merge(cores, uniquingKeysWith: { return $1 })
           for (_, core) in cores {
@@ -266,19 +278,19 @@ public extension Emulator {
     }
     
     @inlinable
-    public func core(called core: String) -> Core? {
+    public func core(called core: String) -> RetroCore? {
       return supportedCores[core]
     }
 
     @inlinable
-    public func core(forROM rom: URL) -> Core? {
+    public func core(forROM rom: URL) -> RetroCore? {
       return supportedExtensions[rom.pathExtension]
     }
 
     public func game(
       called gameName: String,
-      using integration: Game.Integration = .stable
-     ) -> Game? {
+      using integration: RetroGame.Integration = .stable
+     ) -> RetroGame? {
       if let lookupPath = gameDataLookupPath {
         for path in integration.paths {
           let paths = FileManager.default.enumerator(
@@ -286,7 +298,7 @@ public extension Emulator {
           while let gameDataPath = paths?.nextObject() as? URL {
             let name = gameDataPath.lastPathComponent
             if name != gameName { continue }
-            if let game = Game(
+            if let game = RetroGame(
               called: name,
               withDataIn: gameDataPath,
               romLookupPaths: gameROMLookupPaths,
@@ -300,15 +312,15 @@ public extension Emulator {
       return nil
     }
 
-    public func games(using integration: Game.Integration = .stable) -> [Game] {
+    public func games(using integration: RetroGame.Integration = .stable) -> [RetroGame] {
       if let lookupPath = gameDataLookupPath {
-        var games: Set<Game> = []
+        var games: Set<RetroGame> = []
         for path in integration.paths {
           let paths = FileManager.default.enumerator(
             at: lookupPath.appendingPathComponent(path), includingPropertiesForKeys: nil)
           while let gameDataPath = paths?.nextObject() as? URL {
             let gameName = gameDataPath.lastPathComponent
-            if let game = Game(
+            if let game = RetroGame(
               called: gameName,
               withDataIn: gameDataPath,
               romLookupPaths: gameROMLookupPaths
@@ -319,7 +331,7 @@ public extension Emulator {
         }
         return Array(games).sorted(by: { $0.name > $1.name })
       } else {
-        return [Game]()
+        return [RetroGame]()
       }
     }
   }

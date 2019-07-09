@@ -6,36 +6,72 @@ public protocol Renderer {
   mutating func render(_ data: Data) throws
 }
 
+public struct TensorPrinter<Scalar: TensorFlowScalar & LosslessStringConvertible>: Renderer {
+  public typealias Data = Tensor<Scalar>
+
+  private var printer: ShapedArrayPrinter<Scalar>
+
+  public init(
+    lineWidth: Int = 80,
+    edgeElementCount: Int = 3,
+    summarizing: Bool = false
+  ) {
+    self.printer = ShapedArrayPrinter<Scalar>(
+      lineWidth: lineWidth,
+      edgeElementCount: edgeElementCount,
+      summarizing: summarizing)
+  }
+
+  public mutating func render(_ data: Tensor<Scalar>) throws {
+    try printer.render(data.array)
+  }
+}
+
 public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
   public typealias Data = ShapedArray<Scalar>
 
-  public let maxEntries: Int
-  public let flattened: Bool
-  public let includeInfo: Bool
+  public let lineWidth: Int
+  public let edgeElementCount: Int
+  public let summarizing: Bool
 
   public init(
-    maxEntries: Int = 6,
-    flattened: Bool = false,
-    includeInfo: Bool = true
+    lineWidth: Int = 80,
+    edgeElementCount: Int = 3,
+    summarizing: Bool = false
   ) {
-    self.maxEntries = maxEntries
-    self.flattened = flattened
-    self.includeInfo = includeInfo
+    self.lineWidth = lineWidth
+    self.edgeElementCount = edgeElementCount
+    self.summarizing = summarizing
   }
 
   public mutating func render(_ data: ShapedArray<Scalar>) throws {
-    print(data.summarize(
-      maxEntries: maxEntries,
-      flattened: flattened,
-      includeInfo: includeInfo))
+    print(data.description(
+      lineWidth: lineWidth,
+      edgeElementCount: edgeElementCount,
+      summarizing: summarizing))
   }
 }
 
 #if GLFW
-import CRetro
+import GLFW
 import Foundation
 
-public class SingleImageRenderer: Renderer {
+public struct TensorImageRenderer: Renderer {
+  public typealias Data = Tensor<UInt8>
+
+  private var renderer: ShapedArrayImageRenderer
+
+  public init(initialMaxWidth: Int32, framesPerSecond: Double? = nil) throws {
+    self.renderer = try ShapedArrayImageRenderer(
+      initialMaxWidth: initialMaxWidth, framesPerSecond: framesPerSecond)
+  }
+
+  public mutating func render(_ data: Tensor<UInt8>) throws {
+    try renderer.render(data.array)
+  }
+}
+
+public class ShapedArrayImageRenderer: Renderer {
   public typealias Data = ShapedArray<UInt8>
 
   public let framesPerSecond: Double?
@@ -87,7 +123,7 @@ public class SingleImageRenderer: Renderer {
       glClear(UInt32(GL_COLOR_BUFFER_BIT))
       
       // Generate the image texture.
-      try SingleImageRenderer.preprocessData(data).withUnsafeBufferPointer {
+      try ShapedArrayImageRenderer.preprocessData(data).withUnsafeBufferPointer {
         glTexImage2D(
           GLenum(GL_TEXTURE_2D), 0, GL_RGB8, GLsizei(data.shape[1]), GLsizei(data.shape[0]), 
           0, GLenum(GL_RGB), GLenum(GL_UNSIGNED_BYTE), $0.baseAddress)
@@ -110,13 +146,13 @@ public class SingleImageRenderer: Renderer {
   public func createWindow(width: Int32, height: Int32) throws {
     // Initialize GLFW.
     if glfwInit() == 0 {
-      throw RetroError.GLFWError("Failed to initialize GLFW.")
+      throw RLError.GLFWError("Failed to initialize GLFW.")
     }
 
     // Open a new window.
     guard let window = glfwCreateWindow(width, height, "Gym Retro", nil, nil) else {
       glfwTerminate()
-      throw RetroError.GLFWError("Failed to open a GLFW window.")
+      throw RLError.GLFWError("Failed to open a GLFW window.")
     }
 
     self.window = window

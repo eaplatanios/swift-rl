@@ -1,11 +1,12 @@
 import XCTest
 @testable import CRetro
+@testable import ReinforcementLearning
 @testable import Retro
 
 class EmulatorTests: XCTestCase {
-  let emulatorConfig: Emulator.Config = {
+  let emulatorConfig: RetroEmulator.Config = {
     let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift")
-    return try! Emulator.Config(
+    return try! RetroEmulator.Config(
       coreInformationLookupPath: retroURL.appendingPathComponent("retro/cores"),
       coreLookupPathHint: retroURL.appendingPathComponent("retro/retro/cores"),
       gameDataLookupPathHint: retroURL.appendingPathComponent("retro/retro/data"),
@@ -37,28 +38,22 @@ class EmulatorTests: XCTestCase {
     XCTAssert(emulatorConfig.games().contains(where: { $0.name == "Pong-Atari2600" }))
 
     #if GLFW
-    var renderer = try! SingleImageRenderer(initialMaxWidth: 800)
+    var renderer = try! TensorImageRenderer(initialMaxWidth: 800)
     #else
-    var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
+    var renderer = TensorPrinter<UInt8>(maxEntries: 10)
     #endif
-    
+
     // let game = emulatorConfig.game(called: "Airstriker-Genesis")!
     let game = emulatorConfig.game(called: "SpaceInvaders-Atari2600")!
-    let emulator = try! Emulator(for: game, configuredAs: emulatorConfig)
-    var environment = try! Environment(using: emulator, actionsType: FilteredActions())
-    try! environment.render(using: &renderer)
-    for _ in 0..<1000000 {
-      let action = environment.sampleAction()
-      let result = environment.step(taking: action)
-      try! environment.render(using: &renderer)
-      if result.reward[0] != 0 {
-        print(result.reward[0])
-      }
-      if result.finished {
-        environment.reset()
-      }
-    }
-    try! environment.render(using: &renderer)
+    let emulator = try! RetroEmulator(for: game, configuredAs: emulatorConfig)
+    var environment = try! RetroEnvironment(using: emulator, actionsType: FilteredActions())
+    let policy = RandomPolicy(for: environment)
+    var driver = StepBasedDriver(for: environment, using: policy, maxSteps: 1000000, batchSize: 1)
+    driver.run(using: environment.reset(), updating: [{
+      try! environment.render(
+        observation: $0.currentStep.observation,
+        using: &renderer)
+    }])
   }
 
 	// func testEmulatorScreenRate() {

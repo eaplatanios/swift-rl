@@ -1,10 +1,9 @@
-import AnyCodable
 import CRetro
-import CryptoSwift
 import Foundation
+import ReinforcementLearning
 import ZIPFoundation
 
-public struct Game: Hashable {
+public struct RetroGame: Hashable {
   public let name: String
   public let dataDir: URL
   public let romHashes: [String]
@@ -15,7 +14,7 @@ public struct Game: Hashable {
   public let states: [URL]
   public let scenarios: [URL]
 
-  public lazy var core: Core? = {
+  public lazy var core: RetroCore? = {
     for (coreName, core) in supportedCores {
       if name.hasSuffix("-\(coreName)") {
         return core
@@ -35,7 +34,7 @@ public struct Game: Hashable {
   }()
 }
 
-public extension Game {
+public extension RetroGame {
   init?(
     called name: String,
     withDataIn dataDir: URL,
@@ -68,10 +67,10 @@ public extension Game {
         states.insert(file)
       } else if file.pathExtension == "json" {
         guard let json = try? String(contentsOf: file) else { continue }
-        guard let decoded = try? [String: AnyCodable](fromJson: json) else { continue }
-        if decoded.keys.contains("reward") || 
-            decoded.keys.contains("rewards") || 
-            decoded.keys.contains("done") {
+        guard let keys = try? (JSONSerialization.jsonObject(
+            with: json.data(using: .utf8)!,
+            options: .mutableContainers) as? [String: Any])?.keys else { continue }
+        if keys.contains("reward") || keys.contains("rewards") || keys.contains("done") {
           scenarios.insert(file)
         }
       }
@@ -91,7 +90,7 @@ public extension Game {
   }
 }
 
-public extension Game {
+public extension RetroGame {
   struct Integration {
     public let paths: [String]
     public let name: String
@@ -116,7 +115,7 @@ public extension Game {
   }
 }
 
-internal extension Game {
+internal extension RetroGame {
   @usableFromInline
   class Data {
     @usableFromInline var handle: UnsafeMutablePointer<CGameData>?
@@ -184,7 +183,7 @@ internal extension Game {
   }
 }
 
-internal extension Game {
+internal extension RetroGame {
   @usableFromInline
   struct Metadata: Codable {
     let defaultState: String?
@@ -197,14 +196,14 @@ internal extension Game {
   }
 }
 
-fileprivate extension Game {
+fileprivate extension RetroGame {
   struct RomFinder {
     let atari2600RomsURLs: [String: URL] = [
       "ROMS.zip": URL(string: "https://dl.dropboxusercontent.com/s/uyb07bkcfzv60hz/ROMS.zip?dl=0")!,
       "HC ROMS.zip": URL(string: "https://dl.dropboxusercontent.com/s/qjzb553lxw5av8b/HC%20ROMS.zip?dl=0")!]
 
     func findRom(
-      core: Core?,
+      core: RetroCore?,
       romHashes: [String],
       gameDataDir: URL,
       lookupPaths: [URL] = [],
@@ -278,7 +277,7 @@ fileprivate extension Game {
 
     func findRom(
       for romHashes: [String],
-      core: Core?,
+      core: RetroCore?,
       inLookupPaths lookupPaths: [URL],
       gameDataDir dataDir: URL
     ) throws -> URL? {
@@ -327,22 +326,25 @@ fileprivate extension Game {
           }
           bytes = converted
         }
-        hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+        let bytesHash = bytes.sha1()
+        hash = (0..<20).map{String(format: "%02X", bytesHash[$0])}.joined()
       } else if ext == "nes" {
-        hash = [UInt8](bytes[16...]).sha1().map{String(format: "%02X", $0)}.joined()
+        let bytesHash = [UInt8](bytes[16...]).sha1()
+        hash = (0..<20).map{String(format: "%02X", bytesHash[$0])}.joined()
       } else {
         if bytes.count > 32 * 1024 * 1024 {
           throw RetroError.GameROMTooBig(
             "The ROM at '\(file)' is too big. Maximum supported size is 32MB.")
         }
-        hash = bytes.sha1().map{String(format: "%02X", $0)}.joined()
+        let bytesHash = bytes.sha1()
+        hash = (0..<20).map{String(format: "%02X", bytesHash[$0])}.joined()
       }
       return (bytes: bytes, hash: hash)
     }
   }
 }
 
-fileprivate extension Core {
+fileprivate extension RetroCore {
   func romURLs() -> [String: URL] {
     if name == "Atari2600" {
       return [

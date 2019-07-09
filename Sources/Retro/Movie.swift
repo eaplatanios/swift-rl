@@ -28,7 +28,9 @@ public class Movie {
     }
   }
 
-  public func configure<ActionsType: Retro.ActionsType>(for environment: Environment<ActionsType>) {
+  public func configure<ActionsType: Retro.ActionsType>(
+    for environment: RetroEnvironment<ActionsType>
+  ) {
     movieConfigure(handle, environment.game().name, environment.emulator.handle)
   }
 
