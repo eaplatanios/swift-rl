@@ -1,6 +1,8 @@
 import Foundation
 import TensorFlow
 
+public typealias TensorFlowSeed = (graph: Int32, op: Int32)
+
 public struct None: Differentiable {
   public init() { }
 }

@@ -6,13 +6,13 @@ public protocol Wrapper: Environment {
 
 public extension Wrapper where WrappedEnvironment.ActionSpace == ActionSpace {
   var actionSpace: ActionSpace {
-    get { return wrappedEnvironment.actionSpace }
+    get { wrappedEnvironment.actionSpace }
   }
 }
 
 public extension Wrapper where WrappedEnvironment.ObservationSpace == ObservationSpace {
   var observationSpace: ObservationSpace {
-    get { return wrappedEnvironment.observationSpace }
+    get { wrappedEnvironment.observationSpace }
   }
 }
 
@@ -23,13 +23,13 @@ where
   WrappedEnvironment.Reward == Reward
 {
   @inlinable
-  mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
-    return wrappedEnvironment.step(taking: action)
+  mutating func step(taking action: Action) -> Step<Observation, Reward> {
+    wrappedEnvironment.step(taking: action)
   }
 
   @inlinable
-  mutating func reset() -> EnvironmentStep<Observation, Reward> {
-    return wrappedEnvironment.reset()
+  mutating func reset() -> Step<Observation, Reward> {
+    wrappedEnvironment.reset()
   }
 }
 
@@ -40,7 +40,7 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
   public typealias Reward = WrappedEnvironment.Reward
   public typealias ActionSpace = WrappedEnvironment.ActionSpace
   public typealias ObservationSpace = WrappedEnvironment.ObservationSpace
-  
+
   public let batched: Bool = false
 
   public var wrappedEnvironment: WrappedEnvironment
@@ -56,11 +56,11 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
   }
 
   @inlinable
-  public mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
+  public mutating func step(taking action: Action) -> Step<Observation, Reward> {
     if resetRequired {
       return reset()
     }
-    
+
     var result = wrappedEnvironment.step(taking: action)
     numSteps += 1
 
@@ -77,10 +77,15 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
   }
 
   @inlinable
-  public mutating func reset() -> EnvironmentStep<Observation, Reward> {
+  public mutating func reset() -> Step<Observation, Reward> {
     numSteps = 0
     resetRequired = false
     return wrappedEnvironment.reset()
+  }
+
+  @inlinable
+  public func copy() throws -> TimeLimit<WrappedEnvironment> {
+    try TimeLimit(wrapping: wrappedEnvironment.copy(), withLimit: limit)
   }
 }
 
@@ -106,7 +111,7 @@ public struct ActionRepeat<WrappedEnvironment: Environment>: Wrapper
   }
 
   @inlinable
-  public mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
+  public mutating func step(taking action: Action) -> Step<Observation, Reward> {
     var result = wrappedEnvironment.step(taking: action)
     var reward = result.reward
     for _ in 1..<numRepeats {
@@ -117,6 +122,11 @@ public struct ActionRepeat<WrappedEnvironment: Environment>: Wrapper
       }
     }
     return result.copy(reward: reward)
+  }
+
+  @inlinable
+  public func copy() throws -> ActionRepeat<WrappedEnvironment> {
+    try ActionRepeat(wrapping: wrappedEnvironment.copy(), repeating: numRepeats)
   }
 }
 
@@ -132,18 +142,20 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
 
   public var wrappedEnvironment: WrappedEnvironment
 
+  // TODO: Add `private(set)` to the following properties.
+
   /// Number of `.first` steps.
-  public private(set) var numResets: Int = 0
+  public var numResets: Int = 0
 
   /// Number of `.last` steps. Note that this will not count for episodes that are not terminated 
   /// with a `.last` step.
-  public private(set) var numEpisodes: Int = 0
+  public var numEpisodes: Int = 0
 
   /// Number of steps in the current episode.
-  public private(set) var numEpisodeSteps: Int = 0
+  public var numEpisodeSteps: Int = 0
 
   /// Total number of steps, ignoring `.first` steps.
-  public private(set) var numTotalSteps: Int = 0
+  public var numTotalSteps: Int = 0
 
   public init(wrapping environment: WrappedEnvironment) {
     precondition(environment.batched == false, "The wrapped environment must not be batched.")
@@ -151,9 +163,9 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
   }
 
   @inlinable
-  public mutating func step(taking action: Action) -> EnvironmentStep<Observation, Reward> {
+  public mutating func step(taking action: Action) -> Step<Observation, Reward> {
     let result = wrappedEnvironment.step(taking: action)
-    
+
     if result.kind.isFirst().scalar! {
       numResets += 1
       numEpisodeSteps = 0
@@ -170,9 +182,14 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
   }
 
   @inlinable
-  public mutating func reset() -> EnvironmentStep<Observation, Reward> {
+  public mutating func reset() -> Step<Observation, Reward> {
     numResets += 1
     numEpisodeSteps = 0
     return wrappedEnvironment.reset()
+  }
+
+  @inlinable
+  public func copy() throws -> RunStatistics<WrappedEnvironment> {
+    try RunStatistics(wrapping: wrappedEnvironment.copy())
   }
 }

@@ -4,18 +4,18 @@ public protocol Stackable {
   associatedtype Stacked
 
   static func stack(_ values: [Self]) -> Stacked
-  static func unstack(_ value: Stacked) -> [Self]
+  func unstacked() -> [Self]
 }
 
 extension None: Stackable {
   public typealias Stacked = None
 
   public static func stack(_ values: [None]) -> None {
-    return None()
+    None()
   }
 
-  public static func unstack(_ values: None) -> [None] {
-    return [None]()
+  public func unstacked() -> [None] {
+    [None]()
   }
 }
 
@@ -23,11 +23,11 @@ extension Tensor: Stackable {
   public typealias Stacked = Tensor
 
   public static func stack(_ values: [Tensor]) -> Tensor {
-    return Tensor(stacking: values, alongAxis: 0)
+    Tensor(stacking: values, alongAxis: 0)
   }
 
-  public static func unstack(_ values: Tensor) -> [Tensor] {
-    return values.unstack()
+  public func unstacked() -> [Tensor] {
+    unstacked(alongAxis: 0)
   }
 }
 
