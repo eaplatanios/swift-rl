@@ -20,12 +20,16 @@ public struct Deterministic<Scalar: TensorFlowScalar & Equatable>: Distribution 
   }
 
   @inlinable
-  public func mode(seed: UInt64?) -> Tensor<Scalar> {
+  public func mode(
+    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
+  ) -> Tensor<Scalar> {
     return value
   }
 
   @inlinable
-  public func sample(seed: UInt64? = nil) -> Tensor<Scalar> {
+  public func sample(
+    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
+  ) -> Tensor<Scalar> {
     return value
   }
 }

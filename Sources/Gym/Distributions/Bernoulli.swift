@@ -35,18 +35,21 @@ public struct Bernoulli<Scalar: TensorFlowInteger>: DifferentiableDistribution {
   }
 
   @inlinable
-  public func mode(seed: UInt64?) -> Tensor<Scalar> {
+  public func mode(
+    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
+  ) -> Tensor<Scalar> {
     Tensor<Scalar>(logSigmoid(logits) .> log(0.5))
   }
 
   @inlinable
-  public func sample(seed: UInt64? = nil) -> Tensor<Scalar> {
+  public func sample(
+    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
+  ) -> Tensor<Scalar> {
     let logProbabilities = logSigmoid(logits)
-    let tfSeed = seed?.tensorFlowSeed() ?? TensorFlowSeed(graph: 0, op: 0)
     let uniform: Tensor<Float> = Raw.randomUniform(
       shape: logProbabilities.shapeTensor,
-      seed: tfSeed.graph,
-      seed2: tfSeed.op)
+      seed: Int64(seed.graph),
+      seed2: Int64(seed.op))
     return Tensor<Scalar>(logProbabilities .< log(uniform))
   }
 }

@@ -35,18 +35,21 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution {
   }
 
   @inlinable
-  public func mode(seed: UInt64?) -> Tensor<Scalar> {
+  public func mode(
+    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
+  ) -> Tensor<Scalar> {
     Tensor<Scalar>(logProbabilities.argmax(squeezingAxis: 1))
   }
 
   @inlinable
-  public func sample(seed: UInt64? = nil) -> Tensor<Scalar> {
-    let tfSeed = seed?.tensorFlowSeed() ?? TensorFlowSeed(graph: 0, op: 0)
+  public func sample(
+    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
+  ) -> Tensor<Scalar> {
     let multinomial: Tensor<Scalar> = Raw.multinomial(
       logits: logProbabilities,
       numSamples: Tensor<Int32>(1),
-      seed: tfSeed.graph,
-      seed2: tfSeed.op)
+      seed: Int64(seed.graph),
+      seed2: Int64(seed.op))
     return multinomial.gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
   }
 }
