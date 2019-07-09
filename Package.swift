@@ -8,9 +8,6 @@ let package = Package(
     platforms: [.macOS(.v10_12)],
     products: [
         .library(
-            name: "Gym",
-            targets: ["Gym"]),
-        .library(
             name: "ReinforcementLearning",
             targets: ["ReinforcementLearning"]),
         .library(
@@ -18,7 +15,6 @@ let package = Package(
             targets: ["Retro"])
     ],
     dependencies: [
-        .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.1.0"),
         .package(url: "https://github.com/1024jp/GzipSwift.git", from: "4.1.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", .branch("master"))
     ],
@@ -32,14 +28,10 @@ let package = Package(
                 .linkedLibrary("glfw"),
                 .unsafeFlags(["-L/usr/local/lib"])]),
         .target(
-            name: "Gym",
-            dependencies: ["GLFW"],
-            path: "Sources/Gym",
-            swiftSettings: [.define("GLFW")]),
-        .target(
             name: "ReinforcementLearning",
-            dependencies: ["Gym"],
-            path: "Sources/ReinforcementLearning"),
+            dependencies: ["GLFW"],
+            path: "Sources/ReinforcementLearning",
+            swiftSettings: [.define("GLFW")]),
         .target(
             name: "CRetro",
             path: ".",
@@ -50,9 +42,7 @@ let package = Package(
                 .unsafeFlags(["-L./retro"])]),
         .target(
             name: "Retro",
-            dependencies: [
-                "CRetro", "ReinforcementLearning",
-                "AnyCodable", "Gzip", "ZIPFoundation"],
+            dependencies: ["CRetro", "ReinforcementLearning", "Gzip", "ZIPFoundation"],
             path: "Sources/Retro"),
         .testTarget(
             name: "RetroTests",

@@ -1,7 +1,6 @@
-import AnyCodable
 import CRetro
 import Foundation
-import Gym
+import ReinforcementLearning
 import ZIPFoundation
 
 public struct RetroGame: Hashable {
@@ -68,10 +67,10 @@ public extension RetroGame {
         states.insert(file)
       } else if file.pathExtension == "json" {
         guard let json = try? String(contentsOf: file) else { continue }
-        guard let decoded = try? [String: AnyCodable](fromJson: json) else { continue }
-        if decoded.keys.contains("reward") || 
-            decoded.keys.contains("rewards") || 
-            decoded.keys.contains("done") {
+        guard let keys = try? (JSONSerialization.jsonObject(
+            with: json.data(using: .utf8)!,
+            options: .mutableContainers) as? [String: Any])?.keys else { continue }
+        if keys.contains("reward") || keys.contains("rewards") || keys.contains("done") {
           scenarios.insert(file)
         }
       }
