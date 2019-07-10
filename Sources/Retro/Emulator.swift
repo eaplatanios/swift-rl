@@ -4,6 +4,14 @@ import Gzip
 import ReinforcementLearning
 import TensorFlow
 
+public enum RetroError: Error {
+  case UnsupportedROMFile(URL)
+  case UnsupportedCore(String)
+  case GameDataFailure(String)
+  case GameROMNotFound(String)
+  case GameROMTooBig(String)
+}
+
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 internal let libExtension = "dylib"
 #elseif os(Linux)
