@@ -38,9 +38,10 @@ public extension Environment {
 
 /// Contains the data emitted by an environment at a single step of interaction.
 public struct Step<Observation, Reward> {
-  public let kind: StepKind
-  public let observation: Observation
-  public let reward: Reward
+  // TODO: Make `internal(set)` once `@usableFromInline` is supported.
+  public var kind: StepKind
+  public var observation: Observation
+  public var reward: Reward
 
   public init(kind: StepKind, observation: Observation, reward: Reward) {
     self.kind = kind
@@ -61,6 +62,10 @@ public struct Step<Observation, Reward> {
   }
 }
 
+// TODO: Why do we need to also add `TensorArrayProtocol` here?
+extension Step: TensorGroup, TensorArrayProtocol
+where Observation: TensorGroup, Reward: TensorGroup {}
+
 extension Step: Stackable where Observation: Stackable, Reward: Stackable {
   public static func stack(_ values: [Step]) -> Step<Observation.Stacked, Reward.Stacked> {
     Step<Observation.Stacked, Reward.Stacked>(
@@ -76,9 +81,33 @@ extension Step: Stackable where Observation: Stackable, Reward: Stackable {
   }
 }
 
+// TODO: Should be derived automatically.
+extension Step: Replayable where Observation: Replayable, Reward: Replayable {
+  public init(emptyLike example: Step, withCapacity capacity: Int) {
+    self.init(
+      kind: StepKind(emptyLike: example.kind, withCapacity: capacity),
+      observation: Observation(emptyLike: example.observation, withCapacity: capacity),
+      reward: Reward(emptyLike: example.reward, withCapacity: capacity))
+  }
+
+  public mutating func update(atIndices indices: Tensor<Int64>, using values: Step) {
+    kind.update(atIndices: indices, using: values.kind)
+    observation.update(atIndices: indices, using: values.observation)
+    reward.update(atIndices: indices, using: values.reward)
+  }
+
+  public func gathering(atIndices indices: Tensor<Int64>) -> Step {
+    Step(
+      kind: kind.gathering(atIndices: indices),
+      observation: observation.gathering(atIndices: indices),
+      reward: reward.gathering(atIndices: indices))
+  }
+}
+
 /// Represents the type of a step.
-public struct StepKind {
-  public let rawValue: Tensor<Int32>
+public struct StepKind: TensorGroup {
+  // TODO: Make `internal(set)` once `@usableFromInline` is supported.
+  public var rawValue: Tensor<Int32>
 
   public init(_ rawValue: Tensor<Int32>) {
     self.rawValue = rawValue
@@ -118,5 +147,20 @@ extension StepKind: Stackable {
 
   public func unstacked() -> [StepKind] {
     rawValue.unstacked().map(StepKind.init)
+  }
+}
+
+// TODO: Should be derived automatically.
+extension StepKind: Replayable {
+  public init(emptyLike example: StepKind, withCapacity capacity: Int) {
+    self.init(Tensor<Int32>(zeros: [capacity]))
+  }
+
+  public mutating func update(atIndices indices: Tensor<Int64>, using values: StepKind) {
+    rawValue.update(atIndices: indices, using: values.rawValue)
+  }
+
+  public func gathering(atIndices indices: Tensor<Int64>) -> StepKind {
+    StepKind(rawValue.gathering(atIndices: indices))
   }
 }

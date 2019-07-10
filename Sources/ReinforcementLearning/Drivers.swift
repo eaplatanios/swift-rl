@@ -25,7 +25,8 @@ public protocol Driver {
 }
 
 public extension Driver where State == None {
-  @inlinable @discardableResult
+  @discardableResult
+  @inlinable
   mutating func run(
     using step: Step<Observation, Reward>,
     updating listeners: [Listener]

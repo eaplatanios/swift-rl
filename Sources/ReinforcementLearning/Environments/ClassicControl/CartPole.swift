@@ -110,36 +110,11 @@ extension CartPoleEnvironment {
       upperBound: Tensor<Float>(0.05))
   }
 
-  public struct Observation: Stackable {
-    public let position: Tensor<Float>
-    public let positionDerivative: Tensor<Float>
-    public let angle: Tensor<Float>
-    public let angleDerivative: Tensor<Float>
-
-    public static func stack(_ values: [Observation]) -> Observation {
-      Observation(
-        position: Tensor(stacking: values.map { $0.position }, alongAxis: 0),
-        positionDerivative: Tensor(stacking: values.map { $0.positionDerivative }, alongAxis: 0),
-        angle: Tensor(stacking: values.map { $0.angle }, alongAxis: 0),
-        angleDerivative: Tensor(stacking: values.map { $0.angleDerivative }, alongAxis: 0))
-    }
-
-    public func unstacked() -> [Observation] {
-      let positions = position.unstacked(alongAxis: 0)
-      let positionDerivatives = positionDerivative.unstacked(alongAxis: 0)
-      let angles = angle.unstacked(alongAxis: 0)
-      let angleDerivatives = angleDerivative.unstacked(alongAxis: 0)
-      // TODO: Make this more efficient with a zip operation.
-      var observations = [Observation]()
-      for i in positions.indices {
-        observations.append(Observation(
-          position: positions[i],
-          positionDerivative: positionDerivatives[i],
-          angle: angles[i],
-          angleDerivative: angleDerivatives[i]))
-      }
-      return observations
-    }    
+  public struct Observation: TensorGroup {
+    public var position: Tensor<Float>
+    public var positionDerivative: Tensor<Float>
+    public var angle: Tensor<Float>
+    public var angleDerivative: Tensor<Float> 
   }
 
   public struct ObservationSpace: Space {
@@ -161,7 +136,7 @@ extension CartPoleEnvironment {
       true
     }
 
-    public struct ValueDistribution: DifferentiableDistribution {
+    public struct ValueDistribution: DifferentiableDistribution, TensorGroup {
       private var positionDistribution: Uniform<Float> = Uniform<Float>(
         lowerBound: Tensor<Float>(0),
         upperBound: Tensor<Float>(positionThreshold * 2))
@@ -211,6 +186,111 @@ extension CartPoleEnvironment {
           angleDerivative: angleDerivativeDistribution.sample(usingSeed: seed))
       }
     }
+  }
+}
+
+extension CartPoleEnvironment.Observation: Stackable {
+  public typealias Observation = CartPoleEnvironment.Observation
+
+  public static func stack(_ values: [Observation]) -> Observation {
+    Observation(
+      position: Tensor(stacking: values.map { $0.position }, alongAxis: 0),
+      positionDerivative: Tensor(stacking: values.map { $0.positionDerivative }, alongAxis: 0),
+      angle: Tensor(stacking: values.map { $0.angle }, alongAxis: 0),
+      angleDerivative: Tensor(stacking: values.map { $0.angleDerivative }, alongAxis: 0))
+  }
+
+  public func unstacked() -> [Observation] {
+    let positions = position.unstacked(alongAxis: 0)
+    let positionDerivatives = positionDerivative.unstacked(alongAxis: 0)
+    let angles = angle.unstacked(alongAxis: 0)
+    let angleDerivatives = angleDerivative.unstacked(alongAxis: 0)
+    // TODO: Make this more efficient with a zip operation.
+    var observations = [Observation]()
+    for i in positions.indices {
+      observations.append(Observation(
+        position: positions[i],
+        positionDerivative: positionDerivatives[i],
+        angle: angles[i],
+        angleDerivative: angleDerivatives[i]))
+    }
+    return observations
+  }
+}
+
+// TODO: Should be derived automatically.
+extension CartPoleEnvironment.Observation: Replayable {
+  public init(emptyLike example: Observation, withCapacity capacity: Int) {
+    self.init(
+      position: Tensor<Float>(emptyLike: example.position, withCapacity: capacity),
+      positionDerivative: Tensor<Float>(
+        emptyLike: example.positionDerivative,
+        withCapacity: capacity),
+      angle: Tensor<Float>(emptyLike: example.angle, withCapacity: capacity),
+      angleDerivative: Tensor<Float>(emptyLike: example.angleDerivative, withCapacity: capacity))
+  }
+
+  public mutating func update(atIndices indices: Tensor<Int64>, using values: Observation) {
+    position.update(atIndices: indices, using: values.position)
+    positionDerivative.update(atIndices: indices, using: values.positionDerivative)
+    angle.update(atIndices: indices, using: values.angle)
+    angleDerivative.update(atIndices: indices, using: values.angleDerivative)
+  }
+
+  public func gathering(atIndices indices: Tensor<Int64>) -> Observation {
+    Observation(
+      position: position.gathering(atIndices: indices),
+      positionDerivative: positionDerivative.gathering(atIndices: indices),
+      angle: angle.gathering(atIndices: indices),
+      angleDerivative: angleDerivative.gathering(atIndices: indices))
+  }
+}
+
+// TODO: Should be derived automatically.
+extension CartPoleEnvironment.ObservationSpace.ValueDistribution: Replayable {
+  public typealias ValueDistribution = CartPoleEnvironment.ObservationSpace.ValueDistribution
+
+  public init(emptyLike example: ValueDistribution, withCapacity capacity: Int) {
+    self.init(
+      positionDistribution: Uniform<Float>(
+        emptyLike: example.positionDistribution,
+        withCapacity: capacity),
+      positionDerivativeDistribution: Uniform<Float>(
+        emptyLike: example.positionDerivativeDistribution,
+        withCapacity: capacity),
+      angleDistribution: Uniform<Float>(
+        emptyLike: example.angleDistribution,
+        withCapacity: capacity),
+      angleDerivativeDistribution: Uniform<Float>(
+        emptyLike: example.angleDerivativeDistribution,
+        withCapacity: capacity))
+  }
+
+  public mutating func update(
+    atIndices indices: Tensor<Int64>,
+    using values: ValueDistribution
+  ) {
+    positionDistribution.update(
+      atIndices: indices,
+      using: values.positionDistribution)
+    positionDerivativeDistribution.update(
+      atIndices: indices,
+      using: values.positionDerivativeDistribution)
+    angleDistribution.update(
+      atIndices: indices,
+      using: values.angleDistribution)
+    angleDerivativeDistribution.update(
+      atIndices: indices,
+      using: values.angleDerivativeDistribution)
+  }
+
+  public func gathering(atIndices indices: Tensor<Int64>) -> ValueDistribution {
+    ValueDistribution(
+      positionDistribution: positionDistribution.gathering(atIndices: indices),
+      positionDerivativeDistribution: positionDerivativeDistribution.gathering(
+        atIndices: indices),
+      angleDistribution: angleDistribution.gathering(atIndices: indices),
+      angleDerivativeDistribution: angleDerivativeDistribution.gathering(atIndices: indices))
   }
 }
 

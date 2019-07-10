@@ -1,6 +1,6 @@
 import TensorFlow
 
-public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution {
+public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, TensorGroup {
   /// Log-probabilities of this categorical distribution.
   public var logProbabilities: Tensor<Float>
 
@@ -54,5 +54,22 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution {
     return multinomial
       .gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
       .gathering(atIndices: Tensor<Int32>(0), alongAxis: 0)
+  }
+}
+
+// TODO: Should be derived automatically.
+extension Categorical: Replayable {
+  public init(emptyLike example: Categorical, withCapacity capacity: Int) {
+    self.init(logProbabilities: Tensor<Float>(
+      emptyLike: example.logProbabilities,
+      withCapacity: capacity))
+  }
+
+  public mutating func update(atIndices indices: Tensor<Int64>, using values: Categorical) {
+    logProbabilities.update(atIndices: indices, using: values.logProbabilities)
+  }
+
+  public func gathering(atIndices indices: Tensor<Int64>) -> Categorical {
+    Categorical(logProbabilities: logProbabilities.gathering(atIndices: indices))
   }
 }
