@@ -59,12 +59,11 @@ where
     let normalizedRewards = rewardsNormalizer(Tensor<Float>(stacking: rewards))
 
     // Tensor<Scalar> with shape [T, B, ...]
-    let stackedActions = Tensor<Scalar>.stack(
-      trajectory.map{ $0.policyInformation.action })
+    let stackedActions = Tensor<Scalar>.stack(trajectory.map{ $0.action })
     let stackedStep = Step<Observation, Reward>.stack(
       trajectory.map{ $0.currentStep }).copy(reward: normalizedRewards)
 
-    policy.state = State.stack(trajectory.map{ $0.policyInformation.state })
+    policy.state = State.stack(trajectory.map{ $0.policyState })
 
     let (loss, gradient) = policy.valueWithGradient {
       [entropyRegularizationWeight] policy -> Tensor<Float> in

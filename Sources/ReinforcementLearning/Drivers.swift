@@ -35,13 +35,14 @@ public extension Driver where State == None {
   }
 }
 
-public typealias Trajectory<Action, Observation, Reward, State> = 
+public typealias Trajectory<Action, Observation, Reward, State> =
   [TrajectoryStep<Action, Observation, Reward, State>]
 
 public struct TrajectoryStep<Action, Observation, Reward, State> {
-  public let currentStep: Step<Observation, Reward>
-  public let nextStep: Step<Observation, Reward>
-  public let policyInformation: (action: Action, state: State)
+  public var currentStep: Step<Observation, Reward>
+  public var nextStep: Step<Observation, Reward>
+  public var action: Action
+  public var policyState: State
 
   @inlinable
   public func isFirst() -> Tensor<Bool> {
@@ -61,6 +62,38 @@ public struct TrajectoryStep<Action, Observation, Reward, State> {
   @inlinable
   public func isBoundary() -> Tensor<Bool> {
     currentStep.kind.isLast()
+  }
+}
+
+extension TrajectoryStep: TensorGroup, TensorArrayProtocol
+where Action: TensorGroup, Observation: TensorGroup, Reward: TensorGroup, State: TensorGroup {}
+
+// TODO: Should be derived automatically.
+extension TrajectoryStep: Replayable
+where Action: Replayable, Observation: Replayable, Reward: Replayable, State: Replayable {
+  public init(emptyLike example: TrajectoryStep, withCapacity capacity: Int) {
+    self.init(
+      currentStep: Step<Observation, Reward>(
+        emptyLike: example.currentStep,
+        withCapacity: capacity),
+      nextStep: Step<Observation, Reward>(emptyLike: example.nextStep, withCapacity: capacity),
+      action: Action(emptyLike: example.action, withCapacity: capacity),
+      policyState: State(emptyLike: example.policyState, withCapacity: capacity))
+  }
+
+  public mutating func update(atIndices indices: Tensor<Int64>, using values: TrajectoryStep) {
+    currentStep.update(atIndices: indices, using: values.currentStep)
+    nextStep.update(atIndices: indices, using: values.nextStep)
+    action.update(atIndices: indices, using: values.action)
+    policyState.update(atIndices: indices, using: values.policyState)
+  }
+
+  public func gathering(atIndices indices: Tensor<Int64>) -> TrajectoryStep {
+    TrajectoryStep(
+      currentStep: currentStep.gathering(atIndices: indices),
+      nextStep: nextStep.gathering(atIndices: indices),
+      action: action.gathering(atIndices: indices),
+      policyState: policyState.gathering(atIndices: indices))
   }
 }
 
@@ -158,7 +191,8 @@ extension StepBasedDriver: Driver {
       let trajectoryStep = TrajectoryStep(
         currentStep: currentStep,
         nextStep: nextStep,
-        policyInformation: (action: action, state: state))
+        action: action,
+        policyState: state)
       listeners.forEach { $0(trajectoryStep) }
       numSteps += Int(Tensor<Int32>(trajectoryStep.isBoundary()).sum().scalar!)
       numEpisodes += Int(Tensor<Int32>(trajectoryStep.isLast()).sum().scalar!)
