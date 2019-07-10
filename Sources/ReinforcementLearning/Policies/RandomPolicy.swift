@@ -1,27 +1,32 @@
 
 /// Represents a policy that takes completely random actions.
-public struct RandomPolicy<Observation, Reward, ActionSpace: Space>: ProbabilisticPolicy {
-  public typealias Action = ActionSpace.Value
+public struct RandomPolicy<ManagedEnvironment: Environment>: ProbabilisticPolicy {
+  public typealias Action = ManagedEnvironment.ActionSpace.Value
+  public typealias ActionDistribution = ManagedEnvironment.ActionSpace.ValueDistribution
+  public typealias Observation = ManagedEnvironment.ObservationSpace.Value
+  public typealias Reward = ManagedEnvironment.Reward
   public typealias State = None
 
   public let batched: Bool = false
 
+  public let environment: ManagedEnvironment
   public let randomSeed: TensorFlowSeed
-  public let actionSpace: ActionSpace
 
   public var state: None = None()
 
-  public init<E: Environment>(
-    for environment: E,
+  public init(
+    for environment: ManagedEnvironment,
     randomSeed: TensorFlowSeed = Context.local.randomSeed
-  ) where E.Reward == Reward,
-          E.ActionSpace == ActionSpace,
-          E.ObservationSpace.Value == Observation {
-    self.actionSpace = environment.actionSpace
+  ) {
+    self.environment = environment
     self.randomSeed = randomSeed
   }
 
-  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionSpace.ValueDistribution {
-    actionSpace.distribution
+  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
+    environment.actionSpace.distribution
+  }
+
+  public func copy() -> RandomPolicy {
+    RandomPolicy(for: environment, randomSeed: randomSeed)
   }
 }

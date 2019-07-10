@@ -144,8 +144,8 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @inlinable
-  public func copy() throws -> RetroEnvironment<ActionsType> {
-    try RetroEnvironment(
+  public func copy() -> RetroEnvironment<ActionsType> {
+    try! RetroEnvironment(
       using: emulator.copy(),
       actionsType: actionsType,
       observationsType: observationsType,

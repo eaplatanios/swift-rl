@@ -19,7 +19,7 @@ public protocol Environment {
   mutating func reset() -> Step<Observation, Reward>
 
   /// Returns a copy of this environment that is reset before being returned.
-  func copy() throws -> Self
+  func copy() -> Self
 }
 
 public extension Environment {

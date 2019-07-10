@@ -41,4 +41,13 @@ where ActorNetwork.Output: DifferentiableDistribution {
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
     actorNetwork(observationsNormalizer(step.observation))
   }
+
+  public func copy() -> ActorPolicy {
+    var policy = ActorPolicy(
+      actorNetwork: actorNetwork,
+      observationsNormalizer: observationsNormalizer,
+      randomSeed: randomSeed)
+    policy.state = state
+    return policy
+  }
 }

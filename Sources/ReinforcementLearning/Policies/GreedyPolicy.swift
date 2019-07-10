@@ -34,4 +34,10 @@ public struct GreedyPolicy<
     let action = distribution.mode(usingSeed: randomSeed)
     return Deterministic(at: action)
   }
+
+  public func copy() -> GreedyPolicy {
+    var policy = GreedyPolicy(wrapping: wrappedPolicy.copy())
+    policy.state = state
+    return policy
+  }
 }

@@ -12,15 +12,26 @@ fileprivate let totalMass: Float = cartMass + poleMass
 fileprivate let poleMassLength: Float = poleMass * length
 
 public struct CartPoleEnvironment: Environment {
-  public let batched: Bool = true
+  public let batchSize: Int
+  public let batched: Bool
   public let actionSpace: Discrete = Discrete(withSize: 2)
   public var observationSpace: ObservationSpace = ObservationSpace()
 
-  private var position: Tensor<Float> = CartPoleEnvironment.randomTensor()
-  private var positionDerivative: Tensor<Float> = CartPoleEnvironment.randomTensor()
-  private var angle: Tensor<Float> = CartPoleEnvironment.randomTensor()
-  private var angleDerivative: Tensor<Float> = CartPoleEnvironment.randomTensor()
-  private var needsReset: Tensor<Bool> = Tensor<Bool>([false])
+  private var position: Tensor<Float>
+  private var positionDerivative: Tensor<Float>
+  private var angle: Tensor<Float>
+  private var angleDerivative: Tensor<Float>
+  private var needsReset: Tensor<Bool>
+
+  public init(batchSize: Int = 1) {
+    self.batchSize = batchSize
+    self.batched = batchSize > 1
+    self.position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    self.positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    self.angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    self.angleDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    self.needsReset = Tensor<Bool>(false)
+  }
 
   /// Updates the environment according to the provided action.
   @discardableResult
@@ -41,20 +52,24 @@ public struct CartPoleEnvironment: Environment {
 
     // Take into account the finished simulations in the batch.
     position = position.replacing(
-      with: CartPoleEnvironment.randomTensor(), where: needsReset)
+      with: CartPoleEnvironment.randomTensor(withShape: position.shape),
+      where: needsReset)
     positionDerivative = positionDerivative.replacing(
-      with: CartPoleEnvironment.randomTensor(), where: needsReset)
+      with: CartPoleEnvironment.randomTensor(withShape: positionDerivative.shape),
+      where: needsReset)
     angle = angle.replacing(
-      with: CartPoleEnvironment.randomTensor(), where: needsReset)
+      with: CartPoleEnvironment.randomTensor(withShape: angle.shape),
+      where: needsReset)
     angleDerivative = angleDerivative.replacing(
-      with: CartPoleEnvironment.randomTensor(), where: needsReset)
+      with: CartPoleEnvironment.randomTensor(withShape: angleDerivative.shape),
+      where: needsReset)
     let newNeedsReset = needsReset.elementsLogicalNot().elementsLogicalOr(
       (position .< -positionThreshold)
         .elementsLogicalOr(position .> positionThreshold)
         .elementsLogicalOr(angle .< -angleThreshold)
         .elementsLogicalOr(angle .> angleThreshold))
     let kind = StepKind((Tensor<Int32>(newNeedsReset) + 1)
-      .replacing(with: Tensor<Int32>(zeros: [1]), where: needsReset))
+      .replacing(with: Tensor<Int32>(zeros: newNeedsReset.shape), where: needsReset))
     let observation = Observation(
       position: position,
       positionDerivative: positionDerivative,
@@ -72,7 +87,7 @@ public struct CartPoleEnvironment: Environment {
     positionDerivative = CartPoleEnvironment.randomTensor()
     angle = CartPoleEnvironment.randomTensor()
     angleDerivative = CartPoleEnvironment.randomTensor()
-    needsReset = Tensor<Bool>([false])
+    needsReset = Tensor<Bool>(false)
     let observation = Observation(
       position: position,
       positionDerivative: positionDerivative,
@@ -82,15 +97,15 @@ public struct CartPoleEnvironment: Environment {
   }
 
   /// Returns a copy of this environment that is reset before being returned.
-  public func copy() throws -> CartPoleEnvironment {
-    CartPoleEnvironment()
+  public func copy() -> CartPoleEnvironment {
+    CartPoleEnvironment(batchSize: batchSize)
   }
 }
 
 extension CartPoleEnvironment {
-  private static func randomTensor() -> Tensor<Float> {
+  private static func randomTensor(withShape shape: TensorShape = []) -> Tensor<Float> {
     Tensor<Float>(
-      randomUniform: [1],
+      randomUniform: shape,
       lowerBound: Tensor<Float>(-0.05),
       upperBound: Tensor<Float>(0.05))
   }
@@ -244,7 +259,7 @@ public struct CartPoleRenderer: Renderer, GLFWScene {
         name: "CartPole Environment",
         width: windowWidth,
         height: windowHeight,
-        framesPerSecond: 10)
+        framesPerSecond: 60)
     let (cl, cr, ct, cb) = (
       -cartWidth / 2, cartWidth / 2,
       cartHeight / 2, -cartHeight / 2)
@@ -280,8 +295,9 @@ public struct CartPoleRenderer: Renderer, GLFWScene {
 
   @inlinable
   public mutating func render(_ data: CartPoleEnvironment.Observation) throws {
-    let position = data.position.scalarized()
-    let angle = data.angle.scalarized()
+    // TODO: Support batched environments.
+    let position = data.position[0].scalarized()
+    let angle = data.angle[0].scalarized()
     cartTransform.translation = (position * scale + Float(windowWidth) / 2, cartTop)
     poleTransform.rotation = -angle
     window.render(scene: self)

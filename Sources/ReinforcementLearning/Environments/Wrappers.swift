@@ -84,8 +84,8 @@ public struct TimeLimit<WrappedEnvironment: Environment>: Wrapper {
   }
 
   @inlinable
-  public func copy() throws -> TimeLimit<WrappedEnvironment> {
-    try TimeLimit(wrapping: wrappedEnvironment.copy(), withLimit: limit)
+  public func copy() -> TimeLimit<WrappedEnvironment> {
+    TimeLimit(wrapping: wrappedEnvironment.copy(), withLimit: limit)
   }
 }
 
@@ -125,8 +125,8 @@ public struct ActionRepeat<WrappedEnvironment: Environment>: Wrapper
   }
 
   @inlinable
-  public func copy() throws -> ActionRepeat<WrappedEnvironment> {
-    try ActionRepeat(wrapping: wrappedEnvironment.copy(), repeating: numRepeats)
+  public func copy() -> ActionRepeat<WrappedEnvironment> {
+    ActionRepeat(wrapping: wrappedEnvironment.copy(), repeating: numRepeats)
   }
 }
 
@@ -189,7 +189,7 @@ public struct RunStatistics<WrappedEnvironment: Environment>: Wrapper {
   }
 
   @inlinable
-  public func copy() throws -> RunStatistics<WrappedEnvironment> {
-    try RunStatistics(wrapping: wrappedEnvironment.copy())
+  public func copy() -> RunStatistics<WrappedEnvironment> {
+    RunStatistics(wrapping: wrappedEnvironment.copy())
   }
 }

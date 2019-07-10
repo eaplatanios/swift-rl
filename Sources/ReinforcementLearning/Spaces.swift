@@ -77,7 +77,7 @@ public struct MultiDiscrete: Space {
 
   public func contains(_ value: Tensor<Int32>) -> Bool {
     let scalars = value.scalars
-    return scalars.allSatisfy{$0 >= 0} && zip(scalars, sizes).allSatisfy{$0 < $1}
+    return scalars.allSatisfy { $0 >= 0 } && zip(scalars, sizes).allSatisfy { $0 < $1 }
   }
 
   public struct ValueDistribution: DifferentiableDistribution {

@@ -50,6 +50,9 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution {
       numSamples: Tensor<Int32>(1),
       seed: Int64(seed.graph),
       seed2: Int64(seed.op))
-    return multinomial.gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
+    // TODO: Proper handling of batched samples.
+    return multinomial
+      .gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
+      .gathering(atIndices: Tensor<Int32>(0), alongAxis: 0)
   }
 }

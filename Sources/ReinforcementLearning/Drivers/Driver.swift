@@ -15,9 +15,6 @@ public protocol Driver {
 
   typealias Listener = (TrajectoryStep<Action, Observation, Reward, State>) -> Void
 
-  var environment: ManagedEnvironment { get }
-  var policy: ManagedPolicy { get }
-
   /// Takes steps in the managed environment using the managed policy.
   @discardableResult
   mutating func run(

@@ -11,6 +11,7 @@ public protocol Policy {
 
   func initialize(using observation: Observation)
   func action(for step: Step<Observation, Reward>) -> Action
+  func copy() -> Self
 }
 
 public extension Policy where State == None {
