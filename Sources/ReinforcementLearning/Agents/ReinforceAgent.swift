@@ -3,7 +3,7 @@ import TensorFlow
 public struct ReinforceAgent<
   Scalar: TensorFlowScalar & Equatable,
   ActorNetwork: Network,
-  Optimizer: ReinforcementLearning.Optimizer
+  Optimizer: TensorFlow.Optimizer
 >: Agent
 where
   ActorNetwork.Input: Stackable,

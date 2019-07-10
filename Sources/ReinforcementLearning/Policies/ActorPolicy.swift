@@ -43,11 +43,9 @@ where ActorNetwork.Output: DifferentiableDistribution {
   }
 
   public func copy() -> ActorPolicy {
-    var policy = ActorPolicy(
-      actorNetwork: actorNetwork,
+    ActorPolicy(
+      actorNetwork: actorNetwork.copy(),
       observationsNormalizer: observationsNormalizer,
       randomSeed: randomSeed)
-    policy.state = state
-    return policy
   }
 }
