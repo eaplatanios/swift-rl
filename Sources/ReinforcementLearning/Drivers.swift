@@ -173,8 +173,8 @@ extension StepBasedDriver: Driver {
         action: action,
         policyState: state)
       listeners.forEach { $0(trajectory) }
-      numSteps += Int(Tensor<Int32>(trajectory.isBoundary()).sum().scalar!)
-      numEpisodes += Int(Tensor<Int32>(trajectory.isLast()).sum().scalar!)
+      numSteps += Int(Tensor<Int32>(trajectory.isBoundary().elementsLogicalNot()).sum().scalar!)
+      numEpisodes += Int(Tensor<Int32>(trajectory.isBoundary()).sum().scalar!)
       currentStep = nextStep
     }
     return currentStep

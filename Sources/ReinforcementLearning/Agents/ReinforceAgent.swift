@@ -88,11 +88,21 @@ where
     entropyRegularizationWeight: Float
   ) -> Tensor<Float> {
     let distribution = policy.actionDistribution(for: step)
-    let logProbability = distribution.logProbability(of: action)
-    let loss = logProbability * step.reward
-    let maskedLoss = loss * Tensor<Float>(step.kind.isLast())
-    let policyLoss = -maskedLoss.sum()
-    let entropyLoss = -distribution.entropy().mean()
-    return policyLoss + entropyRegularizationWeight * entropyLoss
+    let actionLogProbs = distribution.logProbability(of: action)
+
+    // Policy gradient loss is defined as the sum, over time steps, of action log-probabilities
+    // multiplied with the cumulative return from that time step onward.
+    let actionLogProbWeightedReturns = actionLogProbs * step.reward
+    
+    // We mask out partial episodes at the end of each batch and also transitions between the end
+    // state of previous episodes and the start state of the next episode.
+    let isLast = Tensor<Float>(step.kind.isLast())
+    let mask = Tensor<Float>(isLast.cumulativeSum(alongAxis: 1, reverse: true) .> 0) * (1 - isLast)
+    let episodeCount = isLast.sum()
+
+    // We compute the mean of the policy gradient loss over the number of episodes.
+    let policyGradientLoss = -(actionLogProbWeightedReturns * mask).sum() / episodeCount
+    let entropyLoss = entropyRegularizationWeight * -(distribution.entropy() * mask).mean()
+    return policyGradientLoss + entropyLoss
   }
 }

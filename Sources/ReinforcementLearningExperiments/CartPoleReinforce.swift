@@ -17,7 +17,9 @@ import ReinforcementLearning
 fileprivate struct ActorNetwork: Network {
   @noDerivative public var state: None = None()
 
-  public var dense: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 2)
+  // public var dense: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 2)
+  public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 6)
+  public var dense2: Dense<Float> = Dense<Float>(inputSize: 6, outputSize: 2)
 
   public func initialize(using input: CartPoleEnvironment.Observation) {}
 
@@ -30,7 +32,8 @@ fileprivate struct ActorNetwork: Network {
       alongAxis: input.position.rank)
     let outerDimCount = stackedInput.rank - 1
     let flattenedBatchStackedInput = stackedInput.flattenedBatch(outerDimCount: outerDimCount)
-    let logits = dense(flattenedBatchStackedInput)
+    // let logits = dense(flattenedBatchStackedInput)
+    let logits = dense2(leakyRelu(dense1(flattenedBatchStackedInput)))
     let flattenedDistribution = Categorical<Int32>(logits: logits)
     return flattenedDistribution.unflattenedBatch(
       outerDims: [Int](stackedInput.shape.dimensions[0..<outerDimCount]))
@@ -67,17 +70,19 @@ public func runCartPoleReinforce() {
   var driver = StepBasedDriver(
     for: environment,
     using: agent.policy,
-    maxEpisodes: 100,
-    batchSize: 32)
+    maxEpisodes: 128,
+    batchSize: batchSize)
 
   agent.initialize()
 
-  for step in 0..<1000 {
+  for step in 0..<10000 {
     driver.run(using: environment.reset(), updating: [{ trajectoryStep in
       replayBuffer.record(trajectoryStep)
-      try! environment.render(
-        observation: trajectoryStep.currentStep.observation,
-        using: &renderer)
+      if step > 200 {
+        try! environment.render(
+          observation: trajectoryStep.currentStep.observation,
+          using: &renderer)
+      }
     }])
     let loss = agent.update(using: replayBuffer.recordedData())
     print("Step \(step) loss: \(loss)")
