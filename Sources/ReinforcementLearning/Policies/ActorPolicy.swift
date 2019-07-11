@@ -32,6 +32,7 @@ where
 
   @noDerivative public let environment: Environment
   @noDerivative public let batched: Bool = true
+  // TODO: @differentiable
   @noDerivative public let observationsNormalizer: (Observation) -> Observation
   @noDerivative public let randomSeed: TensorFlowSeed
 

@@ -14,20 +14,20 @@
 
 import TensorFlow
 
-/// Computes discounted rewards.
+/// Computes discounted returns.
 ///
-/// Discounted rewards are defined as follows:
+/// Discounted returns are defined as follows:
 /// `Q_t = \sum_{t'=t}^T gamma^{t'-t} * r_{t'} + gamma^{T-t+1} * finalValue`,
 /// where `r_t` represents the reward at time step `t` and `gamma` represents the discount factor.
 /// For more details refer to "Reinforcement Learning: An Introduction" Second Edition by
 /// Richard S. Sutton and Andrew G. Barto.
 ///
-/// The discounted reward computation also takes into account the time steps when episodes end
-/// (i.e., steps whose kind is `.last`) by making sure to reset the discounted reward being carried
+/// The discounted return computation also takes into account the time steps when episodes end
+/// (i.e., steps whose kind is `.last`) by making sure to reset the discounted return being carried
 /// backwards through time.
 ///
 /// Typically, each reward tensor will have shape `[BatchSize]` (for batched rewards) or `[]` (for
-/// "unbatched" rewards).
+/// unbatched rewards).
 ///
 /// - Parameters:
 ///   - discountFactor: Reward discount factor (`gamma` in the above example).
@@ -36,9 +36,9 @@ import TensorFlow
 ///   - finalValue: Estimated value at the final step. This is used to bootstrap the reward-to-go
 ///     computation. Defaults to zeros.
 ///
-/// - Returns: Array of discounted reward values over time.
+/// - Returns: Array of discounted return values over time.
 @inlinable
-public func discount<Scalar: TensorFlowNumeric>(
+public func discountedReturns<Scalar: TensorFlowNumeric>(
   discountFactor: Scalar,
   stepKinds: [Tensor<Int32>],
   rewards: [Tensor<Scalar>],
@@ -52,17 +52,17 @@ public func discount<Scalar: TensorFlowNumeric>(
 
   let T = stepKinds.count
   let finalReward = finalValue ?? Tensor<Scalar>(zerosLike: rewards.last!)
-  var discountedRewards = [Tensor<Scalar>]()
-  discountedRewards.reserveCapacity(T)
+  var discountedReturns = [Tensor<Scalar>]()
+  discountedReturns.reserveCapacity(T)
   for t in (0..<T).reversed() {
-    let futureReward = t + 1 < T ? discountedRewards[T - t - 2] : finalReward
-    let discountedFutureReward = discountFactor * futureReward
+    let futureReturn = t + 1 < T ? discountedReturns[T - t - 2] : finalReward
+    let discountedFutureReward = discountFactor * futureReturn
     let discountedReward = rewards[t] + discountedFutureReward.replacing(
       with: Tensor<Scalar>(zerosLike: discountedFutureReward),
       where: stepKinds[t] .== StepKind.last.rawValue.scalar!)
-    discountedRewards.append(discountedReward)
+    discountedReturns.append(discountedReward)
   }
-  return discountedRewards.reversed()
+  return discountedReturns.reversed()
 }
 
 public protocol AdvantageFunction {

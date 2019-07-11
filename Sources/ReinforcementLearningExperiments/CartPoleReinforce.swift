@@ -60,7 +60,7 @@ public func runCartPoleReinforce() {
     actorPolicy: actorPolicy,
     optimizer: AMSGrad(for: actorPolicy),
     discountFactor: 0.9,
-    rewardsNormalizer: { $0 },
+    returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
     entropyRegularizationWeight: 0.0)
   var replayBuffer = UniformReplayBuffer(
     for: environment,

@@ -39,40 +39,41 @@ where
   public private(set) var optimizer: Optimizer
 
   public let discountFactor: Float
-  public let rewardsNormalizer: (Tensor<Float>) -> Tensor<Float>
+  public let returnsNormalizer: (Tensor<Float>) -> Tensor<Float>
   public let entropyRegularizationWeight: Float
 
   public init(
     actorPolicy: ActorPolicy<Environment, ActorNetwork>,
     optimizer: Optimizer,
     discountFactor: Float,
-    rewardsNormalizer: @escaping (Tensor<Float>) -> Tensor<Float> = { $0 },
+    returnsNormalizer: @escaping (Tensor<Float>) -> Tensor<Float> = {
+      standardNormalize($0, alongAxes: 0, 1) },
     entropyRegularizationWeight: Float = 0.0
   ) {
     self.policy = actorPolicy
     self.optimizer = optimizer
     self.discountFactor = discountFactor
-    self.rewardsNormalizer = rewardsNormalizer
+    self.returnsNormalizer = returnsNormalizer
     self.entropyRegularizationWeight = entropyRegularizationWeight
   }
 
-  public func initialize() { }
+  public func initialize() {}
 
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Action, Observation, Reward, State>
   ) -> Float {
-    let rewards = discount(
+    let returns = discountedReturns(
       discountFactor: discountFactor,
       stepKinds: trajectory.currentStep.kind.rawValue.unstacked(alongAxis: 1),
       rewards: trajectory.nextStep.reward.unstacked(alongAxis: 1))
-    let normalizedRewards = rewardsNormalizer(Tensor<Float>(stacking: rewards)).transposed()
+    let normalizedReturns = returnsNormalizer(Tensor<Float>(stacking: returns).transposed())
     policy.state = trajectory.policyState
     let (loss, gradient) = policy.valueWithGradient {
       [entropyRegularizationWeight] policy -> Tensor<Float> in
         ReinforceAgent<Scalar, Environment, ActorNetwork, Optimizer>.lossFn(
           policy: policy,
-          step: trajectory.currentStep.copy(reward: normalizedRewards),
+          step: trajectory.currentStep.copy(reward: normalizedReturns),
           action: trajectory.action,
           entropyRegularizationWeight: entropyRegularizationWeight)
     }

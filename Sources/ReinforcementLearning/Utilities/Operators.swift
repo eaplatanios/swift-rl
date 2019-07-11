@@ -102,3 +102,86 @@ internal extension Tensor where Scalar: TensorFlowFloatingPoint {
     })
   }
 }
+
+/// Returns the squared difference between `x` and `y`.
+/// - Returns: `(x - y) ^ 2`.
+@inlinable
+@differentiable(vjp: _vjpSquaredDifference where T: TensorFlowFloatingPoint)
+public func squaredDifference<T: TensorFlowNumeric>(_ x: Tensor<T>, _ y: Tensor<T>) -> Tensor<T> {
+  Raw.squaredDifference(x, y)
+}
+
+@inlinable
+internal func _vjpSquaredDifference<T: TensorFlowFloatingPoint>(
+  _ x: Tensor<T>,
+  _ y: Tensor<T>
+) -> (Tensor<T>, (Tensor<T>) -> (Tensor<T>, Tensor<T>)) {
+  (squaredDifference(x, y), { seed in
+    let lhsGrad = 2 * seed * (x - y)
+    let rhsGrad = -lhsGrad
+    let (lhsShape, rhsShape) = (x.shapeTensor, y.shapeTensor)
+    let (lhsAxes, rhsAxes) = Raw.broadcastGradientArgs(s0: lhsShape, s1: rhsShape)
+    return (lhsGrad.sum(squeezingAxes: lhsAxes).reshaped(toShape: lhsShape),
+            rhsGrad.sum(squeezingAxes: rhsAxes).reshaped(toShape: rhsShape))
+  })
+}
+
+/// Pair of first and second moments (i.e., mean and variance).
+/// - Note: This is needed because tuple types are not differentiable.
+public struct Moments<Scalar: TensorFlowFloatingPoint>: Differentiable {
+  public var mean: Tensor<Scalar>
+  public var variance: Tensor<Scalar>
+
+  @differentiable
+  public init(mean: Tensor<Scalar>, variance: Tensor<Scalar>) {
+    self.mean = mean
+    self.variance = variance
+  }
+}
+
+public extension Tensor where Scalar: TensorFlowFloatingPoint {
+  /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
+  /// are removed.
+  @inlinable
+  @differentiable(wrt: self)
+  func moments(squeezingAxes axes: [Int]) -> Moments<Scalar> {
+    let mean = self.mean(alongAxes: axes)
+    let variance = squaredDifference(self, mean).mean(alongAxes: axes)
+    return Moments(
+      mean: mean.squeezingShape(at: axes),
+      variance: variance.squeezingShape(at: axes))
+  }
+
+  /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
+  /// are removed.
+  @inlinable
+  @differentiable(wrt: self)
+  func moments(squeezingAxes axes: Int...) -> Moments<Scalar> {
+    moments(squeezingAxes: axes)
+  }
+
+  /// Returns the mean and variance of this tensor's elements.
+  @inlinable
+  @differentiable(wrt: self)
+  func moments() -> Moments<Scalar> {
+    moments(squeezingAxes: Array(0..<shape.rank))
+  }
+
+  /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
+  /// are retained with value `1`.
+  @inlinable
+  @differentiable(wrt: self)
+  func moments(alongAxes axes: [Int]) -> Moments<Scalar> {
+    let mean = self.mean(alongAxes: axes)
+    let variance = squaredDifference(self, mean).mean(alongAxes: axes)
+    return Moments(mean: mean, variance: variance)
+  }
+
+  /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
+  /// are retained with value `1`.
+  @inlinable
+  @differentiable(wrt: self)
+  func moments(alongAxes axes: Int...) -> Moments<Scalar> {
+    moments(alongAxes: axes)
+  }
+}
