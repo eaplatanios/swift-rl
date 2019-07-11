@@ -39,14 +39,14 @@ where
   public private(set) var optimizer: Optimizer
 
   public let discountFactor: Float
-  public let rewardsNormalizer: Normalizer<Tensor<Float>>
+  public let rewardsNormalizer: (Tensor<Float>) -> Tensor<Float>
   public let entropyRegularizationWeight: Float
 
   public init(
     actorPolicy: ActorPolicy<Environment, ActorNetwork>,
     optimizer: Optimizer,
     discountFactor: Float,
-    rewardsNormalizer: @escaping Normalizer<Tensor<Float>> = { $0 },
+    rewardsNormalizer: @escaping (Tensor<Float>) -> Tensor<Float> = { $0 },
     entropyRegularizationWeight: Float = 0.0
   ) {
     self.policy = actorPolicy

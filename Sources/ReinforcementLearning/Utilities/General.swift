@@ -16,7 +16,6 @@ import Foundation
 @_exported import TensorFlow
 
 public typealias TensorFlowSeed = (graph: Int32, op: Int32)
-public typealias Normalizer<Value> = (Value) -> Value
 
 public struct None: Differentiable, KeyPathIterable {
   public init() { }

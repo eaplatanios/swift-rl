@@ -32,7 +32,7 @@ where
 
   @noDerivative public let environment: Environment
   @noDerivative public let batched: Bool = true
-  @noDerivative public let observationsNormalizer: Normalizer<Observation>
+  @noDerivative public let observationsNormalizer: (Observation) -> Observation
   @noDerivative public let randomSeed: TensorFlowSeed
 
   @noDerivative public var state: State {
@@ -43,7 +43,7 @@ where
   public init(
     for environment: Environment,
     actorNetwork: ActorNetwork,
-    observationsNormalizer: @escaping Normalizer<Observation> = { $0 },
+    observationsNormalizer: @escaping (Observation) -> Observation = { $0 },
     randomSeed: TensorFlowSeed = Context.local.randomSeed
   ) {
     self.environment = environment
@@ -60,8 +60,7 @@ where
   @inlinable
   @differentiable(wrt: self)
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    // actorNetwork(observationsNormalizer(step.observation))
-    actorNetwork(step.observation)
+    actorNetwork(observationsNormalizer(step.observation))
   }
 
   public func copy() -> ActorPolicy {
