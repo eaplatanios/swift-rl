@@ -15,7 +15,7 @@
 import TensorFlow
 
 public struct ReinforceAgent<
-  Scalar: TensorFlowScalar & Equatable,
+  ActionScalar: TensorFlowScalar & Equatable,
   Environment: ReinforcementLearning.Environment,
   ActorNetwork: Network,
   Optimizer: TensorFlow.Optimizer
@@ -27,7 +27,7 @@ where
   ActorNetwork.Input.Stacked == ActorNetwork.Input,
   ActorNetwork.State.Stacked == ActorNetwork.State,
   ActorNetwork.Output: DifferentiableDistribution,
-  ActorNetwork.Output.Value == Tensor<Scalar>,
+  ActorNetwork.Output.Value == Tensor<ActionScalar>,
   Optimizer.Model == ActorPolicy<Environment, ActorNetwork>
 {
   public typealias Action = ActorNetwork.Output.Value
@@ -71,7 +71,7 @@ where
     policy.state = trajectory.policyState
     let (loss, gradient) = policy.valueWithGradient {
       [entropyRegularizationWeight] policy -> Tensor<Float> in
-        ReinforceAgent<Scalar, Environment, ActorNetwork, Optimizer>.lossFn(
+        ReinforceAgent<ActionScalar, Environment, ActorNetwork, Optimizer>.lossFn(
           policy: policy,
           step: trajectory.currentStep.copy(reward: normalizedReturns),
           action: trajectory.action,
@@ -85,7 +85,7 @@ where
   internal static func lossFn(
     policy: ActorPolicy<Environment, ActorNetwork>,
     step: Step<Observation, Reward>,
-    action: Tensor<Scalar>,
+    action: Tensor<ActionScalar>,
     entropyRegularizationWeight: Float
   ) -> Tensor<Float> {
     let distribution = policy.actionDistribution(for: step)

@@ -54,7 +54,6 @@ public func runCartPoleReinforce() {
   let actorPolicy = ActorPolicy(
     for: environment,
     actorNetwork: ActorNetwork(),
-    observationsNormalizer: { $0 },
     randomSeed: (1234, 5678))
   var agent = ReinforceAgent(
     actorPolicy: actorPolicy,

@@ -28,13 +28,12 @@ where
   public typealias Reward = Environment.Reward
   public typealias State = ActorNetwork.State
 
-  public private(set) var actorNetwork: ActorNetwork
+  @noDerivative public let batched: Bool = true
 
   @noDerivative public let environment: Environment
-  @noDerivative public let batched: Bool = true
-  // TODO: @differentiable
-  @noDerivative public let observationsNormalizer: (Observation) -> Observation
   @noDerivative public let randomSeed: TensorFlowSeed
+
+  public private(set) var actorNetwork: ActorNetwork
 
   @noDerivative public var state: State {
     get { actorNetwork.state }
@@ -44,12 +43,10 @@ where
   public init(
     for environment: Environment,
     actorNetwork: ActorNetwork,
-    observationsNormalizer: @escaping (Observation) -> Observation = { $0 },
     randomSeed: TensorFlowSeed = Context.local.randomSeed
   ) {
     self.environment = environment
     self.actorNetwork = actorNetwork
-    self.observationsNormalizer = observationsNormalizer
     self.randomSeed = randomSeed
   }
 
@@ -61,14 +58,10 @@ where
   @inlinable
   @differentiable(wrt: self)
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    actorNetwork(observationsNormalizer(step.observation))
+    actorNetwork(step.observation)
   }
 
   public func copy() -> ActorPolicy {
-    ActorPolicy(
-      for: environment,
-      actorNetwork: actorNetwork.copy(),
-      observationsNormalizer: observationsNormalizer,
-      randomSeed: randomSeed)
+    ActorPolicy(for: environment, actorNetwork: actorNetwork.copy(), randomSeed: randomSeed)
   }
 }
