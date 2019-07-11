@@ -2,24 +2,26 @@ import TensorFlow
 
 public struct ReinforceAgent<
   Scalar: TensorFlowScalar & Equatable,
+  Environment: ReinforcementLearning.Environment,
   ActorNetwork: Network,
   Optimizer: TensorFlow.Optimizer
 >: Agent
 where
+  Environment.Reward == Tensor<Float>,
   ActorNetwork.Input: Stackable,
   ActorNetwork.State: Stackable,
   ActorNetwork.Input.Stacked == ActorNetwork.Input,
   ActorNetwork.State.Stacked == ActorNetwork.State,
   ActorNetwork.Output: DifferentiableDistribution,
   ActorNetwork.Output.Value == Tensor<Scalar>,
-  Optimizer.Model == ActorPolicy<ActorNetwork, Tensor<Float>>
+  Optimizer.Model == ActorPolicy<Environment, ActorNetwork>
 {
   public typealias Action = ActorNetwork.Output.Value
   public typealias Observation = ActorNetwork.Input
   public typealias Reward = Tensor<Float>
   public typealias State = ActorNetwork.State
 
-  public private(set) var policy: ActorPolicy<ActorNetwork, Reward>
+  public private(set) var policy: ActorPolicy<Environment, ActorNetwork>
   public private(set) var optimizer: Optimizer
 
   public let discountFactor: Float
@@ -27,18 +29,13 @@ where
   public let entropyRegularizationWeight: Float
 
   public init(
-    actorNetwork: ActorNetwork,
+    actorPolicy: ActorPolicy<Environment, ActorNetwork>,
     optimizer: Optimizer,
     discountFactor: Float,
-    observationsNormalizer: @escaping Normalizer<Observation> = { $0 },
     rewardsNormalizer: @escaping Normalizer<Tensor<Float>> = { $0 },
-    entropyRegularizationWeight: Float = 0.0,
-    randomSeed: TensorFlowSeed = Context.local.randomSeed
+    entropyRegularizationWeight: Float = 0.0
   ) {
-    self.policy = ActorPolicy(
-      actorNetwork: actorNetwork,
-      observationsNormalizer: observationsNormalizer,
-      randomSeed: randomSeed)
+    self.policy = actorPolicy
     self.optimizer = optimizer
     self.discountFactor = discountFactor
     self.rewardsNormalizer = rewardsNormalizer
@@ -47,41 +44,31 @@ where
 
   public func initialize() { }
 
+  @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Action, Observation, Reward, State>
   ) -> Float {
     let rewards = discount(
       discountFactor: discountFactor,
-      stepKinds: trajectory.map{ $0.currentStep.kind.rawValue },
-      rewards: trajectory.map{ Tensor<Float>($0.nextStep.reward) })
-
-    // Tensor<Float> with shape [T, B]
-    let normalizedRewards = rewardsNormalizer(Tensor<Float>(stacking: rewards))
-
-    // Tensor<Scalar> with shape [T, B, ...]
-    let stackedActions = Tensor<Scalar>.stack(trajectory.map{ $0.action })
-    let stackedStep = Step<Observation, Reward>.stack(
-      trajectory.map{ $0.currentStep }).copy(reward: normalizedRewards)
-
-    policy.state = State.stack(trajectory.map{ $0.policyState })
-
+      stepKinds: trajectory.currentStep.kind.rawValue.unstacked(alongAxis: 1),
+      rewards: trajectory.nextStep.reward.unstacked(alongAxis: 1))
+    let normalizedRewards = rewardsNormalizer(Tensor<Float>(stacking: rewards)).transposed()
+    policy.state = trajectory.policyState
     let (loss, gradient) = policy.valueWithGradient {
       [entropyRegularizationWeight] policy -> Tensor<Float> in
-        ReinforceAgent<Scalar, ActorNetwork, Optimizer>.lossFn(
+        ReinforceAgent<Scalar, Environment, ActorNetwork, Optimizer>.lossFn(
           policy: policy,
-          step: stackedStep,
-          action: stackedActions,
+          step: trajectory.currentStep.copy(reward: normalizedRewards),
+          action: trajectory.action,
           entropyRegularizationWeight: entropyRegularizationWeight)
     }
-
     optimizer.update(&policy, along: gradient)
-
     return loss.scalar!
   }
 
   @differentiable(wrt: policy)
   internal static func lossFn(
-    policy: ActorPolicy<ActorNetwork, Tensor<Float>>,
+    policy: ActorPolicy<Environment, ActorNetwork>,
     step: Step<Observation, Reward>,
     action: Tensor<Scalar>,
     entropyRegularizationWeight: Float

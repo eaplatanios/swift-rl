@@ -4,8 +4,20 @@ import Foundation
 public typealias TensorFlowSeed = (graph: Int32, op: Int32)
 public typealias Normalizer<Value> = (Value) -> Value
 
-public struct None: Differentiable {
+public struct None: Differentiable, KeyPathIterable {
   public init() { }
+}
+
+extension None: Stackable {
+  public typealias Stacked = None
+
+  public static func stack(_ values: [None]) -> None {
+    None()
+  }
+
+  public func unstacked() -> [None] {
+    [None]()
+  }
 }
 
 public extension Encodable {

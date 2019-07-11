@@ -10,6 +10,9 @@ let package = Package(
         .library(
             name: "ReinforcementLearning",
             targets: ["ReinforcementLearning"]),
+        .executable(
+            name: "ReinforcementLearningExperiments",
+            targets: ["ReinforcementLearningExperiments"]),
         .library(
             name: "Retro",
             targets: ["Retro"])
@@ -32,6 +35,9 @@ let package = Package(
             dependencies: ["GLFW"],
             path: "Sources/ReinforcementLearning",
             swiftSettings: [.define("GLFW")]),
+        .target(
+            name: "ReinforcementLearningExperiments",
+            dependencies: ["ReinforcementLearning"]),
         .target(
             name: "CRetro",
             path: ".",

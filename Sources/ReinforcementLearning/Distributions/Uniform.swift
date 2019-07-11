@@ -1,6 +1,8 @@
 import TensorFlow
 
-public struct Uniform<Scalar: TensorFlowFloatingPoint>: DifferentiableDistribution, TensorGroup {
+public struct Uniform<
+  Scalar: TensorFlowFloatingPoint
+>: DifferentiableDistribution, KeyPathIterable {
   @noDerivative public let shape: Tensor<Int32>
   public var lowerBound: Tensor<Scalar>
   public var upperBound: Tensor<Scalar>
@@ -53,25 +55,5 @@ extension Uniform {
     self.shape = withoutDerivative(at: lowerBound.shapeTensor)
     self.lowerBound = lowerBound
     self.upperBound = upperBound
-  }
-}
-
-// TODO: Should be derived automatically.
-extension Uniform: Replayable {
-  public init(emptyLike example: Uniform, withCapacity capacity: Int) {
-    self.init(
-      lowerBound: Tensor<Scalar>(emptyLike: example.lowerBound, withCapacity: capacity),
-      upperBound: Tensor<Scalar>(emptyLike: example.upperBound, withCapacity: capacity))
-  }
-
-  public mutating func update(atIndices indices: Tensor<Int64>, using values: Uniform) {
-    lowerBound.update(atIndices: indices, using: values.lowerBound)
-    upperBound.update(atIndices: indices, using: values.upperBound)
-  }
-
-  public func gathering(atIndices indices: Tensor<Int64>) -> Uniform {
-    Uniform(
-      lowerBound: lowerBound.gathering(atIndices: indices),
-      upperBound: upperBound.gathering(atIndices: indices))
   }
 }

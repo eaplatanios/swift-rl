@@ -38,7 +38,7 @@ class EmulatorTests: XCTestCase {
     XCTAssert(emulatorConfig.games().contains(where: { $0.name == "Pong-Atari2600" }))
 
     #if GLFW
-    var renderer = try! TensorImageRenderer(initialMaxWidth: 800)
+    var renderer = TensorImageRenderer(initialMaxWidth: 800)
     #else
     var renderer = TensorPrinter<UInt8>(maxEntries: 10)
     #endif

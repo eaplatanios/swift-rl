@@ -10,6 +10,7 @@ public protocol Agent {
 
   /// Trains this agent using the provided experience.
   /// - Returns: Loss function value.
+  @discardableResult
   mutating func update(using trajectory: Trajectory<Action, Observation, Reward, State>) -> Float
 }
 

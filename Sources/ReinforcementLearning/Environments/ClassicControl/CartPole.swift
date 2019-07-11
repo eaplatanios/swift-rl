@@ -23,14 +23,14 @@ public struct CartPoleEnvironment: Environment {
   private var angleDerivative: Tensor<Float>
   private var needsReset: Tensor<Bool>
 
-  public init(batchSize: Int = 1) {
+  public init(batchSize: Int) {
     self.batchSize = batchSize
     self.batched = batchSize > 1
     self.position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
     self.positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
     self.angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
     self.angleDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    self.needsReset = Tensor<Bool>(false)
+    self.needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
   }
 
   /// Updates the environment according to the provided action.
@@ -63,11 +63,10 @@ public struct CartPoleEnvironment: Environment {
     angleDerivative = angleDerivative.replacing(
       with: CartPoleEnvironment.randomTensor(withShape: angleDerivative.shape),
       where: needsReset)
-    let newNeedsReset = needsReset.elementsLogicalNot().elementsLogicalOr(
-      (position .< -positionThreshold)
-        .elementsLogicalOr(position .> positionThreshold)
-        .elementsLogicalOr(angle .< -angleThreshold)
-        .elementsLogicalOr(angle .> angleThreshold))
+    let newNeedsReset = (position .< -positionThreshold)
+      .elementsLogicalOr(position .> positionThreshold)
+      .elementsLogicalOr(angle .< -angleThreshold)
+      .elementsLogicalOr(angle .> angleThreshold)
     let kind = StepKind((Tensor<Int32>(newNeedsReset) + 1)
       .replacing(with: Tensor<Int32>(zeros: newNeedsReset.shape), where: needsReset))
     let observation = Observation(
@@ -87,7 +86,7 @@ public struct CartPoleEnvironment: Environment {
     positionDerivative = CartPoleEnvironment.randomTensor()
     angle = CartPoleEnvironment.randomTensor()
     angleDerivative = CartPoleEnvironment.randomTensor()
-    needsReset = Tensor<Bool>(false)
+    needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
     let observation = Observation(
       position: position,
       positionDerivative: positionDerivative,
@@ -110,7 +109,7 @@ extension CartPoleEnvironment {
       upperBound: Tensor<Float>(0.05))
   }
 
-  public struct Observation: TensorGroup {
+  public struct Observation: Differentiable, KeyPathIterable {
     public var position: Tensor<Float>
     public var positionDerivative: Tensor<Float>
     public var angle: Tensor<Float>
@@ -136,7 +135,7 @@ extension CartPoleEnvironment {
       true
     }
 
-    public struct ValueDistribution: DifferentiableDistribution, TensorGroup {
+    public struct ValueDistribution: DifferentiableDistribution, KeyPathIterable {
       private var positionDistribution: Uniform<Float> = Uniform<Float>(
         lowerBound: Tensor<Float>(0),
         upperBound: Tensor<Float>(positionThreshold * 2))
@@ -215,82 +214,6 @@ extension CartPoleEnvironment.Observation: Stackable {
         angleDerivative: angleDerivatives[i]))
     }
     return observations
-  }
-}
-
-// TODO: Should be derived automatically.
-extension CartPoleEnvironment.Observation: Replayable {
-  public init(emptyLike example: Observation, withCapacity capacity: Int) {
-    self.init(
-      position: Tensor<Float>(emptyLike: example.position, withCapacity: capacity),
-      positionDerivative: Tensor<Float>(
-        emptyLike: example.positionDerivative,
-        withCapacity: capacity),
-      angle: Tensor<Float>(emptyLike: example.angle, withCapacity: capacity),
-      angleDerivative: Tensor<Float>(emptyLike: example.angleDerivative, withCapacity: capacity))
-  }
-
-  public mutating func update(atIndices indices: Tensor<Int64>, using values: Observation) {
-    position.update(atIndices: indices, using: values.position)
-    positionDerivative.update(atIndices: indices, using: values.positionDerivative)
-    angle.update(atIndices: indices, using: values.angle)
-    angleDerivative.update(atIndices: indices, using: values.angleDerivative)
-  }
-
-  public func gathering(atIndices indices: Tensor<Int64>) -> Observation {
-    Observation(
-      position: position.gathering(atIndices: indices),
-      positionDerivative: positionDerivative.gathering(atIndices: indices),
-      angle: angle.gathering(atIndices: indices),
-      angleDerivative: angleDerivative.gathering(atIndices: indices))
-  }
-}
-
-// TODO: Should be derived automatically.
-extension CartPoleEnvironment.ObservationSpace.ValueDistribution: Replayable {
-  public typealias ValueDistribution = CartPoleEnvironment.ObservationSpace.ValueDistribution
-
-  public init(emptyLike example: ValueDistribution, withCapacity capacity: Int) {
-    self.init(
-      positionDistribution: Uniform<Float>(
-        emptyLike: example.positionDistribution,
-        withCapacity: capacity),
-      positionDerivativeDistribution: Uniform<Float>(
-        emptyLike: example.positionDerivativeDistribution,
-        withCapacity: capacity),
-      angleDistribution: Uniform<Float>(
-        emptyLike: example.angleDistribution,
-        withCapacity: capacity),
-      angleDerivativeDistribution: Uniform<Float>(
-        emptyLike: example.angleDerivativeDistribution,
-        withCapacity: capacity))
-  }
-
-  public mutating func update(
-    atIndices indices: Tensor<Int64>,
-    using values: ValueDistribution
-  ) {
-    positionDistribution.update(
-      atIndices: indices,
-      using: values.positionDistribution)
-    positionDerivativeDistribution.update(
-      atIndices: indices,
-      using: values.positionDerivativeDistribution)
-    angleDistribution.update(
-      atIndices: indices,
-      using: values.angleDistribution)
-    angleDerivativeDistribution.update(
-      atIndices: indices,
-      using: values.angleDerivativeDistribution)
-  }
-
-  public func gathering(atIndices indices: Tensor<Int64>) -> ValueDistribution {
-    ValueDistribution(
-      positionDistribution: positionDistribution.gathering(atIndices: indices),
-      positionDerivativeDistribution: positionDerivativeDistribution.gathering(
-        atIndices: indices),
-      angleDistribution: angleDistribution.gathering(atIndices: indices),
-      angleDerivativeDistribution: angleDerivativeDistribution.gathering(atIndices: indices))
   }
 }
 

@@ -1,6 +1,6 @@
 import TensorFlow
 
-public struct Deterministic<Scalar: TensorFlowScalar & Equatable>: Distribution, TensorGroup {
+public struct Deterministic<Scalar: TensorFlowScalar & Equatable>: Distribution, KeyPathIterable {
   // TODO: Make `internal(set)` once `@usableFromInline` is supported.
   public var value: Tensor<Scalar>
 
@@ -28,20 +28,5 @@ public struct Deterministic<Scalar: TensorFlowScalar & Equatable>: Distribution,
   @inlinable
   public func sample(usingSeed seed: TensorFlowSeed = Context.local.randomSeed) -> Tensor<Scalar> {
     value
-  }
-}
-
-// TODO: Should be derived automatically.
-extension Deterministic: Replayable where Scalar: Numeric {
-  public init(emptyLike example: Deterministic, withCapacity capacity: Int) {
-    self.init(at: Tensor<Scalar>(emptyLike: example.value, withCapacity: capacity))
-  }
-
-  public mutating func update(atIndices indices: Tensor<Int64>, using values: Deterministic) {
-    value.update(atIndices: indices, using: values.value)
-  }
-
-  public func gathering(atIndices indices: Tensor<Int64>) -> Deterministic {
-    Deterministic(at: value.gathering(atIndices: indices))
   }
 }

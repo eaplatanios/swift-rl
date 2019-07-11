@@ -1,6 +1,6 @@
 import TensorFlow
 
-public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, TensorGroup {
+public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, KeyPathIterable {
   /// Log-probabilities of this categorical distribution.
   public var logProbabilities: Tensor<Float>
 
@@ -25,7 +25,10 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
   @inlinable
   @differentiable(wrt: self)
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    softmaxCrossEntropy(logits: logProbabilities, labels: Tensor<Int32>(value))
+    let outerDimCount = logProbabilities.rank - 1
+    return softmaxCrossEntropy(
+      logits: logProbabilities.flattenedBatch(outerDimCount: outerDimCount),
+      labels: Tensor<Int32>(value).flattenedBatch(outerDimCount: outerDimCount))
   }
 
   @inlinable
@@ -35,9 +38,7 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
   }
 
   @inlinable
-  public func mode(
-    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-  ) -> Tensor<Scalar> {
+  public func mode(usingSeed seed: TensorFlowSeed = Context.local.randomSeed) -> Tensor<Scalar> {
     Tensor<Scalar>(logProbabilities.argmax(squeezingAxis: 1))
   }
 
@@ -45,31 +46,32 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
   public func sample(
     usingSeed seed: TensorFlowSeed = Context.local.randomSeed
   ) -> Tensor<Scalar> {
+    let outerDimCount = self.logProbabilities.rank - 1
+    let logProbabilities = self.logProbabilities.flattenedBatch(outerDimCount: outerDimCount)
     let multinomial: Tensor<Scalar> = Raw.multinomial(
       logits: logProbabilities,
       numSamples: Tensor<Int32>(1),
       seed: Int64(seed.graph),
       seed2: Int64(seed.op))
-    // TODO: Proper handling of batched samples.
-    return multinomial
-      .gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
-      .gathering(atIndices: Tensor<Int32>(0), alongAxis: 0)
+    let flattenedSamples = multinomial.gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
+    return flattenedSamples.unflattenedBatch(
+      outerDims: [Int](self.logProbabilities.shape.dimensions[0..<outerDimCount]))
   }
 }
 
-// TODO: Should be derived automatically.
-extension Categorical: Replayable {
-  public init(emptyLike example: Categorical, withCapacity capacity: Int) {
-    self.init(logProbabilities: Tensor<Float>(
-      emptyLike: example.logProbabilities,
-      withCapacity: capacity))
-  }
+/// Returns the log-softmax of the specified tensor element-wise.
+@inlinable
+@differentiable(vjp: _vjpLogSoftmax(_:))
+public func logSoftmax<T: TensorFlowFloatingPoint>(_ x: Tensor<T>) -> Tensor<T> {
+  Raw.logSoftmax(logits: x)
+}
 
-  public mutating func update(atIndices indices: Tensor<Int64>, using values: Categorical) {
-    logProbabilities.update(atIndices: indices, using: values.logProbabilities)
-  }
-
-  public func gathering(atIndices indices: Tensor<Int64>) -> Categorical {
-    Categorical(logProbabilities: logProbabilities.gathering(atIndices: indices))
-  }
+@inlinable
+func _vjpLogSoftmax<T: TensorFlowFloatingPoint>(
+  _ x: Tensor<T>
+  ) -> (Tensor<T>, (Tensor<T>) -> Tensor<T>) {
+  let value = logSoftmax(x)
+  return (value, { v in
+    v - v.sum(alongAxes: -1) * exp(value)
+  })
 }
