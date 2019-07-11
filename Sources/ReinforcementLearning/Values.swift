@@ -66,41 +66,60 @@ public func discountedReturns<Scalar: TensorFlowNumeric>(
 }
 
 public protocol AdvantageFunction {
-  associatedtype Scalar: TensorFlowNumeric
-
   /// - Parameters:
   ///   - stepKinds: Contains the step kinds (represented using their integer values) for each step.
-  ///   - rewards: Contains the rewards for each step.
+  ///   - returns: Contains the returns for each step.
   ///   - values: Contains the value estimates for each step.
   ///   - finalValue: Estimated value at the final step.
-  func compute(
+  // TODO: @differentiable
+  func callAsFunction<Scalar: TensorFlowFloatingPoint>(
     stepKinds: [Tensor<Int32>],
-    rewards: [Tensor<Scalar>],
+    returns: [Tensor<Scalar>],
     values: [Tensor<Scalar>],
     finalValue: Tensor<Scalar>
   ) -> [Tensor<Scalar>]
+}
+
+// TODO: Remove once optionals are differentiable.
+public struct NoAdvantageFunction: AdvantageFunction {
+  public init() {}
+
+  @inlinable
+  // TODO: @differentiable
+  public func callAsFunction<Scalar: TensorFlowFloatingPoint>(
+    stepKinds: [Tensor<Int32>],
+    returns: [Tensor<Scalar>],
+    values: [Tensor<Scalar>],
+    finalValue: Tensor<Scalar>
+  ) -> [Tensor<Scalar>] {
+    returns
+  }
 }
 
 /// Performs empirical advantage estimation.
 ///
 /// The empirical advantage estimate at step `t` is defined as:
 /// `advantage[t] = reward[t] - value[t]`.
-public struct EmpiricalAdvantageEstimation<Scalar: TensorFlowNumeric>: AdvantageFunction {
+public struct EmpiricalAdvantageEstimation: AdvantageFunction {
+  public init() {}
+
   /// - Parameters:
   ///   - stepKinds: Contains the step kinds (represented using their integer values) for each step.
-  ///   - rewards: Contains the rewards for each step. These are typically already discounted
-  ///     (i.e., the result of calling `discount(discountFactor:stepKinds:rewards:finalValue:`).
+  ///   - returns: Contains the returns for each step. These are typically already discounted
+  ///     (i.e., the result of calling
+  ///     `discountedReturns(discountFactor:stepKinds:rewards:finalValue:)`).
   ///   - values: Contains the value estimates for each step.
   ///   - finalValue: Estimated value at the final step.
   @inlinable
-  public func compute(
+  // TODO: @differentiable
+  public func callAsFunction<Scalar: TensorFlowFloatingPoint>(
     stepKinds: [Tensor<Int32>],
-    rewards: [Tensor<Scalar>],
+    returns: [Tensor<Scalar>],
     values: [Tensor<Scalar>],
     finalValue: Tensor<Scalar>
   ) -> [Tensor<Scalar>] {
-    precondition(stepKinds.count == rewards.count && stepKinds.count == values.count)
-    return zip(rewards, values).map{ $0 - $1 }
+    precondition(stepKinds.count == returns.count && stepKinds.count == values.count)
+    return zip(returns, values).map{ $0 - $1 }
   }
 }
 
@@ -109,35 +128,34 @@ public struct EmpiricalAdvantageEstimation<Scalar: TensorFlowNumeric>: Advantage
 /// For more details refer to "High-Dimensional Continuous Control Using Generalized Advantage
 /// Estimation" by John Schulman, Philipp Moritz et al. The full paper can be found at:
 /// https://arxiv.org/abs/1506.02438.
-public struct GeneralizedAdvantageEstimation<
-  Scalar: TensorFlowNumeric & ExpressibleByFloatLiteral
->: AdvantageFunction {
-  public let discountFactor: Scalar
-  public let discountWeight: Scalar
+public struct GeneralizedAdvantageEstimation: AdvantageFunction {
+  public let discountFactor: Float
+  public let discountWeight: Float
 
   /// - Parameters:
-  ///   - discountFactor: Reward discount factor value, which must be between `0.0` and `1.0`.
+  ///   - discountFactor: Return discount factor value, which must be between `0.0` and `1.0`.
   ///   - discountWeight: A weight between `0.0` and `1.0` that is used for variance reduction in 
   ///     the temporal differences.
-  public init(discountFactor: Scalar, discountWeight: Scalar = 1.0) {
+  public init(discountFactor: Float, discountWeight: Float = 1) {
     self.discountFactor = discountFactor
     self.discountWeight = discountWeight
   }
 
   /// - Parameters:
   ///   - stepKinds: Contains the step kinds (represented using their integer values) for each step.
-  ///   - rewards: Contains the rewards for each step. These are typically already discounted
-  ///     (i.e., the result of calling `discount(discountFactor:stepKinds:rewards:finalValue:)`).
+  ///   - returns: Contains the returns for each step. These are typically already discounted
+  ///     (i.e., the result of calling `discount(discountFactor:stepKinds:returns:finalValue:)`).
   ///   - values: Contains the value estimates for each step.
   ///   - finalValue: Estimated value at the final step.
   @inlinable
-  public func compute(
+  // TODO: @differentiable
+  public func callAsFunction<Scalar: TensorFlowFloatingPoint>(
     stepKinds: [Tensor<Int32>],
-    rewards: [Tensor<Scalar>],
+    returns: [Tensor<Scalar>],
     values: [Tensor<Scalar>],
     finalValue: Tensor<Scalar>
   ) -> [Tensor<Scalar>] {
-    precondition(stepKinds.count == rewards.count && stepKinds.count == values.count)
+    precondition(stepKinds.count == returns.count && stepKinds.count == values.count)
 
     if stepKinds.isEmpty {
       return [Tensor<Scalar>]()
@@ -148,10 +166,10 @@ public struct GeneralizedAdvantageEstimation<
     advantages.reserveCapacity(T)
     for t in (0..<T).reversed() {
       let futureAdvantage = t + 1 < T ?
-        values[t + 1] + discountWeight * advantages[T - t - 2] :
+        values[t + 1] + Scalar(discountWeight) * advantages[T - t - 2] :
         finalValue
-      let discountedFutureAdvantage = discountFactor * futureAdvantage
-      let advantage = rewards[t] - values[t] + discountedFutureAdvantage.replacing(
+      let discountedFutureAdvantage = Scalar(discountFactor) * futureAdvantage
+      let advantage = returns[t] - values[t] + discountedFutureAdvantage.replacing(
         with: Tensor<Scalar>(zerosLike: discountedFutureAdvantage),
         where: stepKinds[t] .== StepKind.last.rawValue.scalar!)
       advantages.append(advantage)

@@ -20,11 +20,14 @@ fileprivate struct ActorNetwork: Network {
   // public var dense: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 2)
   public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 6)
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 6, outputSize: 2)
+  public var dense2Value: Dense<Float> = Dense<Float>(inputSize: 6, outputSize: 2)
 
   public func initialize(using input: CartPoleEnvironment.Observation) {}
 
   @differentiable
-  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> ReinforceNetworkOutput<Categorical<Int32>> {
+  public func callAsFunction(
+    _ input: CartPoleEnvironment.Observation
+  ) -> ReinforceNetworkOutput<Categorical<Int32>> {
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -33,11 +36,13 @@ fileprivate struct ActorNetwork: Network {
     let outerDimCount = stackedInput.rank - 1
     let flattenedBatchStackedInput = stackedInput.flattenedBatch(outerDimCount: outerDimCount)
     // let logits = dense(flattenedBatchStackedInput)
-    let logits = dense2(leakyRelu(dense1(flattenedBatchStackedInput)))
-    let flattenedDistribution = Categorical<Int32>(logits: logits)
-    let distribution = flattenedDistribution.unflattenedBatch(
+    let hidden = leakyRelu(dense1(flattenedBatchStackedInput))
+    let actionLogits = dense2(hidden)
+    let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
+    let actionDistribution = flattenedActionDistribution.unflattenedBatch(
       outerDims: [Int](stackedInput.shape.dimensions[0..<outerDimCount]))
-    return ReinforceNetworkOutput(actionDistribution: distribution)
+    // let value = dense2Value(hidden)
+    return ReinforceNetworkOutput(actionDistribution: actionDistribution)//, value: value)
   }
 
   public func copy() -> ActorNetwork {
@@ -58,10 +63,11 @@ public func runCartPoleReinforce() {
     network: network,
     optimizer: AMSGrad(for: network),
     discountFactor: 0.9,
+    // advantageFunction: EmpiricalAdvantageEstimation(),
     returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
     entropyRegularizationWeight: 0.0)
   var replayBuffer = UniformReplayBuffer(
-    using: agent,
+    for: agent,
     batchSize: batchSize,
     maxLength: maxSequenceLength)
   var driver = StepBasedDriver(
