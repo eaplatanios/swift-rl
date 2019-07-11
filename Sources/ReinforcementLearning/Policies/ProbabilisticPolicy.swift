@@ -23,7 +23,6 @@ public protocol ProbabilisticPolicy: Policy {
 
 public extension ProbabilisticPolicy {
   func action(for step: Step<Observation, Reward>) -> Action {
-    let distribution = actionDistribution(for: step)
-    return distribution.sample(usingSeed: randomSeed)
+    actionDistribution(for: step).sample()
   }
 }

@@ -16,16 +16,12 @@ import TensorFlow
 
 /// A driver takes steps in an environment using the provided policy.
 public protocol Driver {
-  associatedtype ManagedEnvironment: Environment
-  associatedtype ManagedPolicy: Policy
-    where ManagedPolicy.Action == ManagedEnvironment.ActionSpace.Value,
-          ManagedPolicy.Observation == ManagedEnvironment.ObservationSpace.Value,
-          ManagedPolicy.Reward == ManagedEnvironment.Reward
+  associatedtype Agent: ReinforcementLearning.Agent
 
-  typealias Action = ManagedPolicy.Action
-  typealias Observation = ManagedPolicy.Observation
-  typealias Reward = ManagedPolicy.Reward
-  typealias State = ManagedPolicy.State
+  typealias Action = Agent.Action
+  typealias Observation = Agent.Observation
+  typealias Reward = Agent.Reward
+  typealias State = Agent.State
 
   typealias Listener = (Trajectory<Action, Observation, Reward, State>) -> Void
 
@@ -53,7 +49,7 @@ public struct Trajectory<Action, Observation, Reward, State>: KeyPathIterable {
   public var currentStep: Step<Observation, Reward>
   public var nextStep: Step<Observation, Reward>
   public var action: Action
-  public var policyState: State
+  public var agentState: State
 
   @inlinable
   public func isFirst() -> Tensor<Bool> {
@@ -76,33 +72,35 @@ public struct Trajectory<Action, Observation, Reward, State>: KeyPathIterable {
   }
 }
 
-public struct StepBasedDriver<ManagedEnvironment: Environment, ManagedPolicy: Policy>
-where
-  ManagedEnvironment.ActionSpace.Value == ManagedPolicy.Action,
-  ManagedEnvironment.ObservationSpace.Value == ManagedPolicy.Observation,
-  ManagedEnvironment.Reward == ManagedPolicy.Reward,
-  ManagedEnvironment.ActionSpace.Value: Stackable,
-  ManagedEnvironment.ActionSpace.Value.Stacked == ManagedEnvironment.ActionSpace.Value,
-  ManagedEnvironment.ObservationSpace.Value: Stackable,
-  ManagedEnvironment.ObservationSpace.Value.Stacked == ManagedEnvironment.ObservationSpace.Value,
-  ManagedEnvironment.Reward: Stackable,
-  ManagedEnvironment.Reward.Stacked == ManagedEnvironment.Reward,
-  ManagedPolicy.State: Stackable,
-  ManagedPolicy.State.Stacked == ManagedPolicy.State
+public struct StepBasedDriver<
+  Environment: ReinforcementLearning.Environment,
+  Agent: ReinforcementLearning.Agent
+> where
+  Environment.ActionSpace.Value == Agent.Action,
+  Environment.ObservationSpace.Value == Agent.Observation,
+  Environment.Reward == Agent.Reward,
+  Agent.Action: Stackable,
+  Agent.Observation: Stackable,
+  Agent.Reward: Stackable,
+  Agent.State: Stackable,
+  Agent.Action.Stacked == Agent.Action,
+  Agent.Observation.Stacked == Agent.Observation,
+  Agent.Reward.Stacked == Agent.Reward,
+  Agent.State.Stacked == Agent.State
 {
   public let maxSteps: Int
   public let maxEpisodes: Int
   public let batchSize: Int
 
   public let batchedEnvironment: Bool
-  public let batchedPolicy: Bool
+  public let batchedAgent: Bool
 
-  public var environments: [ManagedEnvironment]
-  public var policies: [ManagedPolicy]
+  public var environments: [Environment]
+  public var agents: [Agent]
 
   public init(
-    for environment: ManagedEnvironment,
-    using policy: ManagedPolicy,
+    for environment: Environment,
+    using agent: Agent,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     batchSize: Int = 1
@@ -111,13 +109,11 @@ where
     self.maxSteps = maxSteps
     self.maxEpisodes = maxEpisodes
     self.batchedEnvironment = environment.batched
-    self.batchedPolicy = policy.batched
+    self.batchedAgent = agent.batched
     self.environments = batchedEnvironment ? 
       [environment] : 
       (0..<batchSize).map { _  in environment.copy() }
-    self.policies = batchedPolicy ?
-      [policy] :
-      (0..<batchSize).map { _ in policy.copy() }
+    self.agents = batchedAgent ? [agent] : [Agent](repeating: agent, count: batchSize)
     self.batchSize = batchSize
   }
 }
@@ -129,49 +125,49 @@ extension StepBasedDriver: Driver {
     using step: Step<Observation, Reward>,
     updating listeners: [Listener]
   ) -> Step<Observation, Reward> {
-    if batchedPolicy {
-      policies[0].state = State.stack([State](repeating: state, count: batchSize))
+    if batchedAgent {
+      agents[0].state = State.stack([State](repeating: state, count: batchSize))
     } else {
-      policies.indices.forEach { policies[$0].state = state }
+      agents.indices.forEach { agents[$0].state = state }
     }
     var currentStep = Step<Observation, Reward>.stack(
       [Step<Observation, Reward>](repeating: step, count: batchSize))
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
-      var action: ManagedPolicy.Action
+      var action: Agent.Action
       var nextStep: Step<Observation, Reward>
-      var state: ManagedPolicy.State
-      switch (batchedPolicy, batchedEnvironment) {
+      var state: Agent.State
+      switch (batchedAgent, batchedEnvironment) {
       case (true, true):
-        action = policies[0].action(for: currentStep)
+        action = agents[0].action(for: currentStep)
         nextStep = environments[0].step(taking: action)
-        state = policies[0].state
+        state = agents[0].state
       case (true, false):
-        action = policies[0].action(for: currentStep)
+        action = agents[0].action(for: currentStep)
         let actions = action.unstacked()
         let nextSteps = environments.indices.map { environments[$0].step(taking: actions[$0]) }
         nextStep = Step<Observation, Reward>.stack(nextSteps)
-        state = policies[0].state
+        state = agents[0].state
       case (false, true):
         let currentSteps = currentStep.unstacked()
-        let actions = policies.indices.map { policies[$0].action(for: currentSteps[$0]) }
-        action = ManagedPolicy.Action.stack(actions)
+        let actions = agents.indices.map { agents[$0].action(for: currentSteps[$0]) }
+        action = Agent.Action.stack(actions)
         nextStep = environments[0].step(taking: action)
-        state = ManagedPolicy.State.stack(policies.map { $0.state })
+        state = Agent.State.stack(agents.map { $0.state })
       case (false, false):
         let currentSteps = currentStep.unstacked()
-        let actions = policies.indices.map { policies[$0].action(for: currentSteps[$0]) }
-        action = ManagedPolicy.Action.stack(actions)
+        let actions = agents.indices.map { agents[$0].action(for: currentSteps[$0]) }
+        action = Agent.Action.stack(actions)
         let nextSteps = environments.indices.map { environments[$0].step(taking: actions[$0]) }
         nextStep = Step<Observation, Reward>.stack(nextSteps)
-        state = ManagedPolicy.State.stack(policies.map { $0.state })
+        state = Agent.State.stack(agents.map { $0.state })
       }
       let trajectory = Trajectory(
         currentStep: currentStep,
         nextStep: nextStep,
         action: action,
-        policyState: state)
+        agentState: state)
       listeners.forEach { $0(trajectory) }
       numSteps += Int(Tensor<Int32>(trajectory.isBoundary().elementsLogicalNot()).sum().scalar!)
       numEpisodes += Int(Tensor<Int32>(trajectory.isBoundary()).sum().scalar!)

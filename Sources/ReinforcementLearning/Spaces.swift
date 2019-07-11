@@ -27,8 +27,8 @@ public protocol Space: CustomStringConvertible {
 
 public extension Space {
   /// Sample a random element from this space.
-  func sample(usingSeed seed: TensorFlowSeed = Context.local.randomSeed) -> Value {
-    return distribution.sample(usingSeed: seed)
+  func sample() -> Value {
+    distribution.sample()
   }
 }
 
@@ -124,17 +124,13 @@ public struct MultiDiscrete: Space {
       return entropy
     }
 
-    public func mode(
-      usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-    ) -> Tensor<Int32> {
-      let modes = distributions.map { $0.mode(usingSeed: seed) }
+    public func mode() -> Tensor<Int32> {
+      let modes = distributions.map { $0.mode() }
       return Tensor<Int32>(concatenating: modes)
     }
 
-    public func sample(
-      usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-    ) -> Tensor<Int32> {
-      let samples = distributions.map { $0.sample(usingSeed: seed) }
+    public func sample() -> Tensor<Int32> {
+      let samples = distributions.map { $0.sample() }
       return Tensor<Int32>(concatenating: samples)
     }
   }
@@ -199,16 +195,12 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
       distribution.entropy()
     }
 
-    public func mode(
-      usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-    ) -> Tensor<Scalar> {
-      Tensor<Scalar>(distribution.mode(usingSeed: seed))
+    public func mode() -> Tensor<Scalar> {
+      Tensor<Scalar>(distribution.mode())
     }
 
-    public func sample(
-      usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-    ) -> Tensor<Scalar> {
-      Tensor<Scalar>(distribution.sample(usingSeed: seed))
+    public func sample() -> Tensor<Scalar> {
+      Tensor<Scalar>(distribution.sample())
     }
   }
 }

@@ -67,12 +67,11 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
   internal var idsStorage: Tensor<Int64>? = nil
   internal var dataStorage: Data? = nil
 
-  public init<E: Environment, P: Policy>(
-    for environment: E,
-    using policy: P,
+  public init<A: Agent>(
+    using agent: A,
     batchSize: Int,
     maxLength: Int
-  ) where Data == Trajectory<P.Action, E.Observation, E.Reward, P.State> {
+  ) where Data == Trajectory<A.Action, A.Observation, A.Reward, A.State> {
     self.batchSize = batchSize
     self.maxLength = maxLength
     self.capacity = batchSize * maxLength

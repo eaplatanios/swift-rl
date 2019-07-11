@@ -45,7 +45,7 @@ public struct GreedyPolicy<
 
   public func actionDistribution(for step: Step<Observation, Reward>) -> Deterministic<Scalar> {
     let distribution = wrappedPolicy.actionDistribution(for: step)
-    let action = distribution.mode(usingSeed: randomSeed)
+    let action = distribution.mode()
     return Deterministic(at: action)
   }
 

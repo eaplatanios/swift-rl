@@ -24,7 +24,7 @@ fileprivate struct ActorNetwork: Network {
   public func initialize(using input: CartPoleEnvironment.Observation) {}
 
   @differentiable
-  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> Categorical<Int32> {
+  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> ReinforceNetworkOutput<Categorical<Int32>> {
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -35,8 +35,9 @@ fileprivate struct ActorNetwork: Network {
     // let logits = dense(flattenedBatchStackedInput)
     let logits = dense2(leakyRelu(dense1(flattenedBatchStackedInput)))
     let flattenedDistribution = Categorical<Int32>(logits: logits)
-    return flattenedDistribution.unflattenedBatch(
+    let distribution = flattenedDistribution.unflattenedBatch(
       outerDims: [Int](stackedInput.shape.dimensions[0..<outerDimCount]))
+    return ReinforceNetworkOutput(actionDistribution: distribution)
   }
 
   public func copy() -> ActorNetwork {
@@ -51,24 +52,21 @@ public func runCartPoleReinforce() {
   var renderer = CartPoleRenderer()
   var environment = CartPoleEnvironment(batchSize: batchSize)
 
-  let actorPolicy = ActorPolicy(
-    for: environment,
-    actorNetwork: ActorNetwork(),
-    randomSeed: (1234, 5678))
+  let network = ActorNetwork()
   var agent = ReinforceAgent(
-    actorPolicy: actorPolicy,
-    optimizer: AMSGrad(for: actorPolicy),
+    for: environment,
+    network: network,
+    optimizer: AMSGrad(for: network),
     discountFactor: 0.9,
     returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
     entropyRegularizationWeight: 0.0)
   var replayBuffer = UniformReplayBuffer(
-    for: environment,
-    using: agent.policy,
+    using: agent,
     batchSize: batchSize,
     maxLength: maxSequenceLength)
   var driver = StepBasedDriver(
     for: environment,
-    using: agent.policy,
+    using: agent,
     maxEpisodes: 128,
     batchSize: batchSize)
 

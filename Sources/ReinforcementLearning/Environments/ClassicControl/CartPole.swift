@@ -179,24 +179,20 @@ extension CartPoleEnvironment {
           angleDerivativeDistribution.entropy()
       }
 
-      public func mode(
-        usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-      ) -> Observation {
+      public func mode() -> Observation {
         Observation(
-          position: positionDistribution.mode(usingSeed: seed),
-          positionDerivative: positionDerivativeDistribution.mode(usingSeed: seed),
-          angle: angleDistribution.mode(usingSeed: seed),
-          angleDerivative: angleDerivativeDistribution.mode(usingSeed: seed))
+          position: positionDistribution.mode(),
+          positionDerivative: positionDerivativeDistribution.mode(),
+          angle: angleDistribution.mode(),
+          angleDerivative: angleDerivativeDistribution.mode())
       }
 
-      public func sample(
-        usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-      ) -> Observation {
+      public func sample() -> Observation {
         Observation(
-          position: positionDistribution.sample(usingSeed: seed),
-          positionDerivative: positionDerivativeDistribution.sample(usingSeed: seed),
-          angle: angleDistribution.sample(usingSeed: seed),
-          angleDerivative: angleDerivativeDistribution.sample(usingSeed: seed))
+          position: positionDistribution.sample(),
+          positionDerivative: positionDerivativeDistribution.sample(),
+          angle: angleDistribution.sample(),
+          angleDerivative: angleDerivativeDistribution.sample())
       }
     }
   }

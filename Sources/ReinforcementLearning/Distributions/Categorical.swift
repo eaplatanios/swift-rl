@@ -52,14 +52,13 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
   }
 
   @inlinable
-  public func mode(usingSeed seed: TensorFlowSeed = Context.local.randomSeed) -> Tensor<Scalar> {
+  public func mode() -> Tensor<Scalar> {
     Tensor<Scalar>(logProbabilities.argmax(squeezingAxis: 1))
   }
 
   @inlinable
-  public func sample(
-    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-  ) -> Tensor<Scalar> {
+  public func sample() -> Tensor<Scalar> {
+    let seed = Context.local.randomSeed
     let outerDimCount = self.logProbabilities.rank - 1
     let logProbabilities = self.logProbabilities.flattenedBatch(outerDimCount: outerDimCount)
     let multinomial: Tensor<Scalar> = Raw.multinomial(
@@ -71,21 +70,4 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
     return flattenedSamples.unflattenedBatch(
       outerDims: [Int](self.logProbabilities.shape.dimensions[0..<outerDimCount]))
   }
-}
-
-/// Returns the log-softmax of the specified tensor element-wise.
-@inlinable
-@differentiable(vjp: _vjpLogSoftmax(_:))
-public func logSoftmax<T: TensorFlowFloatingPoint>(_ x: Tensor<T>) -> Tensor<T> {
-  Raw.logSoftmax(logits: x)
-}
-
-@inlinable
-func _vjpLogSoftmax<T: TensorFlowFloatingPoint>(
-  _ x: Tensor<T>
-  ) -> (Tensor<T>, (Tensor<T>) -> Tensor<T>) {
-  let value = logSoftmax(x)
-  return (value, { v in
-    v - v.sum(alongAxes: -1) * exp(value)
-  })
 }

@@ -13,10 +13,13 @@
 // the License.
 
 public protocol Agent {
-  associatedtype Policy: ProbabilisticPolicy
+  associatedtype Action
+  associatedtype Observation
+  associatedtype Reward
+  associatedtype State
 
-  /// Policy used to act by this agent.
-  var policy: Policy { get }
+  var batched: Bool { get }
+  var state: State { get set }
 
   /// Initializes this agent.
   mutating func initialize()
@@ -25,11 +28,51 @@ public protocol Agent {
   /// - Returns: Loss function value.
   @discardableResult
   mutating func update(using trajectory: Trajectory<Action, Observation, Reward, State>) -> Float
+
+  func action(for step: Step<Observation, Reward>) -> Action
 }
 
-public extension Agent {
-  typealias Action = Policy.Action
-  typealias Observation = Policy.Observation
-  typealias Reward = Policy.Reward
-  typealias State = Policy.State
+extension Agent {
+  public mutating func initialize() {}
+
+  @discardableResult
+  public mutating func update(
+    using trajectory: Trajectory<Action, Observation, Reward, State>
+  ) -> Float {
+    0.0
+  }
+}
+
+public protocol ProbabilisticAgent: Agent {
+  associatedtype ActionDistribution: Distribution where ActionDistribution.Value == Action
+
+  /// Generates the distribution over next actions given the current environment step.
+  func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution
+}
+
+public extension ProbabilisticAgent {
+  func action(for step: Step<Observation, Reward>) -> Action {
+    actionDistribution(for: step).sample()
+  }
+}
+
+public struct RandomAgent<Environment: ReinforcementLearning.Environment>: ProbabilisticAgent {
+  public typealias Action = Environment.ActionSpace.Value
+  public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
+  public typealias Observation = Environment.ObservationSpace.Value
+  public typealias Reward = Environment.Reward
+  public typealias State = None
+
+  public let batched: Bool = false
+  public let environment: Environment
+
+  public var state: None = None()
+
+  public init(for environment: Environment) {
+    self.environment = environment
+  }
+
+  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
+    environment.actionSpace.distribution
+  }
 }

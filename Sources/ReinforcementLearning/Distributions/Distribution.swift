@@ -22,10 +22,10 @@ public protocol Distribution {
 
   /// Returns the mode of this distribution. If the distribution has multiple modes, then one of
   /// them is sampled randomly (and uniformly) and returned.
-  func mode(usingSeed seed: TensorFlowSeed) -> Value
+  func mode() -> Value
 
   /// Returns a random sample drawn from this distribution.
-  func sample(usingSeed seed: TensorFlowSeed) -> Value
+  func sample() -> Value
 }
 
 public extension Distribution {

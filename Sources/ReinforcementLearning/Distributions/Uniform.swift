@@ -46,16 +46,14 @@ public struct Uniform<
   }
 
   @inlinable
-  public func mode(
-    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-  ) -> Tensor<Scalar> {
-    sample(usingSeed: seed)
+  public func mode() -> Tensor<Scalar> {
+    sample()
   }
 
   @inlinable
-  public func sample(
-    usingSeed seed: TensorFlowSeed = Context.local.randomSeed
-  ) -> Tensor<Scalar> {
+  public func sample() -> Tensor<Scalar> {
+    // TODO: Make `Tensor.init(randomUniform:...)` accept `Tensor<Int32>` for the shape.
+    let seed = Context.local.randomSeed
     let sample: Tensor<Scalar> = Raw.randomUniform(
       shape: shape, seed: Int64(seed.graph), seed2: Int64(seed.op))
     return sample * (upperBound - lowerBound) + lowerBound
