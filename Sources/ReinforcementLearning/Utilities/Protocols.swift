@@ -14,6 +14,41 @@
 
 import TensorFlow
 
+public protocol Stackable {
+  static func stack(_ values: [Self]) -> Self
+  func unstacked() -> [Self]
+}
+
+public protocol DifferentiableStackable: Stackable, Differentiable {
+  @differentiable
+  static func stack(_ values: [Self]) -> Self
+
+  @differentiable
+  func unstacked() -> [Self]
+}
+
+extension Tensor: Stackable {
+  public static func stack(_ values: [Tensor]) -> Tensor {
+    Tensor(stacking: values, alongAxis: 0)
+  }
+
+  public func unstacked() -> [Tensor] {
+    unstacked(alongAxis: 0)
+  }
+}
+
+extension Tensor: DifferentiableStackable where Scalar: TensorFlowFloatingPoint {
+  @differentiable
+  public static func stack(_ values: [Tensor]) -> Tensor {
+    Tensor(stacking: values, alongAxis: 0)
+  }
+
+  @differentiable
+  public func unstacked() -> [Tensor] {
+    unstacked(alongAxis: 0)
+  }
+}
+
 public protocol Replayable {
   init(emptyLike example: Self, withCapacity capacity: Int)
 
@@ -95,6 +130,64 @@ extension Tensor: DifferentiableBatchable where Scalar: TensorFlowFloatingPoint 
 }
 
 extension KeyPathIterable {
+  public static func stack(_ values: [Self]) -> Self {
+    var result = values[0]
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
+      result[keyPath: kp] = Tensor.stack(values.map { $0[keyPath: kp] })
+    }
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Int64>.self) {
+      result[keyPath: kp] = Tensor.stack(values.map { $0[keyPath: kp] })
+    }
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
+      result[keyPath: kp] = Tensor.stack(values.map { $0[keyPath: kp] })
+    }
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Double>.self) {
+      result[keyPath: kp] = Tensor.stack(values.map { $0[keyPath: kp] })
+    }
+    return result
+  }
+
+  public func unstacked() -> [Self] {
+    var result = [Self]()
+    for kp in recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
+      let unstacked = self[keyPath: kp].unstacked()
+      if result.isEmpty {
+        result = [Self](repeating: self, count: unstacked.count)
+      }
+      for i in result.indices {
+        result[i][keyPath: kp] = unstacked[i]
+      }
+    }
+    for kp in recursivelyAllWritableKeyPaths(to: Tensor<Int64>.self) {
+      let unstacked = self[keyPath: kp].unstacked()
+      if result.isEmpty {
+        result = [Self](repeating: self, count: unstacked.count)
+      }
+      for i in result.indices {
+        result[i][keyPath: kp] = unstacked[i]
+      }
+    }
+    for kp in recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
+      let unstacked = self[keyPath: kp].unstacked()
+      if result.isEmpty {
+        result = [Self](repeating: self, count: unstacked.count)
+      }
+      for i in result.indices {
+        result[i][keyPath: kp] = unstacked[i]
+      }
+    }
+    for kp in recursivelyAllWritableKeyPaths(to: Tensor<Double>.self) {
+      let unstacked = self[keyPath: kp].unstacked()
+      if result.isEmpty {
+        result = [Self](repeating: self, count: unstacked.count)
+      }
+      for i in result.indices {
+        result[i][keyPath: kp] = unstacked[i]
+      }
+    }
+    return result
+  }
+
   public init(emptyLike example: Self, withCapacity capacity: Int) {
     self = example
     for kp in recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
@@ -167,6 +260,8 @@ extension KeyPathIterable {
 }
 
 extension KeyPathIterable where Self: Differentiable, Self.TangentVector: KeyPathIterable {
+  // TODO: Differentiable `stack` and `unstacked`.
+
   @differentiable(wrt: self, vjp: _vjpFlattenedBatch)
   public func flattenedBatch(outerDimCount: Int) -> Self {
     var result = self

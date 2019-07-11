@@ -80,13 +80,7 @@ public struct StepBasedDriver<
   Environment.ObservationSpace.Value == Agent.Observation,
   Environment.Reward == Agent.Reward,
   Agent.Action: Stackable,
-  Agent.Observation: Stackable,
-  Agent.Reward: Stackable,
-  Agent.State: Stackable,
-  Agent.Action.Stacked == Agent.Action,
-  Agent.Observation.Stacked == Agent.Observation,
-  Agent.Reward.Stacked == Agent.Reward,
-  Agent.State.Stacked == Agent.State
+  Agent.State: Stackable
 {
   public let maxSteps: Int
   public let maxEpisodes: Int

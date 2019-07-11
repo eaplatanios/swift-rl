@@ -76,21 +76,6 @@ public struct Step<Observation, Reward>: KeyPathIterable {
   }
 }
 
-extension Step: Stackable where Observation: Stackable, Reward: Stackable {
-  public static func stack(_ values: [Step]) -> Step<Observation.Stacked, Reward.Stacked> {
-    Step<Observation.Stacked, Reward.Stacked>(
-      kind: StepKind.stack(values.map { $0.kind }),
-      observation: Observation.stack(values.map { $0.observation }),
-      reward: Reward.stack(values.map { $0.reward }))
-  }
-
-  public func unstacked() -> [Step] {
-    zip(kind.unstacked(), observation.unstacked(), reward.unstacked()).map {
-      Step(kind: $0, observation: $1, reward: $2)
-    }
-  }
-}
-
 /// Represents the type of a step.
 public struct StepKind: KeyPathIterable {
   // TODO: Make `internal(set)` once `@usableFromInline` is supported.
@@ -125,14 +110,4 @@ public extension StepKind {
 
   /// Denotes the last step in a sequence.
   static let last = StepKind(Tensor<Int32>(2))
-}
-
-extension StepKind: Stackable {
-  public static func stack(_ values: [StepKind]) -> StepKind {
-    StepKind(Tensor<Int32>.stack(values.map{ $0.rawValue }))
-  }
-
-  public func unstacked() -> [StepKind] {
-    rawValue.unstacked().map(StepKind.init)
-  }
 }

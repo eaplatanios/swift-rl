@@ -36,10 +36,6 @@ public struct ReinforceAgent<
 where
   Environment.Observation == Network.Input,
   Environment.Reward == Tensor<Float>,
-  Network.Input: Stackable,
-  Network.State: Stackable,
-  Network.Input.Stacked == Network.Input,
-  Network.State.Stacked == Network.State,
   Network.Output == ReinforceNetworkOutput<ActionDistribution>,
   Optimizer.Model == Network
 {

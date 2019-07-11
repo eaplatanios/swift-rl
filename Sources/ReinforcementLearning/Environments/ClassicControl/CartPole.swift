@@ -198,35 +198,6 @@ extension CartPoleEnvironment {
   }
 }
 
-extension CartPoleEnvironment.Observation: Stackable {
-  public typealias Observation = CartPoleEnvironment.Observation
-
-  public static func stack(_ values: [Observation]) -> Observation {
-    Observation(
-      position: Tensor(stacking: values.map { $0.position }, alongAxis: 0),
-      positionDerivative: Tensor(stacking: values.map { $0.positionDerivative }, alongAxis: 0),
-      angle: Tensor(stacking: values.map { $0.angle }, alongAxis: 0),
-      angleDerivative: Tensor(stacking: values.map { $0.angleDerivative }, alongAxis: 0))
-  }
-
-  public func unstacked() -> [Observation] {
-    let positions = position.unstacked(alongAxis: 0)
-    let positionDerivatives = positionDerivative.unstacked(alongAxis: 0)
-    let angles = angle.unstacked(alongAxis: 0)
-    let angleDerivatives = angleDerivative.unstacked(alongAxis: 0)
-    // TODO: Make this more efficient with a zip operation.
-    var observations = [Observation]()
-    for i in positions.indices {
-      observations.append(Observation(
-        position: positions[i],
-        positionDerivative: positionDerivatives[i],
-        angle: angles[i],
-        angleDerivative: angleDerivatives[i]))
-    }
-    return observations
-  }
-}
-
 #if GLFW
 
 public struct CartPoleRenderer: Renderer, GLFWScene {
