@@ -30,24 +30,20 @@ public struct ReinforceNetworkOutput<
 public struct ReinforceAgent<
   Environment: ReinforcementLearning.Environment,
   Network: ReinforcementLearning.Network,
-  Optimizer: TensorFlow.Optimizer,
-  ActionDistribution: DifferentiableDistribution
+  Optimizer: TensorFlow.Optimizer
 >: ProbabilisticAgent
 where
   Environment.Observation == Network.Input,
   Environment.Reward == Tensor<Float>,
-  Network.Output == ReinforceNetworkOutput<ActionDistribution>,
+  Network.Output == ReinforceNetworkOutput<Environment.ActionSpace.ValueDistribution>,
   Optimizer.Model == Network
 {
   public typealias Observation = Network.Input
   public typealias Action = ActionDistribution.Value
-  public typealias ActionDistribution = ActionDistribution
+  public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
   public typealias State = Network.State
 
-  public let batched: Bool = true
-
-  public let environment: Environment
   public var network: Network
   public var optimizer: Optimizer
 
@@ -62,10 +58,13 @@ where
   public let entropyRegularizationWeight: Float
   public let valueEstimationLossWeight: Float
 
+  private var replayBuffer: UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>
+
   public init(
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
+    maxReplayedSequenceLength: Int,
     discountFactor: Float,
     advantageFunction: AdvantageFunction = NoAdvantageFunction(),
     returnsNormalizer: @escaping (Tensor<Float>) -> Tensor<Float> = {
@@ -73,7 +72,6 @@ where
     entropyRegularizationWeight: Float = 0.0,
     valueEstimationLossWeight: Float = 0.0
   ) {
-    self.environment = environment
     self.network = network
     self.optimizer = optimizer
     self.discountFactor = discountFactor
@@ -81,9 +79,14 @@ where
     self.returnsNormalizer = returnsNormalizer
     self.entropyRegularizationWeight = entropyRegularizationWeight
     self.valueEstimationLossWeight = valueEstimationLossWeight
+    self.replayBuffer = UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>(
+      batchSize: environment.batchSize,
+      maxLength: maxReplayedSequenceLength)
   }
 
-  public func initialize() {}
+  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
+    network(step.observation).actionDistribution
+  }
 
   @discardableResult
   public mutating func update(
@@ -93,7 +96,6 @@ where
       discountFactor: discountFactor,
       stepKinds: trajectory.stepKind,
       rewards: trajectory.reward)
-
     network.state = trajectory.state
     let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
         let networkOutput = network(trajectory.observation)
@@ -132,7 +134,33 @@ where
     return loss.scalar!
   }
 
-  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    network(step.observation).actionDistribution
+  @discardableResult
+  public mutating func update(
+    using environment: inout Environment,
+    maxSteps: Int = Int.max,
+    maxEpisodes: Int = Int.max,
+    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
+  ) -> Float {
+    var currentStep = environment.currentStep()
+    var numSteps = 0
+    var numEpisodes = 0
+    while numSteps < maxSteps && numEpisodes < maxEpisodes {
+      let action = self.action(for: currentStep)
+      let nextStep = environment.step(taking: action)
+      let trajectory = Trajectory(
+        stepKind: nextStep.kind,
+        observation: currentStep.observation,
+        action: action,
+        reward: nextStep.reward,
+        state: state)
+      replayBuffer.record(trajectory)
+      stepCallbacks.forEach { $0(trajectory) }
+      numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalar!)
+      numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalar!)
+      currentStep = nextStep
+    }
+    let batch = replayBuffer.recordedData()
+    replayBuffer.reset()
+    return update(using: batch)
   }
 }

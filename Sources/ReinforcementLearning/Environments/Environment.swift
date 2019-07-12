@@ -20,9 +20,12 @@ public protocol Environment {
   associatedtype ObservationSpace: Space
   associatedtype Reward
 
-  var batched: Bool { get }
+  var batchSize: Int { get }
   var actionSpace: ActionSpace { get }
   var observationSpace: ObservationSpace { get }
+
+  /// Returns the result of the last step taken in this environment (i.e., its current state).
+  func currentStep() -> Step<Observation, Reward>
 
   /// Updates the environment according to the provided action.
   @discardableResult
