@@ -18,12 +18,12 @@ import TensorFlow
 public protocol Driver {
   associatedtype Agent: ReinforcementLearning.Agent
 
-  typealias Action = Agent.Action
   typealias Observation = Agent.Observation
+  typealias Action = Agent.Action
   typealias Reward = Agent.Reward
   typealias State = Agent.State
 
-  typealias Listener = (Trajectory<Action, Observation, Reward, State>) -> Void
+  typealias Listener = (Trajectory<Observation, Action, Reward, State>) -> Void
 
   /// Takes steps in the managed environment using the managed policy.
   @discardableResult
@@ -60,7 +60,7 @@ public extension Driver where State == None {
 ///     received after taking `action[t]` is `reward[t]`.
 ///   - `state`: The state of the agent after taking each action. The state the agent is in after
 ///     taking `action[t]` is `state[t]`.
-public struct Trajectory<Action, Observation, Reward, State>: KeyPathIterable {
+public struct Trajectory<Observation, Action, Reward, State>: KeyPathIterable {
   // These need to be mutable because we use `KeyPathIterable.recursivelyAllWritableKeyPaths` to
   // automatically derive conformance to `Replayable`.
   public var stepKind: StepKind
@@ -88,8 +88,8 @@ public struct StepBasedDriver<
   Environment: ReinforcementLearning.Environment,
   Agent: ReinforcementLearning.Agent
 > where
-  Environment.ActionSpace.Value == Agent.Action,
   Environment.ObservationSpace.Value == Agent.Observation,
+  Environment.ActionSpace.Value == Agent.Action,
   Environment.Reward == Agent.Reward,
   Agent.Action: Stackable,
   Agent.State: Stackable
@@ -182,4 +182,80 @@ extension StepBasedDriver: Driver {
     }
     return currentStep
   }
+}
+
+@discardableResult
+public func runDriver<E: Environment, A: Agent>(
+  environment: inout E,
+  agent: inout A,
+  maxSteps: Int = Int.max,
+  maxEpisodes: Int = Int.max,
+  batchSize: Int = 1,
+  step: Step<A.Observation, A.Reward>,
+  listeners: [(Trajectory<A.Observation, A.Action, A.Reward, A.State>) -> Void]
+) -> Step<A.Observation, A.Reward> where
+  E.ObservationSpace.Value == A.Observation,
+  E.ActionSpace.Value == A.Action,
+  E.Reward == A.Reward,
+  A.Action: Stackable,
+  A.State == None
+{
+  let state = None()
+  let batchedEnvironment = environment.batched
+  let batchedAgent = agent.batched
+  var environments = batchedEnvironment ? 
+    [environment] :
+    (0..<batchSize).map { _  in environment.copy() }
+  var agents = batchedAgent ? [agent] : [A](repeating: agent, count: batchSize)
+  if batchedAgent {
+    agents[0].state = A.State.stack([A.State](repeating: state, count: batchSize))
+  } else {
+    agents.indices.forEach { agents[$0].state = state }
+  }
+  var currentStep = step
+  // var currentStep = Step<A.Observation, A.Reward>.stack(
+  //   [Step<A.Observation, A.Reward>](repeating: step, count: batchSize))
+  var numSteps = 0
+  var numEpisodes = 0
+  while numSteps < maxSteps && numEpisodes < maxEpisodes {
+    var action: A.Action
+    var nextStep: Step<A.Observation, A.Reward>
+    var state: A.State
+    switch (batchedAgent, batchedEnvironment) {
+    case (true, true):
+      action = agents[0].action(for: currentStep)
+      nextStep = environments[0].step(taking: action)
+      state = agents[0].state
+    case (true, false):
+      action = agents[0].action(for: currentStep)
+      let actions = action.unstacked()
+      let nextSteps = environments.indices.map { environments[$0].step(taking: actions[$0]) }
+      nextStep = Step<A.Observation, A.Reward>.stack(nextSteps)
+      state = agents[0].state
+    case (false, true):
+      let currentSteps = currentStep.unstacked()
+      let actions = agents.indices.map { agents[$0].action(for: currentSteps[$0]) }
+      action = A.Action.stack(actions)
+      nextStep = environments[0].step(taking: action)
+      state = A.State.stack(agents.map { $0.state })
+    case (false, false):
+      let currentSteps = currentStep.unstacked()
+      let actions = agents.indices.map { agents[$0].action(for: currentSteps[$0]) }
+      action = A.Action.stack(actions)
+      let nextSteps = environments.indices.map { environments[$0].step(taking: actions[$0]) }
+      nextStep = Step<A.Observation, A.Reward>.stack(nextSteps)
+      state = A.State.stack(agents.map { $0.state })
+    }
+    let trajectory = Trajectory(
+      stepKind: nextStep.kind,
+      observation: currentStep.observation,
+      action: action,
+      reward: nextStep.reward,
+      state: state)
+    listeners.forEach { $0(trajectory) }
+    numSteps += Int((1 - Tensor<Int32>(trajectory.stepKind.isLast())).sum().scalar!)
+    numEpisodes += Int(Tensor<Int32>(trajectory.stepKind.isLast()).sum().scalar!)
+    currentStep = nextStep
+  }
+  return currentStep
 }

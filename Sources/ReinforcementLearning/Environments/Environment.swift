@@ -84,6 +84,17 @@ public struct StepKind: KeyPathIterable {
   public init(_ rawValue: Tensor<Int32>) {
     self.rawValue = rawValue
   }
+}
+
+extension StepKind {
+  /// Denotes the first step in a sequence.
+  public static let first = StepKind(Tensor<Int32>(0))
+
+  /// Denotes an transition step in a sequence (i.e., not first or last).
+  public static let transition = StepKind(Tensor<Int32>(1))
+
+  /// Denotes the last step in a sequence.
+  public static let last = StepKind(Tensor<Int32>(2))
 
   @inlinable
   public func isFirst() -> Tensor<Bool> {
@@ -99,15 +110,17 @@ public struct StepKind: KeyPathIterable {
   public func isLast() -> Tensor<Bool> {
     rawValue .== 2
   }
-}
 
-public extension StepKind {
-  /// Denotes the first step in a sequence.
-  static let first = StepKind(Tensor<Int32>(0))
+  /// Returns a tensor containing the number of completed episodes contained in the trajectory
+  /// that this step kind corresponds to.
+  public func episodeCount() -> Tensor<Float> {
+    Tensor<Float>(isLast()).sum()
+  }
 
-  /// Denotes an transition step in a sequence (i.e., not first or last).
-  static let transition = StepKind(Tensor<Int32>(1))
-
-  /// Denotes the last step in a sequence.
-  static let last = StepKind(Tensor<Int32>(2))
+  /// Returns a boolean tensor whose `false`-valued elements correspond to steps of episodes that
+  /// did not complete by the end of the trajectory that this step kind corresponds to.
+  @inlinable
+  public func completeEpisodeMask() -> Tensor<Bool> {
+    Tensor<Float>(self.isLast()).cumulativeSum(alongAxis: 0, reverse: true) .> 0
+  }
 }

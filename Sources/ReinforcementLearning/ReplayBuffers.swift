@@ -71,7 +71,7 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
     for agent: Agent,
     batchSize: Int,
     maxLength: Int
-  ) where Data == Trajectory<Agent.Action, Agent.Observation, Agent.Reward, Agent.State> {
+  ) where Data == Trajectory<Agent.Observation, Agent.Action, Agent.Reward, Agent.State> {
     self.batchSize = batchSize
     self.maxLength = maxLength
     self.capacity = batchSize * maxLength

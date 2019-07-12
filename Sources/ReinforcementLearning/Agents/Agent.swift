@@ -13,8 +13,8 @@
 // the License.
 
 public protocol Agent {
-  associatedtype Action
   associatedtype Observation
+  associatedtype Action
   associatedtype Reward
   associatedtype State
 
@@ -52,14 +52,16 @@ public protocol ProbabilisticAgent: Agent {
 
 public extension ProbabilisticAgent {
   func action(for step: Step<Observation, Reward>) -> Action {
-    actionDistribution(for: step).sample()
+    // TODO: Allow for things like ε-Greedy.
+    // TODO: Allow for training vs. inference mode distinction.
+    actionDistribution(for: step).sample() //.mode()
   }
 }
 
 public struct RandomAgent<Environment: ReinforcementLearning.Environment>: ProbabilisticAgent {
+  public typealias Observation = Environment.ObservationSpace.Value
   public typealias Action = Environment.ActionSpace.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
-  public typealias Observation = Environment.ObservationSpace.Value
   public typealias Reward = Environment.Reward
   public typealias State = None
 

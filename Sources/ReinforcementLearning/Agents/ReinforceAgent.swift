@@ -39,17 +39,17 @@ where
   Network.Output == ReinforceNetworkOutput<ActionDistribution>,
   Optimizer.Model == Network
 {
+  public typealias Observation = Network.Input
   public typealias Action = ActionDistribution.Value
   public typealias ActionDistribution = ActionDistribution
-  public typealias Observation = Network.Input
   public typealias Reward = Tensor<Float>
   public typealias State = Network.State
 
   public let batched: Bool = true
 
   public let environment: Environment
-  public private(set) var network: Network
-  public private(set) var optimizer: Optimizer
+  public var network: Network
+  public var optimizer: Optimizer
 
   public var state: State {
     get { network.state }
@@ -87,7 +87,7 @@ where
 
   @discardableResult
   public mutating func update(
-    using trajectory: Trajectory<Action, Observation, Reward, State>
+    using trajectory: Trajectory<Observation, Action, Reward, State>
   ) -> Float {
     let returns = discountedReturns(
       discountFactor: discountFactor,
@@ -95,8 +95,7 @@ where
       rewards: trajectory.reward)
 
     network.state = trajectory.state
-    let (loss, gradient) = network.valueWithGradient {
-      [entropyRegularizationWeight] network -> Tensor<Float> in
+    let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
         let networkOutput = network(trajectory.observation)
         var advantages = returns
         // if let value = networkOutput.value {
@@ -115,13 +114,14 @@ where
         // Policy gradient loss is defined as the sum, over time steps, of action log-probabilities
         // multiplied with the cumulative return from that time step onward.
         let actionLogProbWeightedReturns = actionLogProbs * normalizedReturns
-        
-        // We mask out partial episodes at the end of each batch and also transitions between the 
-        // end state of previous episodes and the start state of the next episode.
-        let isLast = Tensor<Float>(trajectory.stepKind.isLast())
-        let mask = Tensor<Float>(
-          isLast.cumulativeSum(alongAxis: 0, reverse: true) .> 0) * (1 - isLast)
-        let episodeCount = isLast.sum()
+
+        // REINFORCE requires completed episodes and thus we mask out incomplete ones.
+        let mask = Tensor<Float>(trajectory.stepKind.completeEpisodeMask())
+        let episodeCount = trajectory.stepKind.episodeCount()
+
+        precondition(
+          episodeCount.scalarized() > 0,
+          "REINFORCE requires at least one completed episode.")
 
         // We compute the mean of the policy gradient loss over the number of episodes.
         let policyGradientLoss = -(actionLogProbWeightedReturns * mask).sum() / episodeCount

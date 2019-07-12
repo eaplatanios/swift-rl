@@ -18,9 +18,9 @@ fileprivate struct ActorNetwork: Network {
   @noDerivative public var state: None = None()
 
   // public var dense: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 2)
-  public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 6)
-  public var dense2: Dense<Float> = Dense<Float>(inputSize: 6, outputSize: 2)
-  public var dense2Value: Dense<Float> = Dense<Float>(inputSize: 6, outputSize: 2)
+  public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
+  public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
+  // public var dense2Value: Dense<Float> = Dense<Float>(inputSize: 6, outputSize: 2)
 
   public func initialize(using input: CartPoleEnvironment.Observation) {}
 
@@ -35,7 +35,7 @@ fileprivate struct ActorNetwork: Network {
       alongAxis: input.position.rank)
     let outerDimCount = stackedInput.rank - 1
     let flattenedBatchStackedInput = stackedInput.flattenedBatch(outerDimCount: outerDimCount)
-    // let logits = dense(flattenedBatchStackedInput)
+    // let actionLogits = dense(flattenedBatchStackedInput)
     let hidden = leakyRelu(dense1(flattenedBatchStackedInput))
     let actionLogits = dense2(hidden)
     let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
@@ -51,17 +51,18 @@ fileprivate struct ActorNetwork: Network {
 }
 
 public func runCartPoleReinforce() {
-  let batchSize = 32
+  let batchSize = 1
   let maxSequenceLength = 2000
+  let maxEpisodes = 1
 
-  var renderer = CartPoleRenderer()
   var environment = CartPoleEnvironment(batchSize: batchSize)
+  var renderer = CartPoleRenderer()
 
   let network = ActorNetwork()
   var agent = ReinforceAgent(
     for: environment,
     network: network,
-    optimizer: AMSGrad(for: network),
+    optimizer: AMSGrad(for: network, learningRate: 1e-3),
     discountFactor: 0.9,
     // advantageFunction: EmpiricalAdvantageEstimation(),
     returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
@@ -70,25 +71,33 @@ public func runCartPoleReinforce() {
     for: agent,
     batchSize: batchSize,
     maxLength: maxSequenceLength)
-  var driver = StepBasedDriver(
-    for: environment,
-    using: agent,
-    maxEpisodes: 128,
-    batchSize: batchSize)
+
+  // Metrics
+  var averageEpisodeLength = AverageEpisodeLength(
+    for: agent,
+    batchSize: batchSize,
+    bufferSize: 10)
 
   agent.initialize()
 
   for step in 0..<10000 {
-    driver.run(using: environment.reset(), updating: [{ trajectoryStep in
+    runDriver(
+      environment: &environment,
+      agent: &agent,
+      maxEpisodes: maxEpisodes,
+      batchSize: batchSize,
+      step: environment.reset(),
+      listeners: [{ trajectoryStep in
       replayBuffer.record(trajectoryStep)
+      averageEpisodeLength.update(using: trajectoryStep)
       if step > 200 {
-        try! environment.render(
-          observation: trajectoryStep.observation,
-          using: &renderer)
+        try! renderer.render(trajectoryStep.observation)
       }
     }])
     let loss = agent.update(using: replayBuffer.recordedData())
-    print("Step \(step) loss: \(loss)")
+    if step % 1 == 0 {
+      print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+    }
     replayBuffer.reset()
   }
 }

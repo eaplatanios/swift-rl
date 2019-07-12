@@ -26,8 +26,9 @@ fileprivate let totalMass: Float = cartMass + poleMass
 fileprivate let poleMassLength: Float = poleMass * length
 
 public struct CartPoleEnvironment: Environment {
+  public let batched: Bool = true
+
   public let batchSize: Int
-  public let batched: Bool
   public let actionSpace: Discrete = Discrete(withSize: 2)
   public var observationSpace: ObservationSpace = ObservationSpace()
 
@@ -39,7 +40,6 @@ public struct CartPoleEnvironment: Environment {
 
   public init(batchSize: Int) {
     self.batchSize = batchSize
-    self.batched = batchSize > 1
     self.position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
     self.positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
     self.angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
@@ -96,10 +96,10 @@ public struct CartPoleEnvironment: Environment {
   /// Resets the environment.
   @discardableResult
   public mutating func reset() -> Step<Observation, Tensor<Float>> {
-    position = CartPoleEnvironment.randomTensor()
-    positionDerivative = CartPoleEnvironment.randomTensor()
-    angle = CartPoleEnvironment.randomTensor()
-    angleDerivative = CartPoleEnvironment.randomTensor()
+    position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    angleDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
     needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
     let observation = Observation(
       position: position,
