@@ -38,6 +38,7 @@ import TensorFlow
 ///
 /// - Returns: Array of discounted return values over time.
 @inlinable
+// TODO: @differentiable(wrt: rewards where Scalar: TensorFlowFloatingPoint)
 public func discountedReturns<Scalar: TensorFlowNumeric>(
   discountFactor: Scalar,
   stepKinds: StepKind,
@@ -46,16 +47,30 @@ public func discountedReturns<Scalar: TensorFlowNumeric>(
 ) -> Tensor<Scalar> {
   let T = stepKinds.rawValue.shape[0]
   let finalReward = finalValue ?? Tensor<Scalar>(zerosLike: rewards[0])
-  var discountedReturns = Tensor<Scalar>(zerosLike: rewards)
+  var discountedReturns = [Tensor<Scalar>]()
   for t in (0..<T).reversed() {
-    let futureReturn = t + 1 < T ? discountedReturns[t + 1] : finalReward
+    let futureReturn = t + 1 < T ? discountedReturns[T - t - 2] : finalReward
     let discountedFutureReturn = discountFactor * futureReturn
     let discountedReturn = rewards[t] + discountedFutureReturn.replacing(
       with: Tensor<Scalar>(zerosLike: discountedFutureReturn),
       where: stepKinds.rawValue[t] .== StepKind.last.rawValue.scalar!)
-    discountedReturns[t] = discountedReturn
+    discountedReturns = discountedReturns + [discountedReturn]
   }
-  return discountedReturns
+  return Tensor<Scalar>(stacking: discountedReturns.reversed())
+
+  // TODO: !!! The following only considers the first episode for each batch element.
+  // let rewardShape = TensorShape(rewards.rank > 1 ? rewards.shape.dimensions[1...] : [])
+  // let finalReward = finalValue?.broadcasted(to: rewardShape) ?? Tensor<Scalar>(zeros: rewardShape)
+  // let r = rewards.concatenated(with: finalReward.expandingShape(at: 0), alongAxis: 0)
+  // let dd = Tensor<Scalar>(repeating: discountFactor, shape: rewards.shape).replacing(
+  //   with: Tensor<Scalar>(zeros: rewards.shape),
+  //   where: stepKinds.rawValue .== StepKind.last.rawValue.scalar!) // This will not currently work.
+  // let ddOne = Tensor<Scalar>(repeating: discountFactor, shape: rewardShape).expandingShape(at: 0)
+  // let discounts = dd.concatenated(with: ddOne, alongAxis: 0)
+  // let d = discounts.cumulativeProduct(alongAxis: 0, exclusive: true)
+  // let rPrime = (r * d).cumulativeSum(alongAxis: 0, reverse: true)
+  // let rDiscounted = rPrime / d
+  // return rDiscounted[0..<rewards.shape[0]]
 }
 
 public protocol AdvantageFunction {
