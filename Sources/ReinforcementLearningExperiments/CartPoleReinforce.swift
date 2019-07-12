@@ -52,7 +52,6 @@ fileprivate struct ActorNetwork: Network {
 
 public func runCartPoleReinforce() {
   let batchSize = 1
-  let maxSequenceLength = 2000
   let maxEpisodes = 1
 
   var environment = CartPoleEnvironment(batchSize: batchSize)
@@ -63,14 +62,11 @@ public func runCartPoleReinforce() {
     for: environment,
     network: network,
     optimizer: AMSGrad(for: network, learningRate: 1e-3),
+    maxReplayedSequenceLength: 2000,
     discountFactor: 0.9,
     // advantageFunction: EmpiricalAdvantageEstimation(),
     returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
     entropyRegularizationWeight: 0.0)
-  var replayBuffer = UniformReplayBuffer(
-    for: agent,
-    batchSize: batchSize,
-    maxLength: maxSequenceLength)
 
   // Metrics
   var averageEpisodeLength = AverageEpisodeLength(
@@ -78,26 +74,18 @@ public func runCartPoleReinforce() {
     batchSize: batchSize,
     bufferSize: 10)
 
-  agent.initialize()
-
   for step in 0..<10000 {
-    runDriver(
-      environment: &environment,
-      agent: &agent,
+    let loss = agent.update(
+      using: &environment,
       maxEpisodes: maxEpisodes,
-      batchSize: batchSize,
-      step: environment.reset(),
-      listeners: [{ trajectoryStep in
-      replayBuffer.record(trajectoryStep)
-      averageEpisodeLength.update(using: trajectoryStep)
-      if step > 200 {
-        try! renderer.render(trajectoryStep.observation)
-      }
-    }])
-    let loss = agent.update(using: replayBuffer.recordedData())
+      stepCallbacks: [{ trajectory in
+        averageEpisodeLength.update(using: trajectory)
+        if step > 1000 {
+          try! renderer.render(trajectory.observation)
+        }
+      }])
     if step % 1 == 0 {
       print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
     }
-    replayBuffer.reset()
   }
 }

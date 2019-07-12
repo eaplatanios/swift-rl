@@ -99,6 +99,24 @@ extension StepKind {
   /// Denotes the last step in a sequence.
   public static let last = StepKind(Tensor<Int32>(2))
 
+  /// Returns a batched `StepKind` filled with "first" step kind values.
+  public static func first(batchSize: Int) -> StepKind {
+    StepKind(first.rawValue.expandingShape(at: 0)
+      .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
+  }
+
+  /// Returns a batched `StepKind` filled with "transition" step kind values.
+  public static func transition(batchSize: Int) -> StepKind {
+    StepKind(transition.rawValue.expandingShape(at: 0)
+      .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
+  }
+
+  /// Returns a batched `StepKind` filled with "last" step kind values.
+  public static func last(batchSize: Int) -> StepKind {
+    StepKind(last.rawValue.expandingShape(at: 0)
+      .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
+  }
+
   @inlinable
   public func isFirst() -> Tensor<Bool> {
     rawValue .== 0

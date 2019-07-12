@@ -26,31 +26,40 @@ fileprivate let totalMass: Float = cartMass + poleMass
 fileprivate let poleMassLength: Float = poleMass * length
 
 public struct CartPoleEnvironment: Environment {
-  public let batched: Bool = true
-
   public let batchSize: Int
   public let actionSpace: Discrete = Discrete(withSize: 2)
   public var observationSpace: ObservationSpace = ObservationSpace()
 
-  private var position: Tensor<Float>
-  private var positionDerivative: Tensor<Float>
-  private var angle: Tensor<Float>
-  private var angleDerivative: Tensor<Float>
+  private var step: Step<Observation, Tensor<Float>>
   private var needsReset: Tensor<Bool>
 
   public init(batchSize: Int) {
     self.batchSize = batchSize
-    self.position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    self.positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    self.angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    self.angleDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    self.step = Step(
+      kind: StepKind.first(batchSize: batchSize),
+      observation: Observation(
+        position: CartPoleEnvironment.randomTensor(withShape: [batchSize]),
+        positionDerivative: CartPoleEnvironment.randomTensor(withShape: [batchSize]),
+        angle: CartPoleEnvironment.randomTensor(withShape: [batchSize]),
+        angleDerivative: CartPoleEnvironment.randomTensor(withShape: [batchSize])),
+      reward: Tensor<Float>(ones: [batchSize]))
     self.needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
+  }
+
+  public func currentStep() -> Step<Observation, Reward> {
+    step
   }
 
   /// Updates the environment according to the provided action.
   @discardableResult
   public mutating func step(taking action: Tensor<Int32>) -> Step<Observation, Tensor<Float>> {
     precondition(actionSpace.contains(action), "Invalid action provided.")
+    var position = step.observation.position
+    var positionDerivative = step.observation.positionDerivative
+    var angle = step.observation.angle
+    var angleDerivative = step.observation.angleDerivative
+
+    // Calculate the updates to the pole position, angle, and their derivatives.
     let force = Tensor<Float>(2 * action - 1) * forceMagnitude
     let angleCosine = cos(angle)
     let angleSine = sin(angle)
@@ -65,48 +74,39 @@ public struct CartPoleEnvironment: Environment {
     angleDerivative += secondCountBetweenUpdates * angleAcc
 
     // Take into account the finished simulations in the batch.
-    position = position.replacing(
+    step.observation.position = position.replacing(
       with: CartPoleEnvironment.randomTensor(withShape: position.shape),
       where: needsReset)
-    positionDerivative = positionDerivative.replacing(
+    step.observation.positionDerivative = positionDerivative.replacing(
       with: CartPoleEnvironment.randomTensor(withShape: positionDerivative.shape),
       where: needsReset)
-    angle = angle.replacing(
+    step.observation.angle = angle.replacing(
       with: CartPoleEnvironment.randomTensor(withShape: angle.shape),
       where: needsReset)
-    angleDerivative = angleDerivative.replacing(
+    step.observation.angleDerivative = angleDerivative.replacing(
       with: CartPoleEnvironment.randomTensor(withShape: angleDerivative.shape),
       where: needsReset)
-    let newNeedsReset = (position .< -positionThreshold)
-      .elementsLogicalOr(position .> positionThreshold)
-      .elementsLogicalOr(angle .< -angleThreshold)
-      .elementsLogicalOr(angle .> angleThreshold)
-    let kind = StepKind((Tensor<Int32>(newNeedsReset) + 1)
-      .replacing(with: Tensor<Int32>(zeros: newNeedsReset.shape), where: needsReset))
-    let observation = Observation(
-      position: position,
-      positionDerivative: positionDerivative,
-      angle: angle,
-      angleDerivative: angleDerivative)
-    let reward = Tensor<Float>(ones: action.shape)
+    let newNeedsReset = (step.observation.position .< -positionThreshold)
+      .elementsLogicalOr(step.observation.position .> positionThreshold)
+      .elementsLogicalOr(step.observation.angle .< -angleThreshold)
+      .elementsLogicalOr(step.observation.angle .> angleThreshold)
+    step.kind.rawValue = (Tensor<Int32>(newNeedsReset) + 1)
+      .replacing(with: Tensor<Int32>(zeros: newNeedsReset.shape), where: needsReset)
+    // Rewards need not be updated because they are always equal to one.
     needsReset = newNeedsReset
-    return Step(kind: kind, observation: observation, reward: reward)
+    return step
   }
 
   /// Resets the environment.
   @discardableResult
   public mutating func reset() -> Step<Observation, Tensor<Float>> {
-    position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    angleDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    step.kind = StepKind.first(batchSize: batchSize)
+    step.observation.position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    step.observation.positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    step.observation.angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    step.observation.angleDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
     needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
-    let observation = Observation(
-      position: position,
-      positionDerivative: positionDerivative,
-      angle: angle,
-      angleDerivative: angleDerivative)
-    return Step(kind: .first, observation: observation, reward: Tensor<Float>(zeros: []))
+    return step
   }
 
   /// Returns a copy of this environment that is reset before being returned.
