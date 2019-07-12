@@ -83,7 +83,7 @@ public func runCartPoleReinforce() {
       replayBuffer.record(trajectoryStep)
       if step > 200 {
         try! environment.render(
-          observation: trajectoryStep.currentStep.observation,
+          observation: trajectoryStep.observation,
           using: &renderer)
       }
     }])

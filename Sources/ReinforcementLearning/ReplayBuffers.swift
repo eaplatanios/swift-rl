@@ -97,21 +97,24 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
   /// Returns all of the data recorded in this replay buffer.
   ///
   /// - Returns: Recorded data in the form of a tensor group where each tensor has shape
-  ///   `[batchSize, maxSequenceLength, ...]`.
+  ///   `[maxSequenceLength, batchSize, ...]`.
   public func recordedData() -> Data {
     // Repeat `ids` over `batchSize` resulting in a tensor with shape
-    // `[batchSize, idsRange.1 - idsRange.0, ...]`.
+    // `[idsRange.1 - idsRange.0, batchSize, ...]`.
     let idsRange = validIDsRange()
-    var ids = Tensor<Int64>(rangeFrom: idsRange.0, to: idsRange.1, stride: 1)
-    ids = Tensor<Int64>(stacking: [Tensor<Int64>](repeating: ids, count: batchSize))
+    let ids = Tensor<Int64>(
+      rangeFrom: idsRange.0,
+      to: idsRange.1,
+      stride: 1
+    ).expandingShape(at: 1).tiled(multiples: Tensor<Int32>([1, Int32(batchSize)]))
 
-    // Create the `batchOffsets` with shape `[batchSize, 1]`, and then add them to `ids` to obtain
+    // Create the `batchOffsets` with shape `[1, batchSize]`, and then add them to `ids` to obtain
     // the row indices in the storage tensors.
     let batchOffsets = Tensor<Int64>(
       rangeFrom: Tensor<Int64>(0),
       to: Tensor<Int64>(Int64(batchSize)),
       stride: Tensor<Int64>(1)
-    ).expandingShape(at: 1) * Int64(maxLength)
+    ).expandingShape(at: 0) * Int64(maxLength)
     let indices = ids % Int64(maxLength) + batchOffsets
 
     return dataStorage!.gathering(atIndices: indices)
@@ -124,7 +127,7 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
   ///   - stepCount: Number of time steps to include for each batch element. If
   ///     `stepCount == nil`, the returned batch consists of tensor groups where each
   ///     tensor has shape `[batchSize, ...]`. Otherwise, each such tensor has shape
-  ///     `[batchSize, stepCount, ...]`.
+  ///     `[stepCount, batchSize, ...]`.
   /// - Returns: Batch sampled uniformly at random from the recorded data.
   public func sampleBatch(batchSize: Int = 1, stepCount: Int? = nil) -> ReplayBufferBatch<Data> {
     let idsRange = validIDsRange(stepCount: Int64(stepCount ?? 1))
@@ -145,10 +148,10 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
 
     if let stepCount = stepCount {
       indices = indices.expandingShape(at: -1)
-        .tiled(multiples: Tensor<Int32>([1, Int32(stepCount)]))
+        .tiled(multiples: Tensor<Int32>([Int32(stepCount), 1]))
       let stepRange = Tensor<Int64>(rangeFrom: 0, to: Int64(stepCount), stride: 1)
-        .reshaped(to: [1, stepCount])
-        .tiled(multiples: Tensor<Int32>([Int32(batchSize), 1]))
+        .reshaped(to: [stepCount, 1])
+        .tiled(multiples: Tensor<Int32>([1, Int32(batchSize)]))
       indices = (stepRange + indices) % Int64(capacity)
     } else {
       indices = indices % Int64(capacity)
@@ -159,7 +162,7 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
     let probabilities = Tensor<Float>(
       repeating: 1 / Float(idsCount * Int64(self.batchSize)),
       shape: [batchSize])
-    
+
     return ReplayBufferBatch(batch: batch, ids: ids, probabilities: probabilities)
   }
 

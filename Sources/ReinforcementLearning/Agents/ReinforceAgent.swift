@@ -89,16 +89,15 @@ where
   public mutating func update(
     using trajectory: Trajectory<Action, Observation, Reward, State>
   ) -> Float {
-    let stepKinds = trajectory.currentStep.kind.rawValue.unstacked(alongAxis: 1)
     let returns = discountedReturns(
       discountFactor: discountFactor,
-      stepKinds: stepKinds,
-      rewards: trajectory.nextStep.reward.unstacked(alongAxis: 1))
+      stepKinds: trajectory.stepKind,
+      rewards: trajectory.reward)
 
-    network.state = trajectory.agentState
+    network.state = trajectory.state
     let (loss, gradient) = network.valueWithGradient {
       [entropyRegularizationWeight] network -> Tensor<Float> in
-        let networkOutput = network(trajectory.currentStep.observation)
+        let networkOutput = network(trajectory.observation)
         var advantages = returns
         // if let value = networkOutput.value {
         //   let values = value.unstacked(alongAxis: 1)
@@ -109,7 +108,7 @@ where
         //     values: values,
         //     finalValue: values.last!) // TODO: I believe this is not correct!
         // }
-        let normalizedReturns = returnsNormalizer(Tensor<Float>(stacking: advantages).transposed())
+        let normalizedReturns = returnsNormalizer(advantages)
         let distribution = networkOutput.actionDistribution
         let actionLogProbs = distribution.logProbability(of: trajectory.action)
 
@@ -119,9 +118,9 @@ where
         
         // We mask out partial episodes at the end of each batch and also transitions between the 
         // end state of previous episodes and the start state of the next episode.
-        let isLast = Tensor<Float>(trajectory.currentStep.kind.isLast())
+        let isLast = Tensor<Float>(trajectory.stepKind.isLast())
         let mask = Tensor<Float>(
-          isLast.cumulativeSum(alongAxis: 1, reverse: true) .> 0) * (1 - isLast)
+          isLast.cumulativeSum(alongAxis: 0, reverse: true) .> 0) * (1 - isLast)
         let episodeCount = isLast.sum()
 
         // We compute the mean of the policy gradient loss over the number of episodes.

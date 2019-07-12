@@ -40,29 +40,22 @@ import TensorFlow
 @inlinable
 public func discountedReturns<Scalar: TensorFlowNumeric>(
   discountFactor: Scalar,
-  stepKinds: [Tensor<Int32>],
-  rewards: [Tensor<Scalar>],
+  stepKinds: StepKind,
+  rewards: Tensor<Scalar>,
   finalValue: Tensor<Scalar>? = nil
-) -> [Tensor<Scalar>] {
-  precondition(stepKinds.count == rewards.count)
-
-  if stepKinds.isEmpty {
-    return [Tensor<Scalar>]()
-  }
-
-  let T = stepKinds.count
-  let finalReward = finalValue ?? Tensor<Scalar>(zerosLike: rewards.last!)
-  var discountedReturns = [Tensor<Scalar>]()
-  discountedReturns.reserveCapacity(T)
+) -> Tensor<Scalar> {
+  let T = stepKinds.rawValue.shape[0]
+  let finalReward = finalValue ?? Tensor<Scalar>(zerosLike: rewards[0])
+  var discountedReturns = Tensor<Scalar>(zerosLike: rewards)
   for t in (0..<T).reversed() {
-    let futureReturn = t + 1 < T ? discountedReturns[T - t - 2] : finalReward
-    let discountedFutureReward = discountFactor * futureReturn
-    let discountedReward = rewards[t] + discountedFutureReward.replacing(
-      with: Tensor<Scalar>(zerosLike: discountedFutureReward),
-      where: stepKinds[t] .== StepKind.last.rawValue.scalar!)
-    discountedReturns.append(discountedReward)
+    let futureReturn = t + 1 < T ? discountedReturns[t + 1] : finalReward
+    let discountedFutureReturn = discountFactor * futureReturn
+    let discountedReturn = rewards[t] + discountedFutureReturn.replacing(
+      with: Tensor<Scalar>(zerosLike: discountedFutureReturn),
+      where: stepKinds.rawValue[t] .== StepKind.last.rawValue.scalar!)
+    discountedReturns[t] = discountedReturn
   }
-  return discountedReturns.reversed()
+  return discountedReturns
 }
 
 public protocol AdvantageFunction {
