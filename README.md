@@ -13,27 +13,28 @@ functionality of Gym. Currently supported features are:
   implemented with batching in mind to support efficient
   training of neural networks that often operate on batched
   inputs.
-- Environments:
-  - Cart-Pole (classic control example)
-  - Retro Games (atari/sega/... games)
-- Policy Gradient Algorithms:
-  - REINFORCE
-  - Advantage Actor Critic (A2C)
-  - *UPCOMING: Proximal Policy Optimization (PPO)*
-  - *UPCOMING: Deep Deterministic Policy Gradients (DDPG)*
-  - *UPCOMING: Twin Delayed Deep Deterministic Policy Gradients (TD3)*
-  - *UPCOMING: Soft Actor Critic (SAC)*
-- Q-Learning Algorithms:
-  - *UPCOMING: Deep Q-Networks (DQN)*
-  - *UPCOMING: Double Deep Q-Networks (DDQN)*
-- Advantage Estimation Methods:
+- [Environments](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Environments/Environment.swift):
+  - [Cart-Pole (classic control example)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Environments/ClassicControl/CartPole.swift)
+  - [Retro Games (atari/sega/... games)](https://github.com/eaplatanios/retro-swift/tree/master/Sources/Retro)
+- [Agents](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/Agent.swift):
+  - Policy Gradient Algorithms:
+    - [REINFORCE](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/Reinforce.swift)
+    - [Advantage Actor Critic (A2C)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/AdvantageActorCritic.swift)
+    - *UPCOMING: Proximal Policy Optimization (PPO)*
+    - *UPCOMING: Deep Deterministic Policy Gradients (DDPG)*
+    - *UPCOMING: Twin Delayed Deep Deterministic Policy Gradients (TD3)*
+    - *UPCOMING: Soft Actor Critic (SAC)*
+  - Q-Learning Algorithms:
+    - *UPCOMING: Deep Q-Networks (DQN)*
+    - *UPCOMING: Double Deep Q-Networks (DDQN)*
+- [Advantage Estimation Methods](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Values.swift):
   - Empirical Advantage Estimation
   - Generalized Advantage Estimation (GAE)
-- Replay Buffers:
+- [Replay Buffers](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/ReplayBuffers.swift):
   - Uniform Replay Buffer
   - *UPCOMING: Prioritized Replay Buffer*
-- Visualization using OpenGL for all of the currently
-  implemented environments.
+- [Visualization using OpenGL for all of the currently
+  implemented environments.](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Environments/Rendering.swift)
 
 ## Installation
 
