@@ -97,8 +97,47 @@ internal extension Tensor where Scalar: TensorFlowFloatingPoint {
     exclusive: Bool = false,
     reverse: Bool = false
   ) -> (Tensor, (Tensor) -> Tensor) {
-    (cumulativeSum(alongAxis: axis, exclusive: exclusive, reverse: reverse), { seed in
-      seed.cumulativeSum(alongAxis: axis, exclusive: exclusive, reverse: !reverse)
+    (cumulativeSum(alongAxis: axis, exclusive: exclusive, reverse: reverse), { v in
+      v.cumulativeSum(alongAxis: axis, exclusive: exclusive, reverse: !reverse)
+    })
+  }
+}
+
+public extension Tensor where Scalar: Numeric {
+  @inlinable
+  @differentiable(wrt: self where Scalar: TensorFlowFloatingPoint)
+  func cumulativeProduct(
+    alongAxis axis: Int,
+    exclusive: Bool = false,
+    reverse: Bool = false
+  ) -> Tensor {
+    cumulativeProduct(
+      alongAxis: Tensor<Int32>(Int32(axis)),
+      exclusive: exclusive,
+      reverse: reverse)
+  }
+
+  @inlinable
+  @differentiable(wrt: self, vjp: _vjpCumulativeProduct where Scalar: TensorFlowFloatingPoint)
+  func cumulativeProduct(
+    alongAxis axis: Tensor<Int32>,
+    exclusive: Bool = false,
+    reverse: Bool = false
+  ) -> Tensor {
+    Raw.cumprod(self, axis: axis, exclusive: exclusive, reverse: reverse)
+  }
+}
+
+internal extension Tensor where Scalar: TensorFlowFloatingPoint {
+  @inlinable
+  func _vjpCumulativeProduct(
+    alongAxis axis: Tensor<Int32>,
+    exclusive: Bool = false,
+    reverse: Bool = false
+  ) -> (Tensor, (Tensor) -> Tensor) {
+    let result = cumulativeProduct(alongAxis: axis, exclusive: exclusive, reverse: reverse)
+    return (result, { v in
+      (result * v).cumulativeSum(alongAxis: axis, exclusive: exclusive, reverse: !reverse) / self
     })
   }
 }
