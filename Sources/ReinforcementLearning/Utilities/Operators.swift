@@ -224,3 +224,84 @@ public extension Tensor where Scalar: TensorFlowFloatingPoint {
     moments(alongAxes: axes)
   }
 }
+
+public extension Tensor {
+  @inlinable
+  @differentiable(wrt: self where Scalar: TensorFlowFloatingPoint)
+  func batchGatheringV2<Index: TensorFlowIndex>(
+    atIndices indices: Tensor<Index>,
+    alongAxis axis: Int = 1,
+    batchDimensionCount: Int = 1
+  ) -> Tensor {
+    // TODO: precondition(batchDimensionCount >= 0,
+    //                    "'batchDimensionCount' must be non-negative.")
+    // TODO: precondition(batchDimensionCount < indices.rank,
+    //                    "'batchDimensionCount' must be less than 'indices.rank'.")
+    // TODO: precondition(batchDimensionCount < rank, 
+    //                    "'batchDimensionCount' must be less than the tensor's rank.")
+
+    // Handle the axis argument by transposing the axis dimension so that it is the first
+    // non-batch dimension, recursively calling `batchGathering` with `axis = 0`, and then
+    // transposing the result to put the pre-axis dimensions before the indices dimensions.
+    if axis != batchDimensionCount {
+      // Adjust axis to be positive.
+      let posAxis = axis < 0 ? axis + rank : axis
+
+      // TODO: precondition(posAxis >= 0 && posAxis < rank, "'axis' is out of range.")
+      // TODO: precondition(batchDimensionCount <= posAxis,
+      //                    "'batchDimensionCount' must be less than or equal to 'axis'.")
+
+      // Move self[axis] up to self[batchDimensionCount].
+      let permutation = Tensor<Int32>(concatenating: [
+        Tensor<Int32>(rangeFrom: 0, to: Int32(batchDimensionCount), stride: 1),
+        Tensor<Int32>(Int32(axis)).rankLifted(),
+        Tensor<Int32>(rangeFrom: Int32(batchDimensionCount), to: Int32(posAxis), stride: 1),
+        Tensor<Int32>(rangeFrom: Int32(axis) + 1, to: Int32(rank), stride: 1)])
+      let tensor = transposed(withPermutations: permutation)
+      let result = tensor.batchGathering(
+        atIndices: indices,
+        alongAxis: batchDimensionCount,
+        batchDimensionCount: batchDimensionCount)
+
+      // Move the result dimensions corresponding to self[batchDimensionCount..<axis] to
+      // just before the dimensions corresponding to indices[batchDimensionCount...].
+      let start = indices.rank + posAxis - batchDimensionCount
+      let resultPermutation = Tensor<Int32>(concatenating: [
+        Tensor<Int32>(rangeFrom: 0, to: Int32(batchDimensionCount), stride: 1),
+        Tensor<Int32>(rangeFrom: Int32(indices.rank), to: Int32(start), stride: 1),
+        Tensor<Int32>(
+          rangeFrom: Int32(batchDimensionCount),
+          to: Int32(indices.rank),
+          stride: 1),
+        Tensor<Int32>(rangeFrom: Int32(start), to: Int32(result.rank), stride: 1)])
+      return result.transposed(withPermutations: resultPermutation)
+    }
+
+    let batchIndices: Tensor<Index> = withoutDerivative(at: {
+      var batchIndices = indices
+      var accumulated = Tensor<Index>(ones: [])
+      for d in (1...batchDimensionCount).reversed() {
+        accumulated *= Tensor<Index>(self.shapeTensor[d])
+        let dValue = self.shapeTensor[d - 1]
+        let dIndices = Tensor<Index>(
+          rangeFrom: Tensor<Index>(zeros: []),
+          to: Tensor<Index>(dValue),
+          stride: Tensor<Index>(ones: [])
+        ) * accumulated
+        let dShape = Tensor<Int32>(concatenating: [
+          Tensor<Int32>([Int32](repeating: 1, count: d - 1)),
+          dValue.rankLifted(),
+          Tensor<Int32>([Int32](repeating: 1, count: indices.rank - d))])
+        batchIndices += dIndices.reshaped(toShape: dShape)
+      }
+      return batchIndices
+    }())
+
+    let flatIndices = batchIndices.flattened()
+    let outerShape = shapeTensor[(batchDimensionCount + 1)...]
+    let innerShape = shapeTensor[..<(batchDimensionCount + 1)].product(squeezingAxes: [0])
+    let flatTensor = reshaped(toShape: innerShape.rankLifted().concatenated(with: outerShape))
+    let flatResult = flatTensor.gathering(atIndices: flatIndices)
+    return flatResult.reshaped(toShape: indices.shapeTensor.concatenated(with: outerShape))
+  }
+}

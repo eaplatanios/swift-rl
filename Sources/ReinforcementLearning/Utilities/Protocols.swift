@@ -129,6 +129,17 @@ extension Tensor: DifferentiableBatchable where Scalar: TensorFlowFloatingPoint 
   }
 }
 
+// public protocol Updatable {
+//   mutating func update(using other: Self, forgetFactor: Float)
+// }
+
+extension Tensor where Scalar: TensorFlowFloatingPoint {
+  public mutating func update(using other: Tensor, forgetFactor: Float) {
+    let forgetFactor = Scalar(forgetFactor)
+    self = forgetFactor * self + (1 - forgetFactor) * other
+  }
+}
+
 extension KeyPathIterable {
   public static func stack(_ values: [Self]) -> Self {
     var result = values[0]
@@ -256,6 +267,16 @@ extension KeyPathIterable {
       result[keyPath: kp] = result[keyPath: kp].unflattenedBatch(outerDims: outerDims)
     }
     return result
+  }
+
+  public mutating func update(using other: Self, forgetFactor: Float) {
+    var result = self
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
+      result[keyPath: kp].update(using: other[keyPath: kp], forgetFactor: forgetFactor)
+    }
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Double>.self) {
+      result[keyPath: kp].update(using: other[keyPath: kp], forgetFactor: forgetFactor)
+    }
   }
 }
 

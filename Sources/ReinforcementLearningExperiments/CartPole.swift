@@ -82,6 +82,35 @@ fileprivate struct CartPoleActorCritic: Network {
   }
 }
 
+fileprivate struct CartPoleQNetwork: Network {
+  @noDerivative public var state: None = None()
+
+  public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
+  public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
+
+  public init() {}
+
+  public init(copying other: CartPoleQNetwork) {
+    dense1 = other.dense1
+    dense2 = other.dense2
+  }
+
+  @differentiable
+  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> Tensor<Float> {
+    let stackedInput = Tensor<Float>(
+      stacking: [
+        input.position, input.positionDerivative,
+        input.angle, input.angleDerivative],
+      alongAxis: input.position.rank)
+    let outerDimCount = stackedInput.rank - 1
+    let outerDims = [Int](stackedInput.shape.dimensions[0..<outerDimCount])
+    let flattenedBatchStackedInput = stackedInput.flattenedBatch(outerDimCount: outerDimCount)
+    let hidden = leakyRelu(dense1(flattenedBatchStackedInput))
+    let flattenedQValues = dense2(hidden)
+    return flattenedQValues.unflattenedBatch(outerDims: outerDims)
+  }
+}
+
 public func runCartPole(
   using agentType: AgentType,
   batchSize: Int = 32,
@@ -104,12 +133,14 @@ public func runCartPole(
   
   // Training Loop:
   func train<A: Agent>(
-    agent: inout A
+    agent: inout A,
+    maxSteps: Int,
+    maxEpisodes: Int
   ) where A.Environment == CartPoleEnvironment, A.State == None {
     for step in 0..<10000 {
       let loss = agent.update(
         using: &environment,
-        maxSteps: maxReplayedSequenceLength * batchSize,
+        maxSteps: maxSteps,
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ trajectory in
           averageEpisodeLength.update(using: trajectory)
@@ -135,7 +166,10 @@ public func runCartPole(
         discountFactor: discountFactor,
         returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
         entropyRegularizationWeight: entropyRegularizationWeight)
-      train(agent: &agent)
+      train(
+        agent: &agent,
+        maxSteps: maxReplayedSequenceLength * batchSize,
+        maxEpisodes: maxEpisodes)
     case .advantageActorCritic:
       let network = CartPoleActorCritic()
       var agent = A2CAgent(
@@ -146,6 +180,23 @@ public func runCartPole(
         advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
         advantagesNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
         entropyRegularizationWeight: entropyRegularizationWeight)
-      train(agent: &agent)
+      train(
+        agent: &agent,
+        maxSteps: maxReplayedSequenceLength * batchSize,
+        maxEpisodes: maxEpisodes)
+    case .dqn:
+      let network = CartPoleQNetwork()
+      var agent = DQNAgent(
+        for: environment,
+        qNetwork: network,
+        optimizer: AMSGrad(for: network, learningRate: 1e-3),
+        trainSequenceLength: 1,
+        maxReplayedSequenceLength: maxReplayedSequenceLength,
+        epsilonGreedy: 0.1,
+        targetUpdateForgetFactor: 0.95,
+        targetUpdatePeriod: 5,
+        discountFactor: 0.99,
+        trainStepsPerIteration: 1)
+      train(agent: &agent, maxSteps: 32 * 10, maxEpisodes: 32)
   }
 }

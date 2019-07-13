@@ -125,7 +125,7 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
   ///     tensor has shape `[batchSize, ...]`. Otherwise, each such tensor has shape
   ///     `[stepCount, batchSize, ...]`.
   /// - Returns: Batch sampled uniformly at random from the recorded data.
-  public func sampleBatch(batchSize: Int = 1, stepCount: Int? = nil) -> ReplayBufferBatch<Data> {
+  public func sampleBatch(batchSize: Int, stepCount: Int? = nil) -> ReplayBufferBatch<Data> {
     let idsRange = validIDsRange(stepCount: Int64(stepCount ?? 1))
     let idsCount = idsRange.1 - idsRange.0
     precondition(idsCount > 0 && idsStorage != nil && dataStorage != nil, "Empty buffer.")
@@ -143,7 +143,7 @@ public struct UniformReplayBuffer<Data: KeyPathIterable>: ReplayBuffer {
     ) + batchOffsets
 
     if let stepCount = stepCount {
-      indices = indices.expandingShape(at: -1)
+      indices = indices.expandingShape(at: 0)
         .tiled(multiples: Tensor<Int32>([Int32(stepCount), 1]))
       let stepRange = Tensor<Int64>(rangeFrom: 0, to: Int64(stepCount), stride: 1)
         .reshaped(to: [stepCount, 1])

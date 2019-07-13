@@ -133,6 +133,6 @@ extension StepKind {
   /// did not complete by the end of the trajectory that this step kind corresponds to.
   @inlinable
   public func completeEpisodeMask() -> Tensor<Bool> {
-    Tensor<Float>(self.isLast()).cumulativeSum(alongAxis: 0, reverse: true) .> 0
+    Tensor<Float>(isLast()).cumulativeSum(alongAxis: 0, reverse: true) .> 0
   }
 }

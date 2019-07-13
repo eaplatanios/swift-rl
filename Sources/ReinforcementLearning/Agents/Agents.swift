@@ -80,6 +80,7 @@ public struct Trajectory<Observation, Action, Reward, State>: KeyPathIterable {
   }
 }
 
+// TODO: Support `boltzman(temperature:)`.
 public enum ProbabilisticAgentMode {
   case greedy
   case epsilonGreedy(_ epsilon: Float)
@@ -104,7 +105,7 @@ public extension ProbabilisticAgent {
     switch mode {
     case .greedy:
       return actionDistribution(for: step).mode()
-    case let .epsilonGreedy(epsilon) where Float.random(in: 0 ..< 1) < epsilon:
+    case let .epsilonGreedy(epsilon) where Float.random(in: 0..<1) < epsilon:
       return actionSpace.sample()
     case .epsilonGreedy(_):
       return actionDistribution(for: step).mode()

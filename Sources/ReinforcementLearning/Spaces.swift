@@ -38,9 +38,9 @@ public struct Discrete: Space {
 
   public let distribution: Categorical<Int32>
 
-  public init(withSize size: Int) {
+  public init(withSize size: Int, batchSize: Int) {
     self.size = size
-    self.distribution = Categorical<Int32>(logits: Tensor<Float>(ones: [1, size]))
+    self.distribution = Categorical<Int32>(logits: Tensor<Float>(ones: [batchSize, size]))
   }
 
   public var description: String {
@@ -57,10 +57,10 @@ public struct MultiBinary: Space {
   public let shape: TensorShape
   public let distribution: Bernoulli<Int32>
 
-  public init(withSize size: Int) {
+  public init(withSize size: Int, batchSize: Int) {
     self.size = size
     self.shape = [size]
-    self.distribution = Bernoulli<Int32>(logits: Tensor<Float>(ones: [1, size]))
+    self.distribution = Bernoulli<Int32>(logits: Tensor<Float>(ones: [batchSize, size]))
   }
 
   public var description: String {
@@ -79,10 +79,10 @@ public struct MultiDiscrete: Space {
   public let shape: TensorShape
   public let distribution: ValueDistribution
 
-  public init(withSizes sizes: [Int]) {
+  public init(withSizes sizes: [Int], batchSize: Int) {
     self.sizes = sizes
     self.shape = [sizes.count]
-    self.distribution = ValueDistribution(sizes: sizes)
+    self.distribution = ValueDistribution(sizes: sizes, batchSize: batchSize)
   }
 
   public var description: String {
@@ -98,10 +98,10 @@ public struct MultiDiscrete: Space {
     @noDerivative private let sizes: [Int]
     private var distributions: [Categorical<Int32>]
 
-    public init(sizes: [Int]) {
+    public init(sizes: [Int], batchSize: Int) {
       self.sizes = sizes
       self.distributions = sizes.map {
-        Categorical<Int32>(logits: Tensor<Float>(ones: [1, $0]))
+        Categorical<Int32>(logits: Tensor<Float>(ones: [batchSize, $0]))
       }
     }
 

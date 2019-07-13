@@ -14,7 +14,8 @@
 
 import TensorFlow
 
-// TODO: !!! Add support for reward normalization.
+// TODO: Add support for reward normalization.
+// TODO: Add support for gradient clipping.
 
 public struct ReinforceAgent<
   Environment: ReinforcementLearning.Environment,

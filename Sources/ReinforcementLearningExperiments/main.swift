@@ -15,6 +15,7 @@
 public enum AgentType {
   case reinforce
   case advantageActorCritic
+  case dqn
 }
 
-runCartPole(using: .advantageActorCritic)
+runCartPole(using: .advantageActorCritic, maxReplayedSequenceLength: 2000)

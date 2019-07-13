@@ -25,7 +25,7 @@ functionality of Gym. Currently supported features are:
     - *UPCOMING: Twin Delayed Deep Deterministic Policy Gradients (TD3)*
     - *UPCOMING: Soft Actor Critic (SAC)*
   - Q-Learning Algorithms:
-    - *UPCOMING: Deep Q-Networks (DQN)*
+    - [Deep Q-Networks (DQN)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/DeepQNetworks.swift)
     - *UPCOMING: Double Deep Q-Networks (DDQN)*
 - [Advantage Estimation Methods](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Values.swift):
   - Empirical Advantage Estimation

@@ -27,14 +27,16 @@ fileprivate let poleMassLength: Float = poleMass * length
 
 public struct CartPoleEnvironment: Environment {
   public let batchSize: Int
-  public let actionSpace: Discrete = Discrete(withSize: 2)
-  public var observationSpace: ObservationSpace = ObservationSpace()
+  public let actionSpace: Discrete
+  public var observationSpace: ObservationSpace
 
   private var step: Step<Observation, Tensor<Float>>
   private var needsReset: Tensor<Bool>
 
   public init(batchSize: Int) {
     self.batchSize = batchSize
+    self.actionSpace = Discrete(withSize: 2, batchSize: batchSize)
+    self.observationSpace = ObservationSpace(batchSize: batchSize)
     self.step = Step(
       kind: StepKind.first(batchSize: batchSize),
       observation: Observation(
@@ -136,8 +138,8 @@ extension CartPoleEnvironment {
     public let shape: TensorShape
     public let distribution: ValueDistribution
 
-    public init() {
-      self.shape = [4]
+    public init(batchSize: Int) {
+      self.shape = [batchSize, 4]
       self.distribution = ValueDistribution()
     }
 
