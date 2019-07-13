@@ -25,7 +25,7 @@ public struct ActorCriticOutput<ActionDistribution: DifferentiableDistribution>:
   }
 }
 
-public struct AdvantageActorCriticAgent<
+public struct A2CAgent<
   Environment: ReinforcementLearning.Environment,
   Network: ReinforcementLearning.Network,
   Optimizer: TensorFlow.Optimizer

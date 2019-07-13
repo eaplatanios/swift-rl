@@ -138,7 +138,7 @@ public func runCartPole(
       train(agent: &agent)
     case .advantageActorCritic:
       let network = CartPoleActorCritic()
-      var agent = AdvantageActorCriticAgent(
+      var agent = A2CAgent(
         for: environment,
         network: network,
         optimizer: AMSGrad(for: network, learningRate: 1e-3),
