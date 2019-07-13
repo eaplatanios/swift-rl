@@ -20,6 +20,13 @@ fileprivate struct CartPoleActor: Network {
   public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
 
+  public init() {}
+
+  public init(copying other: CartPoleActor) {
+    dense1 = other.dense1
+    dense2 = other.dense2
+  }
+
   @differentiable
   public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> Categorical<Int32> {
     let stackedInput = Tensor<Float>(
@@ -44,6 +51,15 @@ fileprivate struct CartPoleActorCritic: Network {
   public var dense2Action: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
   public var dense1Value: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
   public var dense2Value: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 1)
+
+  public init() {}
+
+  public init(copying other: CartPoleActorCritic) {
+    dense1Action = other.dense1Action
+    dense2Action = other.dense2Action
+    dense1Value = other.dense1Value
+    dense2Value = other.dense2Value
+  }
 
   @differentiable
   public func callAsFunction(
