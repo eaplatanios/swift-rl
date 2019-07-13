@@ -17,8 +17,6 @@ import TensorFlow
 public protocol Network: Layer {
   associatedtype State
   var state: State { get set }
-  func initialize(using input: Input)
-  func copy() -> Self
 }
 
 public struct LayerNetwork<WrappedLayer: Layer>: Network {
@@ -32,14 +30,8 @@ public struct LayerNetwork<WrappedLayer: Layer>: Network {
     self.layer = layer
   }
 
-  public func initialize(using input: WrappedLayer.Input) {}
-
   @differentiable
   public func callAsFunction(_ input: WrappedLayer.Input) -> WrappedLayer.Output {
     layer(input)
-  }
-
-  public func copy() -> LayerNetwork<WrappedLayer> {
-    LayerNetwork(layer)
   }
 }

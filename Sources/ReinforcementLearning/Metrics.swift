@@ -36,15 +36,7 @@ public struct AverageEpisodeLength<Observation, Action, Reward, State>: Metric {
   private var full: Bool
   private var episodeSteps: Tensor<Int32>
 
-  public init<Agent: ReinforcementLearning.Agent>(
-    for agent: Agent,
-    batchSize: Int,
-    bufferSize: Int
-  ) where Agent.Observation == Observation,
-          Agent.Action == Action,
-          Agent.Reward == Reward,
-          Agent.State == State
-  {
+  public init(batchSize: Int, bufferSize: Int) {
     self.batchSize = batchSize
     self.bufferSize = bufferSize
     self.buffer = [Float](repeating: 0, count: bufferSize)
