@@ -38,23 +38,23 @@ import TensorFlow
 ///
 /// - Returns: Array of discounted return values over time.
 @inlinable
-// TODO: @differentiable(wrt: rewards where Scalar: TensorFlowFloatingPoint)
 public func discountedReturns<Scalar: TensorFlowNumeric>(
   discountFactor: Scalar,
   stepKinds: StepKind,
   rewards: Tensor<Scalar>,
   finalValue: Tensor<Scalar>? = nil
 ) -> Tensor<Scalar> {
+  let isLast = stepKinds.isLast()
   let T = stepKinds.rawValue.shape[0]
   let finalReward = finalValue ?? Tensor<Scalar>(zerosLike: rewards[0])
   var discountedReturns = [Tensor<Scalar>]()
-  for t in (0..<T).reversed() {
-    let futureReturn = t + 1 < T ? discountedReturns[T - t - 2] : finalReward
+  for t in 0..<T {
+    let futureReturn = T - t < T ? discountedReturns[t - 1] : finalReward
     let discountedFutureReturn = discountFactor * futureReturn
-    let discountedReturn = rewards[t] + discountedFutureReturn.replacing(
+    let discountedReturn = rewards[T - t - 1] + discountedFutureReturn.replacing(
       with: Tensor<Scalar>(zerosLike: discountedFutureReturn),
-      where: stepKinds.rawValue[t] .== StepKind.last.rawValue.scalar!)
-    discountedReturns = discountedReturns + [discountedReturn]
+      where: isLast[T - t - 1])
+    discountedReturns.append(discountedReturn)
   }
   return Tensor<Scalar>(stacking: discountedReturns.reversed())
 
@@ -79,13 +79,12 @@ public protocol AdvantageFunction {
   ///   - returns: Contains the returns for each step.
   ///   - values: Contains the value estimates for each step.
   ///   - finalValue: Estimated value at the final step.
-  // TODO: @differentiable
   func callAsFunction<Scalar: TensorFlowFloatingPoint>(
-    stepKinds: [Tensor<Int32>],
-    returns: [Tensor<Scalar>],
-    values: [Tensor<Scalar>],
+    stepKinds: StepKind,
+    returns: Tensor<Scalar>,
+    values: Tensor<Scalar>,
     finalValue: Tensor<Scalar>
-  ) -> [Tensor<Scalar>]
+  ) -> Tensor<Scalar>
 }
 
 // TODO: Remove once optionals are differentiable.
@@ -93,13 +92,12 @@ public struct NoAdvantageFunction: AdvantageFunction {
   public init() {}
 
   @inlinable
-  // TODO: @differentiable
   public func callAsFunction<Scalar: TensorFlowFloatingPoint>(
-    stepKinds: [Tensor<Int32>],
-    returns: [Tensor<Scalar>],
-    values: [Tensor<Scalar>],
+    stepKinds: StepKind,
+    returns: Tensor<Scalar>,
+    values: Tensor<Scalar>,
     finalValue: Tensor<Scalar>
-  ) -> [Tensor<Scalar>] {
+  ) -> Tensor<Scalar> {
     returns
   }
 }
@@ -119,15 +117,13 @@ public struct EmpiricalAdvantageEstimation: AdvantageFunction {
   ///   - values: Contains the value estimates for each step.
   ///   - finalValue: Estimated value at the final step.
   @inlinable
-  // TODO: @differentiable
   public func callAsFunction<Scalar: TensorFlowFloatingPoint>(
-    stepKinds: [Tensor<Int32>],
-    returns: [Tensor<Scalar>],
-    values: [Tensor<Scalar>],
+    stepKinds: StepKind,
+    returns: Tensor<Scalar>,
+    values: Tensor<Scalar>,
     finalValue: Tensor<Scalar>
-  ) -> [Tensor<Scalar>] {
-    precondition(stepKinds.count == returns.count && stepKinds.count == values.count)
-    return zip(returns, values).map{ $0 - $1 }
+  ) -> Tensor<Scalar> {
+    returns - values
   }
 }
 
@@ -156,32 +152,29 @@ public struct GeneralizedAdvantageEstimation: AdvantageFunction {
   ///   - values: Contains the value estimates for each step.
   ///   - finalValue: Estimated value at the final step.
   @inlinable
-  // TODO: @differentiable
   public func callAsFunction<Scalar: TensorFlowFloatingPoint>(
-    stepKinds: [Tensor<Int32>],
-    returns: [Tensor<Scalar>],
-    values: [Tensor<Scalar>],
+    stepKinds: StepKind,
+    returns: Tensor<Scalar>,
+    values: Tensor<Scalar>,
     finalValue: Tensor<Scalar>
-  ) -> [Tensor<Scalar>] {
-    precondition(stepKinds.count == returns.count && stepKinds.count == values.count)
-
-    if stepKinds.isEmpty {
-      return [Tensor<Scalar>]()
-    }
-
-    let T = stepKinds.count
+  ) -> Tensor<Scalar> {
+    let discountWeight = Scalar(self.discountWeight)
+    let discountFactor = Scalar(self.discountFactor)
+    let isLast = stepKinds.isLast()
+    let T = stepKinds.rawValue.shape[0]
     var advantages = [Tensor<Scalar>]()
-    advantages.reserveCapacity(T)
-    for t in (0..<T).reversed() {
-      let futureAdvantage = t + 1 < T ?
-        values[t + 1] + Scalar(discountWeight) * advantages[T - t - 2] :
-        finalValue
-      let discountedFutureAdvantage = Scalar(discountFactor) * futureAdvantage
-      let advantage = returns[t] - values[t] + discountedFutureAdvantage.replacing(
-        with: Tensor<Scalar>(zerosLike: discountedFutureAdvantage),
-        where: stepKinds[t] .== StepKind.last.rawValue.scalar!)
-      advantages.append(advantage)
+    for t in 0..<T {
+      let nextValue = T - t < T ? values[T - t] : finalValue
+      let delta = returns[T - t - 1] + discountFactor * nextValue - values[T - t - 1]
+      if T - t < T {
+        let nextAdvantage = advantages[t - 1].replacing(
+          with: Tensor<Scalar>(zerosLike: advantages[t - 1]),
+          where: isLast[T - t - 1])
+        advantages.append(delta + discountWeight * discountFactor * nextAdvantage)
+      } else {
+        advantages.append(delta)
+      }
     }
-    return advantages.reversed()
+    return Tensor<Scalar>(advantages.reversed())
   }
 }
