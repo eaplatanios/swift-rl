@@ -16,6 +16,7 @@ public protocol Agent {
   associatedtype Environment: ReinforcementLearning.Environment
   associatedtype State
 
+  var actionSpace: Environment.ActionSpace { get }
   var state: State { get set }
 
   func action(for step: Step<Observation, Reward>) -> Action
@@ -81,6 +82,7 @@ public struct Trajectory<Observation, Action, Reward, State>: KeyPathIterable {
 
 public enum ProbabilisticAgentMode {
   case greedy
+  case epsilonGreedy(_ epsilon: Float)
   case probabilistic
 }
 
@@ -100,8 +102,14 @@ public extension ProbabilisticAgent {
   ///   protocol requirement for an `Agent.action(for:)` function.
   func action(for step: Step<Observation, Reward>, mode: ProbabilisticAgentMode) -> Action {
     switch mode {
-    case .greedy: return actionDistribution(for: step).mode()
-    case .probabilistic: return actionDistribution(for: step).sample()
+    case .greedy:
+      return actionDistribution(for: step).mode()
+    case let .epsilonGreedy(epsilon) where Float.random(in: 0 ..< 1) < epsilon:
+      return actionSpace.sample()
+    case .epsilonGreedy(_):
+      return actionDistribution(for: step).mode()
+    case .probabilistic:
+      return actionDistribution(for: step).sample()
     }
   }
 }
@@ -113,9 +121,8 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
   public typealias Reward = Environment.Reward
   public typealias State = None
 
+  public let actionSpace: Environment.ActionSpace
   public var state: None = None()
-
-  private let actionSpace: Environment.ActionSpace
 
   public init(for environment: Environment) {
     actionSpace = environment.actionSpace

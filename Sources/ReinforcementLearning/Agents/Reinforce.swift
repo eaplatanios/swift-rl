@@ -34,6 +34,7 @@ where
   public typealias Reward = Tensor<Float>
   public typealias State = Network.State
 
+  public let actionSpace: Environment.ActionSpace
   public var network: Network
   public var optimizer: Optimizer
 
@@ -59,6 +60,7 @@ where
       standardNormalize($0, alongAxes: 0, 1) },
     entropyRegularizationWeight: Float = 0.0
   ) {
+    self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
     self.maxReplayedSequenceLength = maxReplayedSequenceLength

@@ -42,6 +42,7 @@ where
   public typealias Reward = Tensor<Float>
   public typealias State = Network.State
 
+  public let actionSpace: Environment.ActionSpace
   public var network: Network
   public var optimizer: Optimizer
 
@@ -69,6 +70,7 @@ where
     valueEstimationLossWeight: Float = 0.2,
     entropyRegularizationWeight: Float = 0.0
   ) {
+    self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
     self.maxReplayedSequenceLength = maxReplayedSequenceLength
@@ -90,14 +92,14 @@ where
     network.state = trajectory.state
     let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
       let networkOutput = network(trajectory.observation)
-      
+
       // Split the trajectory such that the last step is only used to provide the final value
       // estimate used for advantage estimation.
       let sequenceLength = networkOutput.value.shape[0] - 1
       let stepKinds = StepKind(trajectory.stepKind.rawValue[0..<sequenceLength])
       let values = networkOutput.value[0..<sequenceLength]
       let finalValue = networkOutput.value[sequenceLength]
-      
+
       // Estimate the advantages for the provided trajectory.
       let advantageEstimate = advantageFunction(
         stepKinds: stepKinds,
