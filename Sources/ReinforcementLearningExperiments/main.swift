@@ -12,4 +12,9 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-runCartPoleReinforce()
+public enum AgentType {
+  case reinforce
+  case advantageActorCritic
+}
+
+runCartPole(using: .advantageActorCritic)
