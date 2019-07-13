@@ -212,9 +212,11 @@ internal extension RetroGame {
 
 fileprivate extension RetroGame {
   struct RomFinder {
-    let atari2600RomsURLs: [String: URL] = [
-      "ROMS.zip": URL(string: "https://dl.dropboxusercontent.com/s/uyb07bkcfzv60hz/ROMS.zip?dl=0")!,
-      "HC ROMS.zip": URL(string: "https://dl.dropboxusercontent.com/s/qjzb553lxw5av8b/HC%20ROMS.zip?dl=0")!]
+    static let atari2600RomsURLs: [String: URL] = [
+      "ROMS.zip": URL(
+        string: "https://dl.dropboxusercontent.com/s/uyb07bkcfzv60hz/ROMS.zip?dl=0")!,
+      "HC ROMS.zip": URL(
+        string: "https://dl.dropboxusercontent.com/s/qjzb553lxw5av8b/HC%20ROMS.zip?dl=0")!]
 
     func findRom(
       core: RetroCore?,
@@ -360,13 +362,6 @@ fileprivate extension RetroGame {
 
 fileprivate extension RetroCore {
   func romURLs() -> [String: URL] {
-    if name == "Atari2600" {
-      return [
-        "ROMS.zip": URL(
-          string: "https://dl.dropboxusercontent.com/s/uyb07bkcfzv60hz/ROMS.zip?dl=0")!,
-        "HC ROMS.zip": URL(
-          string: "https://dl.dropboxusercontent.com/s/qjzb553lxw5av8b/HC%20ROMS.zip?dl=0")!]
-    }
-    return [:]
+    name == "Atari2600" ? RetroGame.RomFinder.atari2600RomsURLs : [:]
   }
 }
