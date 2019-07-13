@@ -19,184 +19,275 @@ import ReinforcementLearning
 import TensorFlow
 
 public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
-  public let batched: Bool = false
-
-  public let emulator: RetroEmulator
+  public let batchSize: Int
+  public let emulators: [RetroEmulator]
   public let actionsType: ActionsType
   public let actionSpace: ActionsType.Space
   public let observationsType: ObservationsType
   public let observationSpace: DiscreteBox<UInt8>
-  public let startingState: StartingState
+  public let startingStates: [StartingState]
   public let randomSeed: TensorFlowSeed
 
-  private let startingStateData: String?
+  private let startingStateData: [String?]
 
-  public private(set) var movie: Movie?
-  public private(set) var movieID: Int
-  public private(set) var movieURL: URL?
+  public private(set) var movies: [Movie?]
+  public private(set) var movieIDs: [Int]
+  public private(set) var movieURLs: [URL?]
 
-  private var needsReset: Bool = true
+  private var needsReset: [Bool]
 
   public init(
     using emulator: RetroEmulator,
     actionsType: ActionsType,
     observationsType: ObservationsType = .screen,
-    startingState: StartingState = .provided,
+    startingState: StartingState? = nil,
     movieURL: URL? = nil,
     randomSeed: TensorFlowSeed = Context.local.randomSeed
   ) throws {
-    self.emulator = emulator
+    try self.init(
+      using: [emulator],
+      actionsType: actionsType,
+      observationsType: observationsType,
+      startingStates: startingState == nil ? nil : [startingState!],
+      movieURLs: [movieURL],
+      randomSeed: randomSeed)
+  }
+
+  public init(
+    using emulators: [RetroEmulator],
+    actionsType: ActionsType,
+    observationsType: ObservationsType = .screen,
+    startingStates: [StartingState]? = nil,
+    movieURLs: [URL?]? = nil,
+    randomSeed: TensorFlowSeed = Context.local.randomSeed
+  ) throws {
+    precondition(emulators.count > 0, "At least one emulator must be provided.")
+    self.batchSize = emulators.count
+    self.emulators = emulators
     self.actionsType = actionsType
-    self.actionSpace = actionsType.space(for: emulator)
+    self.actionSpace = actionsType.space(for: emulators[0], batchSize: batchSize)
     self.observationsType = observationsType
     switch observationsType {
-    case .screen: self.observationSpace = DiscreteBox(
-      shape: emulator.screen()!.shape, lowerBound: 0, upperBound: 255)
-    case .memory: self.observationSpace = DiscreteBox(
-      shape: emulator.memory()!.shape, lowerBound: 0, upperBound: 255)
+    case .screen:
+      self.observationSpace = DiscreteBox(
+        shape: emulators[0].screen()!.shape,
+        lowerBound: 0,
+        upperBound: 255)
+    case .memory:
+      self.observationSpace = DiscreteBox(
+        shape: emulators[0].memory()!.shape,
+        lowerBound: 0,
+        upperBound: 255)
     }
     self.randomSeed = randomSeed
-    self.movie = nil
-    self.movieID = 0
-    self.movieURL = movieURL
+    self.movies = [Movie?](repeating: nil, count: batchSize)
+    self.movieIDs = [Int](repeating: 0, count: batchSize)
+    if let urls = movieURLs {
+      self.movieURLs = urls
+    } else {
+      self.movieURLs = [URL?](repeating: nil, count: batchSize)
+    }
 
-    self.startingState = startingState
-    switch startingState {
-    case .none:
-      self.startingStateData = nil
-    case .provided:
-      let gameMetadataJson = try? String(contentsOf: self.emulator.game.metadataFile!)
-      let gameMetadata = try? RetroGame.Metadata(fromJson: gameMetadataJson!)
-      if let metadata = gameMetadata {
-        let defaultState = metadata.defaultState
-        let defaultPlayerState = metadata.defaultPlayerState
-        if defaultPlayerState != nil && emulator.numPlayers <= defaultPlayerState!.count {
-          self.startingStateData = defaultPlayerState![Int(emulator.numPlayers) - 1]
-        } else if defaultState != nil {
-          self.startingStateData = defaultState!
+    // Determine the starting state for each emulator.
+    if let states = startingStates {
+      self.startingStates = states
+    } else {
+      self.startingStates = [StartingState](repeating: .provided, count: batchSize)
+    }
+    var startingStateData = [String?]()
+    for i in 0..<batchSize {
+      var stateData: String? = nil
+      switch self.startingStates[i] {
+      case .none:
+        stateData = nil
+      case .provided:
+        let gameMetadataJson = try? String(contentsOf: emulators[i].game.metadataFile!)
+        let gameMetadata = try? RetroGame.Metadata(fromJson: gameMetadataJson!)
+        if let metadata = gameMetadata {
+          let defaultState = metadata.defaultState
+          let defaultPlayerState = metadata.defaultPlayerState
+          if defaultPlayerState != nil && emulators[i].numPlayers <= defaultPlayerState!.count {
+            stateData = defaultPlayerState![Int(emulators[i].numPlayers) - 1]
+          } else if defaultState != nil {
+            stateData = defaultState!
+          } else {
+            stateData = nil
+          }
         } else {
-          self.startingStateData = nil
+          stateData = nil
         }
-      } else {
-        self.startingStateData = nil
+      case .custom(let state):
+        stateData = state
       }
-    case .custom(let state):
-      self.startingStateData = state
-    }
+      startingStateData.append(stateData)
 
-    if let state = self.startingStateData {
-      try self.emulator.loadStartingState(
-        from: game().dataDir.appendingPathComponent("\(state).state"))
+      if let state = stateData {
+        let statePath = emulators[i].game.dataDir.appendingPathComponent("\(state).state")
+        try emulators[i].loadStartingState(from: statePath)
+      }
     }
+    self.startingStateData = startingStateData
+    self.needsReset = [Bool](repeating: true, count: batchSize)
+  }
+
+  public func currentStep() -> Step<Tensor<UInt8>, Tensor<Float>> {
+    Step<Tensor<UInt8>, Tensor<Float>>.stack((0..<batchSize).map { currentStep(batchIndex: $0) })
+  }
+
+  public func currentStep(batchIndex: Int) -> Step<Tensor<UInt8>, Tensor<Float>> {
+    let observation: Tensor<UInt8>? = {
+      switch observationsType {
+      case .screen: return emulators[batchIndex].screen()
+      case .memory: return emulators[batchIndex].memory()
+      }
+    }()
+    let finished = emulators[batchIndex].finished()
+
+    // TODO: What about the 'info' dict?
+    let numPlayers = self.numPlayers(batchIndex: batchIndex)
+    return Step(
+      kind: finished ? .last : .transition,
+      observation: observation!,
+      reward: Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) }))
   }
 
   @discardableResult
   public mutating func step(
     taking action: ActionsType.Space.Value
   ) -> Step<Tensor<UInt8>, Tensor<Float>> {
-    if needsReset {
-      return reset()
+    let actions = action.unstacked()
+    return Step<Tensor<UInt8>, Tensor<Float>>.stack((0..<batchSize).map {
+      step(taking: actions[$0], batchIndex: $0)
+    })
+  }
+
+  @discardableResult
+  public mutating func step(
+    taking action: ActionsType.Space.Value,
+    batchIndex: Int
+  ) -> Step<Tensor<UInt8>, Tensor<Float>> {
+    if needsReset[batchIndex] {
+      reset(batchIndex: batchIndex)
     }
 
-    for p in 0..<numPlayers() {
-      let numButtons = emulator.buttons().count
-      let encodedAction = actionsType.encodeAction(action, for: p, in: emulator)
+    for p in 0..<numPlayers(batchIndex: batchIndex) {
+      let numButtons = emulators[batchIndex].buttons().count
+      let encodedAction = actionsType.encodeAction(action, for: p, in: emulators[batchIndex])
       var buttonMask = [UInt8](repeating: 0, count: numButtons)
       for i in 0..<numButtons {
         buttonMask[i] = UInt8((encodedAction >> i) & 1)
-        movie?[i, forPlayer: p] = buttonMask[i] > 0
+        movies[batchIndex]?[i, forPlayer: p] = buttonMask[i] > 0
       }
-      emulator.setButtonMask(for: p, to: buttonMask)
+      emulators[batchIndex].setButtonMask(for: p, to: buttonMask)
     }
 
-    movie?.step()
-    emulator.step()
+    movies[batchIndex]?.step()
+    emulators[batchIndex].step()
 
-    let observation: Tensor<UInt8>? = {
-      switch observationsType {
-      case .screen: return emulator.screen()
-      case .memory: return emulator.memory()
-      }
-    }()
-    let finished = emulator.finished()
-
-    if finished {
-      needsReset = true
+    if emulators[batchIndex].finished() {
+      needsReset[batchIndex] = true
     }
 
-    // TODO: What about the 'info' dict?
-    return Step(
-      kind: finished ? .last : .transition,
-      observation: observation!,
-      reward: Tensor<Float>((0..<numPlayers()).map { emulator.reward(for: $0) }))
+    return currentStep(batchIndex: batchIndex)
   }
 
   @discardableResult
   public mutating func reset() -> Step<Tensor<UInt8>, Tensor<Float>> {
-    emulator.reset()
+    Step<Tensor<UInt8>, Tensor<Float>>.stack((0..<batchSize).map { reset(batchIndex: $0) })
+  }
+
+  @discardableResult
+  public mutating func reset(batchIndex: Int) -> Step<Tensor<UInt8>, Tensor<Float>> {
+    emulators[batchIndex].reset()
 
     // Reset the recording.
-    if let url = movieURL {
-      let state = String(startingStateData?.split(separator: ".")[0] ?? "none")
-      let movieFilename = "\(game())-\(state)-\(String(format: "%06d", movieID)).bk2"
-      startRecording(at: url.appendingPathComponent(movieFilename))
-      movieID += 1
+    if let url = movieURLs[batchIndex] {
+      let game = emulators[batchIndex].game
+      let state = String(startingStateData[batchIndex]?.split(separator: ".")[0] ?? "none")
+      let movieFilename = "\(game)-\(state)-\(String(format: "%06d", movieIDs[batchIndex])).bk2"
+      startRecording(at: url.appendingPathComponent(movieFilename), batchIndex: batchIndex)
+      movieIDs[batchIndex] += 1
     }
 
-    movie?.step()
+    movies[batchIndex]?.step()
 
     let observation: Tensor<UInt8>? = {
       switch observationsType {
-      case .screen: return emulator.screen()
-      case .memory: return emulator.memory()
+      case .screen: return emulators[batchIndex].screen()
+      case .memory: return emulators[batchIndex].memory()
       }
     }()
-    let reward = Tensor<Float>((0..<numPlayers()).map { emulator.reward(for: $0) })
-
-    needsReset = false
+    let numPlayers = emulators[batchIndex].numPlayers
+    let reward = Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) })
+    needsReset[batchIndex] = false
     return Step(kind: .first, observation: observation!, reward: reward)
   }
 
   @inlinable
   public func copy() -> RetroEnvironment<ActionsType> {
     try! RetroEnvironment(
-      using: emulator.copy(),
+      using: emulators.map { try $0.copy() },
       actionsType: actionsType,
       observationsType: observationsType,
-      startingState: startingState,
-      movieURL: movieURL,
+      startingStates: startingStates,
+      movieURLs: movieURLs,
       randomSeed: randomSeed)
   }
 
-  public mutating func startRecording(at url: URL) {
-    movie = Movie(at: url, recording: true, numPlayers: emulator.numPlayers)
-    movie!.configure(for: self)
-    if let state = emulator.startingStateData {
-      movie!.state = state
+  public mutating func startRecordings(at urls: [URL]) {
+    for batchIndex in 0..<batchSize {
+      startRecording(at: urls[batchIndex], batchIndex: batchIndex)
     }
   }
 
-  public mutating func enableRecording(at url: URL) {
-    movieURL = url
-  }
-
-  public mutating func disableRecording() {
-    movieID = 0
-    movieURL = nil
-    if let m = movie {
-      m.close()
-      movie = nil
+  public mutating func startRecording(at url: URL, batchIndex: Int) {
+    let numPlayers = emulators[batchIndex].numPlayers
+    movies[batchIndex] = Movie(at: url, recording: true, numPlayers: numPlayers)
+    movies[batchIndex]!.configure(for: self, batchIndex: batchIndex)
+    if let state = emulators[batchIndex].startingStateData {
+      movies[batchIndex]!.state = state
     }
   }
 
-  @inlinable
-  public func game() -> RetroGame {
-    return emulator.game
+  public mutating func enableRecordings(at urls: [URL]) {
+    movieURLs = urls
+  }
+
+  public mutating func enableRecording(at url: URL, batchIndex: Int) {
+    movieURLs[batchIndex] = url
+  }
+
+  public mutating func disableRecordings() {
+    for batchIndex in 0..<batchSize {
+      disableRecording(batchIndex: batchIndex)
+    }
+  }
+
+  public mutating func disableRecording(batchIndex: Int) {
+    movieIDs[batchIndex] = 0
+    movieURLs[batchIndex] = nil
+    movies[batchIndex]?.close()
+    movies[batchIndex] = nil
   }
 
   @inlinable
-  public func numPlayers() -> UInt32 {
-    return emulator.numPlayers
+  public func games() -> [RetroGame] {
+    emulators.map { $0.game }
+  }
+
+  @inlinable
+  public func game(batchIndex: Int) -> RetroGame {
+    emulators[batchIndex].game
+  }
+
+  @inlinable
+  public func numPlayers() -> [UInt32] {
+    emulators.map { $0.numPlayers }
+  }
+
+  @inlinable
+  public func numPlayers(batchIndex: Int) -> UInt32 {
+    emulators[batchIndex].numPlayers
   }
 }
 
@@ -235,7 +326,7 @@ public protocol ActionsType {
   associatedtype Scalar: TensorFlowScalar
   associatedtype Space: ReinforcementLearning.Space where Space.Value == Tensor<Scalar>
 
-  func space(for emulator: RetroEmulator) -> Space
+  func space(for emulator: RetroEmulator, batchSize: Int) -> Space
 
   func encodeAction(
     _ action: Tensor<Scalar>,
@@ -249,8 +340,10 @@ public struct FullActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = MultiBinary
 
-  public func space(for emulator: RetroEmulator) -> MultiBinary {
-    return MultiBinary(withSize: emulator.buttons().count * Int(emulator.numPlayers))
+  public func space(for emulator: RetroEmulator, batchSize: Int) -> MultiBinary {
+    MultiBinary(
+      withSize: emulator.buttons().count * Int(emulator.numPlayers),
+      batchSize: batchSize)
   }
 
   public func encodeAction(
@@ -274,8 +367,10 @@ public struct FilteredActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = MultiBinary
 
-  public func space(for emulator: RetroEmulator) -> MultiBinary {
-    return MultiBinary(withSize: emulator.buttons().count * Int(emulator.numPlayers))
+  public func space(for emulator: RetroEmulator, batchSize: Int) -> MultiBinary {
+    MultiBinary(
+      withSize: emulator.buttons().count * Int(emulator.numPlayers),
+      batchSize: batchSize)
   }
 
   public func encodeAction(
@@ -299,9 +394,11 @@ public struct DiscreteActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = Discrete
 
-  public func space(for emulator: RetroEmulator) -> Discrete {
+  public func space(for emulator: RetroEmulator, batchSize: Int) -> Discrete {
     let numCombos = emulator.buttonCombos().map { Int32($0.count) } .reduce(1, *)
-    return Discrete(withSize: Int(pow(Float(numCombos), Float(emulator.numPlayers))))
+    return Discrete(
+      withSize: Int(pow(Float(numCombos), Float(emulator.numPlayers))),
+      batchSize: batchSize)
   }
 
   public func encodeAction(
@@ -326,10 +423,10 @@ public struct MultiDiscreteActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = MultiDiscrete
 
-  public func space(for emulator: RetroEmulator) -> MultiDiscrete {
-    return MultiDiscrete(withSizes: emulator.buttonCombos().map {
-      $0.count * Int(emulator.numPlayers)
-    })
+  public func space(for emulator: RetroEmulator, batchSize: Int) -> MultiDiscrete {
+    MultiDiscrete(
+      withSizes: emulator.buttonCombos().map { $0.count * Int(emulator.numPlayers) },
+      batchSize: batchSize)
   }
 
   public func encodeAction(

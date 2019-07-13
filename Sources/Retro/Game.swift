@@ -120,11 +120,11 @@ public extension RetroGame {
     public static let all = (stable + experimental + contrib).named(as: "all")
     
     public func named(as name: String) -> Integration {
-      return Integration(paths: paths, name: name)
+      Integration(paths: paths, name: name)
     }
 
     public static func +(left: Integration, right: Integration) -> Integration {
-      return Integration(paths: left.paths + right.paths, name: "\(left.name) | \(right.name)")
+      Integration(paths: left.paths + right.paths, name: "\(left.name) | \(right.name)")
     }
   }
 }
@@ -169,19 +169,19 @@ internal extension RetroGame {
 
     @inlinable
     subscript(_ name: String) -> Bool {
-      get { return gameDataLookupBoolValue(handle, name) }
+      get { gameDataLookupBoolValue(handle, name) }
       set(newValue) { gameDataSetBoolValue(handle, name, newValue) }
     }
 
     @inlinable
     subscript(_ name: String) -> Int64 {
-      get { return gameDataLookupIntValue(handle, name) }
+      get { gameDataLookupIntValue(handle, name) }
       set(newValue) { gameDataSetIntValue(handle, name, newValue) }
     }
 
     @inlinable
     subscript(_ name: String) -> Double {
-      get { return gameDataLookupDoubleValue(handle, name) }
+      get { gameDataLookupDoubleValue(handle, name) }
       set(newValue) { gameDataSetDoubleValue(handle, name, newValue) }
     }
 

@@ -43,9 +43,13 @@ public class Movie {
   }
 
   public func configure<ActionsType: Retro.ActionsType>(
-    for environment: RetroEnvironment<ActionsType>
+    for environment: RetroEnvironment<ActionsType>,
+    batchIndex: Int
   ) {
-    movieConfigure(handle, environment.game().name, environment.emulator.handle)
+    movieConfigure(
+      handle,
+      environment.game(batchIndex: batchIndex).name,
+      environment.emulators[batchIndex].handle)
   }
 
   public func game() -> String {
@@ -56,7 +60,7 @@ public class Movie {
 
   @discardableResult
   public func step() -> Bool {
-    return movieStep(handle)
+    movieStep(handle)
   }
 
   public func close() {
@@ -64,11 +68,11 @@ public class Movie {
   }
 
   public func numPlayers() -> UInt32 {
-    return moviePlayers(handle)
+    moviePlayers(handle)
   }
 
   public subscript(key: Int, forPlayer player: UInt32) -> Bool {
-    get { return movieGetKey(handle, Int32(key), player) }
+    get { movieGetKey(handle, Int32(key), player) }
     set { movieSetKey(handle, Int32(key), newValue, player) }
   }
 }

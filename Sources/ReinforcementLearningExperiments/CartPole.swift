@@ -130,29 +130,6 @@ public func runCartPole(
     Tensor<Float>,
     None
   >(batchSize: batchSize, bufferSize: 10)
-  
-  // Training Loop:
-  func train<A: Agent>(
-    agent: inout A,
-    maxSteps: Int,
-    maxEpisodes: Int
-  ) where A.Environment == CartPoleEnvironment, A.State == None {
-    for step in 0..<10000 {
-      let loss = agent.update(
-        using: &environment,
-        maxSteps: maxSteps,
-        maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ trajectory in
-          averageEpisodeLength.update(using: trajectory)
-          if step > 100 {
-            try! renderer.render(trajectory.observation)
-          }
-        }])
-      if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
-      }
-    }
-  }
 
   // Agent Type:
   switch agentType {
@@ -166,10 +143,21 @@ public func runCartPole(
         discountFactor: discountFactor,
         returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
         entropyRegularizationWeight: entropyRegularizationWeight)
-      train(
-        agent: &agent,
-        maxSteps: maxReplayedSequenceLength * batchSize,
-        maxEpisodes: maxEpisodes)
+      for step in 0..<10000 {
+        let loss = agent.update(
+          using: &environment,
+          maxSteps: maxReplayedSequenceLength * batchSize,
+          maxEpisodes: maxEpisodes,
+          stepCallbacks: [{ trajectory in
+            averageEpisodeLength.update(using: trajectory)
+            if step > 100 {
+              try! renderer.render(trajectory.observation)
+            }
+          }])
+        if step % 1 == 0 {
+          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        }
+      }
     case .advantageActorCritic:
       let network = CartPoleActorCritic()
       var agent = A2CAgent(
@@ -180,10 +168,21 @@ public func runCartPole(
         advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
         advantagesNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
         entropyRegularizationWeight: entropyRegularizationWeight)
-      train(
-        agent: &agent,
-        maxSteps: maxReplayedSequenceLength * batchSize,
-        maxEpisodes: maxEpisodes)
+      for step in 0..<10000 {
+        let loss = agent.update(
+          using: &environment,
+          maxSteps: maxReplayedSequenceLength * batchSize,
+          maxEpisodes: maxEpisodes,
+          stepCallbacks: [{ trajectory in
+            averageEpisodeLength.update(using: trajectory)
+            if step > 100 {
+              try! renderer.render(trajectory.observation)
+            }
+          }])
+        if step % 1 == 0 {
+          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        }
+      }
     case .dqn:
       let network = CartPoleQNetwork()
       var agent = DQNAgent(
@@ -197,6 +196,20 @@ public func runCartPole(
         targetUpdatePeriod: 5,
         discountFactor: 0.99,
         trainStepsPerIteration: 1)
-      train(agent: &agent, maxSteps: 32 * 10, maxEpisodes: 32)
+      for step in 0..<10000 {
+        let loss = agent.update(
+          using: &environment,
+          maxSteps: 32 * 10,
+          maxEpisodes: 32,
+          stepCallbacks: [{ trajectory in
+            averageEpisodeLength.update(using: trajectory)
+            if step > 100 {
+              try! renderer.render(trajectory.observation)
+            }
+          }])
+        if step % 1 == 0 {
+          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        }
+      }
   }
 }

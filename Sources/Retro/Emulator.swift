@@ -118,12 +118,12 @@ public class RetroEmulator {
 
   @inlinable
   public func buttons() -> [String?] {
-    return core.information.buttons
+    core.information.buttons
   }
 
   @inlinable
   public func buttonCombos() -> [[Int32]] {
-    return gameData.buttonCombos
+    gameData.buttonCombos
   }
 
   @inlinable
@@ -168,7 +168,7 @@ public class RetroEmulator {
 
   @inlinable
   public func copy() throws -> RetroEmulator {
-    return try RetroEmulator(
+    try RetroEmulator(
       for: game,
       configuredAs: config,
       playing: scenario,
@@ -177,22 +177,22 @@ public class RetroEmulator {
 
   @inlinable
   public func screen() -> Tensor<UInt8>? {
-    return cachedScreenUpdated ? cachedScreen : updateCachedScreen()
+    cachedScreenUpdated ? cachedScreen : updateCachedScreen()
   }
 
   @inlinable
   public func memory() -> Tensor<UInt8>? {
-    return cachedMemoryUpdated ? cachedMemory : updateCachedMemory()
+    cachedMemoryUpdated ? cachedMemory : updateCachedMemory()
   }
 
   @inlinable
   public func reward(for player: UInt32) -> Float {
-    return gameDataCurrentReward(gameData.handle, player)
+    gameDataCurrentReward(gameData.handle, player)
   }
 
   @inlinable
   public func finished() -> Bool {
-    return gameDataIsDone(gameData.handle)
+    gameDataIsDone(gameData.handle)
   }
 
   @usableFromInline @discardableResult
@@ -301,12 +301,12 @@ public extension RetroEmulator {
     
     @inlinable
     public func core(called core: String) -> RetroCore? {
-      return supportedCores[core]
+      supportedCores[core]
     }
 
     @inlinable
     public func core(forROM rom: URL) -> RetroCore? {
-      return supportedExtensions[rom.pathExtension]
+      supportedExtensions[rom.pathExtension]
     }
 
     public func game(

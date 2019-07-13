@@ -21,18 +21,11 @@ public protocol Agent {
 
   func action(for step: Step<Observation, Reward>) -> Action
 
-  /// Trains this agent using the provided experience.
+  /// Updates this agent using the provided experience, effectively performing a single
+  /// training step.
   /// - Returns: Loss function value.
   @discardableResult
   mutating func update(using trajectory: Trajectory<Observation, Action, Reward, State>) -> Float
-
-  @discardableResult
-  mutating func update(
-    using environment: inout Environment,
-    maxSteps: Int,
-    maxEpisodes: Int,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
-  ) -> Float
 }
 
 extension Agent {
