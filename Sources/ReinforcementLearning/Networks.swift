@@ -14,24 +14,24 @@
 
 import TensorFlow
 
-public protocol Network: Layer {
+public protocol Network: Layer, Copyable {
   associatedtype State
   var state: State { get set }
 }
 
-public struct LayerNetwork<WrappedLayer: Layer>: Network {
-  public typealias State = None
+// public struct LayerNetwork<WrappedLayer: Layer>: Network {
+//   public typealias State = None
 
-  @noDerivative public var state: State = None()
+//   @noDerivative public var state: State = None()
 
-  public var layer: WrappedLayer
+//   public var layer: WrappedLayer
 
-  public init(_ layer: WrappedLayer) {
-    self.layer = layer
-  }
+//   public init(_ layer: WrappedLayer) {
+//     self.layer = layer
+//   }
 
-  @differentiable
-  public func callAsFunction(_ input: WrappedLayer.Input) -> WrappedLayer.Output {
-    layer(input)
-  }
-}
+//   @differentiable
+//   public func callAsFunction(_ input: WrappedLayer.Input) -> WrappedLayer.Output {
+//     layer(input)
+//   }
+// }

@@ -33,6 +33,16 @@ extension None: Stackable {
   }
 }
 
+public protocol Copyable {
+  init(copying other: Self)
+}
+
+extension Copyable {
+  public func copy() -> Self {
+    Self(copying: self)
+  }
+}
+
 public extension Encodable {
   func json(pretty: Bool = true) throws -> String {
     let encoder = JSONEncoder()
