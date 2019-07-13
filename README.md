@@ -1,28 +1,45 @@
+# Reinforcement Learning in Swift
+
 **WARNING:** This is currently work-in-progress and is 
 changing rapidly. I expect it to be more stable within 
 about a week or two.
 
-Current issues with auto-diff:
-- If I mark the constructors of structs conforming to 
-  `DifferentiableDistribution` as `@differentiable`, the 
-  compiler crashes, while emitting other constructors or 
-  functions where these constructors are being invoked from.
-- Even though `DifferentiableDistribution` overrides some 
-  functions of `Distribution` marking them as 
-  `@differentiable`, the compiler complaints when these 
-  functions are used inside other differentiable functions,
-  saying that they were not marked as `@differentiable`.
+This repository contains a Swift API for Gym Retro, but it
+also contains a reinforcement learning library built using
+Swift for TensorFlow, that also encompasses the
+functionality of Gym. Currently supported features are:
 
-# Installation
+- All algorithms and interfaces are designed and 
+  implemented with batching in mind to support efficient
+  training of neural networks that often operate on batched
+  inputs.
+- Environments:
+  - Cart-Pole (classic control example)
+  - Retro Games (atari/sega/... games)
+- Policy Gradient Algorithms:
+  - REINFORCE
+  - Advantage Actor Critic (A2C)
+  - *UPCOMING: Proximal Policy Optimization (PPO)*
+  - *UPCOMING: Deep Deterministic Policy Gradients (DDPG)*
+  - *UPCOMING: Twin Delayed Deep Deterministic Policy Gradients (TD3)*
+  - *UPCOMING: Soft Actor Critic (SAC)*
+- Q-Learning Algorithms:
+  - *UPCOMING: Deep Q-Networks (DQN)*
+  - *UPCOMING: Double Deep Q-Networks (DDQN)*
+- Advantage Estimation Methods:
+  - Empirical Advantage Estimation
+  - Generalized Advantage Estimation (GAE)
+- Replay Buffers:
+  - Uniform Replay Buffer
+  - *UPCOMING: Prioritized Replay Buffer*
+- Visualization using OpenGL for all of the currently
+  implemented environments.
 
-For MacOS, you need to use the following flags whenver 
-executing a Swift Package Manager command 
-(e.g., `swift build`, `swift test`, or `swift run`): 
-`-Xswiftc "-target" -Xswiftc "x86_64-apple-macosx10.12"`.
+## Installation
 
-## Prerequisites
+### Prerequisites
 
-### Retro
+#### Retro
 
 If `libretro.so` or `libretro.dylib` is not in your 
 `LD_LIBRARY_PATH`, you need to provide the following 
@@ -51,7 +68,7 @@ subdirectory. Then you can set `<path>` to
 `<repository>/retro`, where `<repository>` is the path 
 where you cloned the Swift Retro repository.
 
-### GLFW
+#### GLFW
 
 **NOTE:** The GLFW flag is not currently working and so the 
 GLFW library needs to be installed in order to use 
@@ -87,7 +104,7 @@ to the specified frames per second value and you are using
 MacOS 10.14, you should update to 10.14.4 because there is 
 a bug in previous releases of 10.14 which breaks VSync.
 
-## Example
+### Example
 
 This is how I can get things set up on my MacBook:
 
@@ -101,17 +118,14 @@ git checkout c-api
 cmake . -G 'Unix Makefiles' -DBUILD_PYTHON=OFF -DBUILD_C=ON
 make -j4 retro-c
 cd ..
-swift test \
-  -Xcc -DGLFW \
-  -Xswiftc -DGLFW \
-  -Xlinker -lglfw \
-  -Xlinker -L/usr/local/lib \
-  -Xlinker -L/Users/eaplatanios/Development/GitHub/retro-swift/retro \
-  -Xlinker -rpath \
-  -Xlinker /Users/eaplatanios/Development/GitHub/retro-swift/retro
+swift test
 ```
 
-# Example
+## Example
+
+**WARNING:** The below is not relevant anymore. I have been
+working on a new simpler and more powerful interface and
+plan to update the examples shown in this file soon.
 
 The following code runs a random policy on the 
 `Airstriker-Genesis` game for which a ROM is provided by 
@@ -145,9 +159,13 @@ for _ in 0..<1000000 {
 }
 ```
 
-# Reinforcement Learning Library Design Notes
+## Reinforcement Learning Library Design Notes
 
-## Batching
+**WARNING:** The below is not relevant anymore. I have been
+working on a new simpler and more powerful interface and
+plan to update the examples shown in this file soon.
+
+### Batching
 
 Batching can occur at two levels:
 
