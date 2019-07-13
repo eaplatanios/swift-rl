@@ -14,19 +14,6 @@
 
 import TensorFlow
 
-public struct ReinforceNetworkOutput<
-  ActionDistribution: DifferentiableDistribution
->: Differentiable {
-  public var actionDistribution: ActionDistribution
-  @noDerivative public let value: Tensor<Float>? // TODO: !!! Allow differentiating this.
-
-  @differentiable
-  public init(actionDistribution: ActionDistribution, value: Tensor<Float>? = nil) {
-    self.actionDistribution = actionDistribution
-    self.value = value
-  }
-}
-
 public struct ReinforceAgent<
   Environment: ReinforcementLearning.Environment,
   Network: ReinforcementLearning.Network,
@@ -34,8 +21,9 @@ public struct ReinforceAgent<
 >: ProbabilisticAgent
 where
   Environment.Observation == Network.Input,
+  Environment.ActionSpace.ValueDistribution: DifferentiableDistribution,
   Environment.Reward == Tensor<Float>,
-  Network.Output == ReinforceNetworkOutput<Environment.ActionSpace.ValueDistribution>,
+  Network.Output == Environment.ActionSpace.ValueDistribution,
   Optimizer.Model == Network
 {
   public typealias Observation = Network.Input
@@ -52,13 +40,12 @@ where
     set { network.state = newValue }
   }
 
+  public let maxReplayedSequenceLength: Int
   public let discountFactor: Float
-  public let advantageFunction: AdvantageFunction
   public let returnsNormalizer: (Tensor<Float>) -> Tensor<Float>
   public let entropyRegularizationWeight: Float
-  public let valueEstimationLossWeight: Float
 
-  private var replayBuffer: UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>
+  private var replayBuffer: UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>?
 
   public init(
     for environment: Environment,
@@ -66,26 +53,21 @@ where
     optimizer: Optimizer,
     maxReplayedSequenceLength: Int,
     discountFactor: Float,
-    advantageFunction: AdvantageFunction = NoAdvantageFunction(),
     returnsNormalizer: @escaping (Tensor<Float>) -> Tensor<Float> = {
       standardNormalize($0, alongAxes: 0, 1) },
-    entropyRegularizationWeight: Float = 0.0,
-    valueEstimationLossWeight: Float = 0.0
+    entropyRegularizationWeight: Float = 0.0
   ) {
     self.network = network
     self.optimizer = optimizer
+    self.maxReplayedSequenceLength = maxReplayedSequenceLength
     self.discountFactor = discountFactor
-    self.advantageFunction = advantageFunction
     self.returnsNormalizer = returnsNormalizer
     self.entropyRegularizationWeight = entropyRegularizationWeight
-    self.valueEstimationLossWeight = valueEstimationLossWeight
-    self.replayBuffer = UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>(
-      batchSize: environment.batchSize,
-      maxLength: maxReplayedSequenceLength)
+    self.replayBuffer = nil
   }
 
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    network(step.observation).actionDistribution
+    network(step.observation)
   }
 
   @discardableResult
@@ -98,37 +80,33 @@ where
       rewards: trajectory.reward)
     network.state = trajectory.state
     let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
-        let networkOutput = network(trajectory.observation)
-        var advantages = returns
-        // if let value = networkOutput.value {
-        //   let values = value.unstacked(alongAxis: 1)
-        //   let values = networkOutput.value.unstacked(alongAxis: 1)
-        //   advantages = advantageFunction(
-        //     stepKinds: stepKinds,
-        //     returns: returns,
-        //     values: values,
-        //     finalValue: values.last!) // TODO: I believe this is not correct!
-        // }
-        let normalizedReturns = returnsNormalizer(advantages)
-        let distribution = networkOutput.actionDistribution
-        let actionLogProbs = distribution.logProbability(of: trajectory.action)
+      let actionDistribution = network(trajectory.observation)
+      let normalizedReturns = returnsNormalizer(returns)
+      let actionLogProbs = actionDistribution.logProbability(of: trajectory.action)
 
-        // Policy gradient loss is defined as the sum, over time steps, of action log-probabilities
-        // multiplied with the cumulative return from that time step onward.
-        let actionLogProbWeightedReturns = actionLogProbs * normalizedReturns
+      // The policy gradient loss is defined as the sum, over time steps, of action
+      // log-probabilities multiplied with the cumulative return from that time step onward.
+      let actionLogProbWeightedReturns = actionLogProbs * normalizedReturns
 
-        // REINFORCE requires completed episodes and thus we mask out incomplete ones.
-        let mask = Tensor<Float>(trajectory.stepKind.completeEpisodeMask())
-        let episodeCount = trajectory.stepKind.episodeCount()
+      // REINFORCE requires completed episodes and thus we mask out incomplete ones.
+      let mask = Tensor<Float>(trajectory.stepKind.completeEpisodeMask())
+      let episodeCount = trajectory.stepKind.episodeCount()
 
-        precondition(
-          episodeCount.scalarized() > 0,
-          "REINFORCE requires at least one completed episode.")
+      precondition(
+        episodeCount.scalarized() > 0,
+        "REINFORCE requires at least one completed episode.")
 
-        // We compute the mean of the policy gradient loss over the number of episodes.
-        let policyGradientLoss = -(actionLogProbWeightedReturns * mask).sum() / episodeCount
-        let entropyLoss = entropyRegularizationWeight * -(distribution.entropy() * mask).mean()
+      // We compute the mean of the policy gradient loss over the number of episodes.
+      let policyGradientLoss = -(actionLogProbWeightedReturns * mask).sum() / episodeCount
+
+      // If entropy regularization is being used for the action distribution, then we also
+      // compute the entropy loss term.
+      if entropyRegularizationWeight > 0.0 {
+        let entropy = actionDistribution.entropy()
+        let entropyLoss = -entropyRegularizationWeight * (entropy * mask).mean()
         return policyGradientLoss + entropyLoss
+      }
+      return policyGradientLoss
     }
     optimizer.update(&network, along: gradient)
     return loss.scalar!
@@ -141,6 +119,11 @@ where
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
   ) -> Float {
+    if replayBuffer == nil {
+      replayBuffer = UniformReplayBuffer(
+        batchSize: environment.batchSize,
+        maxLength: maxReplayedSequenceLength)
+    }
     var currentStep = environment.currentStep()
     var numSteps = 0
     var numEpisodes = 0
@@ -153,14 +136,14 @@ where
         action: action,
         reward: nextStep.reward,
         state: state)
-      replayBuffer.record(trajectory)
+      replayBuffer!.record(trajectory)
       stepCallbacks.forEach { $0(trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalar!)
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalar!)
       currentStep = nextStep
     }
-    let batch = replayBuffer.recordedData()
-    replayBuffer.reset()
+    let batch = replayBuffer!.recordedData()
+    replayBuffer!.reset()
     return update(using: batch)
   }
 }
