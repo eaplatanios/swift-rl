@@ -42,15 +42,6 @@ public protocol Environment {
 public extension Environment {
   typealias Action = ActionSpace.Value
   typealias Observation = ObservationSpace.Value
-
-  /// Renders the last step observation using the provided renderer.
-  @inlinable
-  func render<R: Renderer>(
-    observation: Observation,
-    using renderer: inout R
-  ) throws where R.Data == Observation {
-    try renderer.render(observation)
-  }
 }
 
 /// Contains the data emitted by an environment at a single step of interaction.

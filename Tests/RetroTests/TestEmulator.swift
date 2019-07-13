@@ -64,9 +64,7 @@ class EmulatorTests: XCTestCase {
     let policy = RandomPolicy(for: environment)
     var driver = StepBasedDriver(for: environment, using: policy, maxSteps: 1000000, batchSize: 1)
     driver.run(using: environment.reset(), updating: [{
-      try! environment.render(
-        observation: $0.currentStep.observation,
-        using: &renderer)
+      try! renderer.render($0.currentStep.observation)
     }])
   }
 
