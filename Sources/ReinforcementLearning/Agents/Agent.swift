@@ -79,6 +79,11 @@ public struct Trajectory<Observation, Action, Reward, State>: KeyPathIterable {
   }
 }
 
+public enum ProbabilisticAgentMode {
+  case greedy
+  case probabilistic
+}
+
 public protocol ProbabilisticAgent: Agent {
   associatedtype ActionDistribution: Distribution where ActionDistribution.Value == Action
 
@@ -88,9 +93,16 @@ public protocol ProbabilisticAgent: Agent {
 
 public extension ProbabilisticAgent {
   func action(for step: Step<Observation, Reward>) -> Action {
-    // TODO: Allow for things like ε-Greedy.
-    // TODO: Allow for training vs. inference mode distinction.
-    actionDistribution(for: step).sample() //.mode()
+    action(for: step, mode: .greedy)
+  }
+
+  /// - Note: We cannot use a default argument value for `mode` here because of the `Agent`
+  ///   protocol requirement for an `Agent.action(for:)` function.
+  func action(for step: Step<Observation, Reward>, mode: ProbabilisticAgentMode) -> Action {
+    switch mode {
+    case .greedy: return actionDistribution(for: step).mode()
+    case .probabilistic: return actionDistribution(for: step).sample()
+    }
   }
 }
 

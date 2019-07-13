@@ -80,16 +80,17 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
 /// - Parameters:
 ///   - logits: One-hot encoded outputs from a neural network.
 ///   - labels: Indices (zero-indexed) of the correct outputs.
+@inlinable
 @differentiable(wrt: logits, vjp: _vjpSoftmaxCrossEntropy)
-fileprivate func softmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
+internal func softmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
     logits: Tensor<Scalar>,
     labels: Tensor<Int32>
 ) -> Tensor<Scalar> {
     Raw.sparseSoftmaxCrossEntropyWithLogits(features: logits, labels: labels).loss
 }
 
-@usableFromInline
-func _vjpSoftmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
+@inlinable
+internal func _vjpSoftmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
     logits: Tensor<Scalar>, labels: Tensor<Int32>
 ) -> (Tensor<Scalar>, (Tensor<Scalar>) -> Tensor<Scalar>) {
     let (loss, grad) = Raw.sparseSoftmaxCrossEntropyWithLogits(features: logits, labels: labels)

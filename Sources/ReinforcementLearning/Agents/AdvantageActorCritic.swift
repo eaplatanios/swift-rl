@@ -151,7 +151,7 @@ where
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
-      let action = self.action(for: currentStep)
+      let action = self.action(for: currentStep, mode: .probabilistic)
       let nextStep = environment.step(taking: action)
       let trajectory = Trajectory(
         stepKind: nextStep.kind,
