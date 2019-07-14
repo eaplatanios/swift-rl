@@ -408,10 +408,32 @@ internal func _vjpMinMaxHelper<T: TensorFlowFloatingPoint>(
 }
 
 public extension Tensor where Scalar: TensorFlowNumeric {
+  /// Returns `max(min(self, max), min)`.
   @inlinable
   @differentiable(vjp: _vjpClipping where Scalar: TensorFlowFloatingPoint)
   func clipping(min: Tensor, max: Tensor) -> Tensor {
     Raw.clipByValue(t: self, clipValueMin: min, clipValueMax: max)
+  }
+
+  /// Returns `max(min(self, max), min)`.
+  @inlinable
+  @differentiable(wrt: (self, min) where Scalar: TensorFlowFloatingPoint)
+  func clipping(min: Tensor, max: Scalar) -> Tensor {
+    clipping(min: min, max: Tensor(max))
+  }
+
+  /// Returns `max(min(self, max), min)`.
+  @inlinable
+  @differentiable(wrt: (self, max) where Scalar: TensorFlowFloatingPoint)
+  func clipping(min: Scalar, max: Tensor) -> Tensor {
+    clipping(min: Tensor(min), max: max)
+  }
+
+  /// Returns `max(min(self, max), min)`.
+  @inlinable
+  @differentiable(wrt: self where Scalar: TensorFlowFloatingPoint)
+  func clipping(min: Scalar, max: Scalar) -> Tensor {
+    clipping(min: Tensor(min), max: Tensor(max))
   }
 }
 

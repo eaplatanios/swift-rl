@@ -190,9 +190,10 @@ public func runCartPole(
         network: network,
         optimizer: AMSGrad(for: network, learningRate: 1e-3),
         maxReplayedSequenceLength: maxReplayedSequenceLength,
+        clip: PPOClip(),
+        entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight),
         advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
-        advantagesNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
-        entropyRegularizationWeight: entropyRegularizationWeight)
+        advantagesNormalizer: { standardNormalize($0, alongAxes: 0, 1) })
       for step in 0..<10000 {
         let loss = agent.update(
           using: &environment,
@@ -200,7 +201,7 @@ public func runCartPole(
           maxEpisodes: maxEpisodes,
           stepCallbacks: [{ trajectory in
             averageEpisodeLength.update(using: trajectory)
-            if step > 100 {
+            if step > 10 {
               try! renderer.render(trajectory.observation)
             }
           }])

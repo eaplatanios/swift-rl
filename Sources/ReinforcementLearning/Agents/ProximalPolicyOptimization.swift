@@ -19,6 +19,45 @@ import TensorFlow
 // TODO: Observation normalizer.
 // TODO: Reward norm clipping.
 
+public struct PPOClip {
+  public let epsilon: Float
+
+  public init(epsilon: Float = 0.2) {
+    self.epsilon = epsilon
+  }
+}
+
+public struct PPOPenalty {
+  public let klCutoffFactor: Float
+  public let klCutoffCoefficient: Float
+  public let adaptiveKLTarget: Float
+  public let adaptiveKLTolerance: Float
+
+  public fileprivate(set) var adaptiveKLBeta: Float?
+
+  public init(
+    klCutoffFactor: Float = 0.2,
+    klCutoffCoefficient: Float = 1000.0,
+    adaptiveKLTarget: Float = 0.01,
+    adaptiveKLTolerance: Float = 0.3,
+    adaptiveKLBeta: Float? = 1.0
+  ) {
+    self.klCutoffFactor = klCutoffFactor
+    self.klCutoffCoefficient = klCutoffCoefficient
+    self.adaptiveKLTarget = adaptiveKLTarget
+    self.adaptiveKLTolerance = adaptiveKLTolerance
+    self.adaptiveKLBeta = adaptiveKLBeta
+  }
+}
+
+public struct PPOEntropyRegularization {
+  public let weight: Float
+
+  public init(weight: Float) {
+    self.weight = weight
+  }
+}
+
 public struct PPOAgent<
   Environment: ReinforcementLearning.Environment,
   Network: ReinforcementLearning.Network,
@@ -47,35 +86,27 @@ where
   }
 
   public let maxReplayedSequenceLength: Int
-  public let importanceRatioClipping: Float?
+  public let clip: PPOClip?
+  public let penalty: PPOPenalty?
+  public let entropyRegularization: PPOEntropyRegularization?
   public let actionLogProbabilitiesClipping: Float?
-  public let klCutoffFactor: Float?
-  public let klCutoffCoefficient: Float
-  public let initialAdaptiveKLBeta: Float?
-  public let adaptiveKLTarget: Float
-  public let adaptiveKLTolerance: Float
   public let advantageFunction: AdvantageFunction
   public let advantagesNormalizer: (Tensor<Float>) -> Tensor<Float>
   public let useTDLambdaReturn: Bool
   public let valueEstimationLossWeight: Float
-  public let entropyRegularizationWeight: Float
   public let epochCount: Int
 
   private var replayBuffer: UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>?
-  private var adaptiveKLBeta: Float?
 
   public init(
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
     maxReplayedSequenceLength: Int,
-    importanceRatioClipping: Float? = nil,
+    clip: PPOClip? = PPOClip(),
+    penalty: PPOPenalty? = nil,
+    entropyRegularization: PPOEntropyRegularization? = nil,
     actionLogProbabilitiesClipping: Float? = nil,
-    klCutoffFactor: Float? = 2.0,
-    klCutoffCoefficient: Float = 1000.0,
-    initialAdaptiveKLBeta: Float? = 1.0,
-    adaptiveKLTarget: Float = 0.01,
-    adaptiveKLTolerance: Float = 0.3,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
       discountWeight: 0.95),
@@ -83,28 +114,22 @@ where
       standardNormalize($0, alongAxes: 0, 1) },
     useTDLambdaReturn: Bool = false,
     valueEstimationLossWeight: Float = 0.2,
-    entropyRegularizationWeight: Float = 0.0,
-    epochCount: Int = 25
+    epochCount: Int = 4
   ) {
     self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
     self.maxReplayedSequenceLength = maxReplayedSequenceLength
-    self.importanceRatioClipping = importanceRatioClipping
+    self.clip = clip
+    self.penalty = penalty
+    self.entropyRegularization = entropyRegularization
     self.actionLogProbabilitiesClipping = actionLogProbabilitiesClipping
-    self.klCutoffFactor = klCutoffFactor
-    self.klCutoffCoefficient = klCutoffCoefficient
-    self.initialAdaptiveKLBeta = initialAdaptiveKLBeta
-    self.adaptiveKLTarget = adaptiveKLTarget
-    self.adaptiveKLTolerance = adaptiveKLTolerance
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = advantagesNormalizer
     self.useTDLambdaReturn = useTDLambdaReturn
     self.valueEstimationLossWeight = valueEstimationLossWeight
-    self.entropyRegularizationWeight = entropyRegularizationWeight
     self.epochCount = epochCount
     self.replayBuffer = nil
-    self.adaptiveKLBeta = initialAdaptiveKLBeta
   }
 
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
@@ -164,57 +189,55 @@ where
         // TODO: Mask out `isLast` steps?
 
         let importanceRatio = exp(newActionLogProbs - actionLogProbs)
-        var policyGradientLoss = importanceRatio * advantages
-        if let clipValue = importanceRatioClipping {
-          let value = Tensor<Float>(clipValue)
-          let importanceRatioClipped = importanceRatio.clipping(min: 1 - value, max: 1 + value)
-          policyGradientLoss = min(policyGradientLoss, importanceRatioClipped * advantages)
+        var loss = importanceRatio * advantages
+        
+        // Importance ratio clipping loss term.
+        if let c = clip {
+          let ε = Tensor<Float>(c.epsilon)
+          let importanceRatioClipped = importanceRatio.clipping(min: 1 - ε, max: 1 + ε)
+          loss = -min(loss, importanceRatioClipped * advantages).mean()
+        } else {
+          loss = -loss.mean()
         }
-        policyGradientLoss = -policyGradientLoss.mean()
 
-        // The value estimation loss is defined as the mean squared error between the value
-        // estimates and the discounted returns.
+        // KL penalty loss term.
+        if let p = penalty {
+          let klDivergence = actionDistribution.klDivergence(to: newActionDistribution)
+          let klMean = klDivergence.mean()
+          let klCutoffLoss = max(klMean - p.klCutoffFactor * p.adaptiveKLTarget, 0).squared()
+          loss = loss + p.klCutoffCoefficient * klCutoffLoss
+          if let beta = p.adaptiveKLBeta {
+            loss = loss + beta * klMean
+          }
+        }
+
+        // Entropy regularization loss term.
+        if let e = entropyRegularization {
+          let entropy = actionDistribution.entropy()[0..<sequenceLength]
+          loss = loss - e.weight * entropy.mean()
+        }
+
+        // Value estimation loss term.
         let values = newNetworkOutput.value[0..<sequenceLength]
         let valueMSE = (values - returns).squared().mean()
-        let valueEstimationLoss = valueEstimationLossWeight * valueMSE
-
-        // Compute the KL penalty loss.
-        let klDivergence = actionDistribution.klDivergence(to: newActionDistribution)
-        let klMean = klDivergence.mean()
-        var klPenaltyLoss = Tensor<Float>(0.0)
-        if let cutoffFactor = klCutoffFactor {
-          let klCutoffLoss = max(klMean - cutoffFactor * adaptiveKLTarget, 0).squared()
-          klPenaltyLoss = klPenaltyLoss + klCutoffCoefficient * klCutoffLoss
-        }
-        if let beta = adaptiveKLBeta {
-          klPenaltyLoss = klPenaltyLoss + beta * klMean
-        }
-
-        // If entropy regularization is being used for the action distribution, then we also
-        // compute the entropy loss term.
-        var entropyLoss = Tensor<Float>(0.0)
-        if entropyRegularizationWeight > 0.0 {
-          let entropy = actionDistribution.entropy()[0..<sequenceLength]
-          entropyLoss = entropyLoss - entropyRegularizationWeight * entropy.mean()
-        }
-        return policyGradientLoss + valueEstimationLoss + klPenaltyLoss + entropyLoss
+        return loss + valueEstimationLossWeight * valueMSE
       }
       optimizer.update(&network, along: gradient)
       lastEpochLoss = loss.scalarized()
     }
 
-    // After the network is updated, we need to update the adaptive KL beta.
-    if let beta = adaptiveKLBeta {
+    // After the network is updated, we may need to update the adaptive KL beta.
+    if var p = penalty, let beta = p.adaptiveKLBeta {
       let klDivergence = network(trajectory.observation).actionDistribution.klDivergence(
         to: actionDistribution)
       let klMean = klDivergence.mean().scalarized()
-      if klMean < adaptiveKLTarget * (1 - adaptiveKLTolerance) {
-        adaptiveKLBeta = max(beta / 1.5, 1e-16)
-      } else if klMean > adaptiveKLTarget * (1 + adaptiveKLTolerance) {
-        adaptiveKLBeta = max(beta * 1.5, 1e-16)
+      if klMean < p.adaptiveKLTarget * (1 - p.adaptiveKLTolerance) {
+        p.adaptiveKLBeta = max(beta / 1.5, 1e-16)
+      } else if klMean > p.adaptiveKLTarget * (1 + p.adaptiveKLTolerance) {
+        p.adaptiveKLBeta = max(beta * 1.5, 1e-16)
       }
     }
-    
+
     // TODO: Update reward and observation normalizers.
 
     return lastEpochLoss
