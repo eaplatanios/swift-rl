@@ -406,7 +406,7 @@ public struct DiscreteActions: ActionsType {
     for player: UInt32,
     in emulator: RetroEmulator
   ) -> UInt16 {
-    var playerAction = UInt16(action.scalar!)
+    var playerAction = UInt16(action.scalarized())
     var encodedAction = UInt16(0)
     var current = 0
     for combo in emulator.buttonCombos() {

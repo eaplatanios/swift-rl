@@ -183,6 +183,31 @@ public func runCartPole(
           print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
         }
       }
+    case .ppo:
+      let network = CartPoleActorCritic()
+      var agent = PPOAgent(
+        for: environment,
+        network: network,
+        optimizer: AMSGrad(for: network, learningRate: 1e-3),
+        maxReplayedSequenceLength: maxReplayedSequenceLength,
+        advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
+        advantagesNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
+        entropyRegularizationWeight: entropyRegularizationWeight)
+      for step in 0..<10000 {
+        let loss = agent.update(
+          using: &environment,
+          maxSteps: maxReplayedSequenceLength * batchSize,
+          maxEpisodes: maxEpisodes,
+          stepCallbacks: [{ trajectory in
+            averageEpisodeLength.update(using: trajectory)
+            if step > 100 {
+              try! renderer.render(trajectory.observation)
+            }
+          }])
+        if step % 1 == 0 {
+          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        }
+      }
     case .dqn:
       let network = CartPoleQNetwork()
       var agent = DQNAgent(

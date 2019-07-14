@@ -82,7 +82,7 @@ where
 //       result = result.copy(kind: .last)
 //     }
 
-//     if result.kind.isLast().scalar! {
+//     if result.kind.isLast().scalarized() {
 //       numSteps = 0
 //       resetRequired = true
 //     }
@@ -131,7 +131,7 @@ where
 //     for _ in 1..<numRepeats {
 //       result = wrappedEnvironment.step(taking: action)
 //       reward += result.reward
-//       if result.kind.isLast().scalar! {
+//       if result.kind.isLast().scalarized() {
 //         break
 //       }
 //     }
@@ -180,7 +180,7 @@ where
 //   public mutating func step(taking action: Action) -> Step<Observation, Reward> {
 //     let result = wrappedEnvironment.step(taking: action)
 
-//     if result.kind.isFirst().scalar! {
+//     if result.kind.isFirst().scalarized() {
 //       numResets += 1
 //       numEpisodeSteps = 0
 //     } else {
@@ -188,7 +188,7 @@ where
 //       numTotalSteps += 1
 //     }
 
-//     if result.kind.isLast().scalar! {
+//     if result.kind.isLast().scalarized() {
 //       numEpisodes += 1
 //     }
 

@@ -100,21 +100,23 @@ where
       precondition(
         episodeCount.scalarized() > 0,
         "REINFORCE requires at least one completed episode.")
+      
+      // TODO: Mask out `isLast` steps?
 
       // We compute the mean of the policy gradient loss over the number of episodes.
       let policyGradientLoss = -(actionLogProbWeightedReturns * mask).sum() / episodeCount
 
       // If entropy regularization is being used for the action distribution, then we also
       // compute the entropy loss term.
+      var entropyLoss = Tensor<Float>(0.0)
       if entropyRegularizationWeight > 0.0 {
         let entropy = actionDistribution.entropy()
-        let entropyLoss = -entropyRegularizationWeight * (entropy * mask).mean()
-        return policyGradientLoss + entropyLoss
+        entropyLoss = entropyLoss - entropyRegularizationWeight * entropy.mean()
       }
-      return policyGradientLoss
+      return policyGradientLoss + entropyLoss
     }
     optimizer.update(&network, along: gradient)
-    return loss.scalar!
+    return loss.scalarized()
   }
 
   @discardableResult
@@ -143,8 +145,8 @@ where
         state: state)
       replayBuffer!.record(trajectory)
       stepCallbacks.forEach { $0(trajectory) }
-      numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalar!)
-      numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalar!)
+      numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
+      numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
     }
     let batch = replayBuffer!.recordedData()

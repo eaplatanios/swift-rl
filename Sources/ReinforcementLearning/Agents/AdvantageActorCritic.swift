@@ -106,7 +106,8 @@ where
         rewards: trajectory.reward[0..<sequenceLength],
         values: withoutDerivative(at: values),
         finalValue: withoutDerivative(at: finalValue))
-      let normalizedAdvantages = advantagesNormalizer(advantageEstimate.advantages)
+      let advantages = advantagesNormalizer(advantageEstimate.advantages)
+      let returns = advantageEstimate.discountedReturns
 
       // Compute the action log probabilities.
       let actionDistribution = networkOutput.actionDistribution
@@ -114,27 +115,29 @@ where
         of: trajectory.action
       )[0..<sequenceLength]
 
+      // TODO: Mask out `isLast` steps?
+
       // The policy gradient loss is defined as the sum, over time steps, of action
       // log-probabilities multiplied with the normalized advantages.
-      let actionLogProbWeightedReturns = actionLogProbs * normalizedAdvantages
+      let actionLogProbWeightedReturns = actionLogProbs * advantages
       let policyGradientLoss = -actionLogProbWeightedReturns.mean()
 
       // The value estimation loss is defined as the mean squared error between the value
       // estimates and the discounted returns.
-      let valueMSE = (values - advantageEstimate.discountedReturns).squared().mean()
+      let valueMSE = (values - returns).squared().mean()
       let valueEstimationLoss = valueEstimationLossWeight * valueMSE
 
       // If entropy regularization is being used for the action distribution, then we also
       // compute the entropy loss term.
+      var entropyLoss = Tensor<Float>(0.0)
       if entropyRegularizationWeight > 0.0 {
         let entropy = actionDistribution.entropy()[0..<sequenceLength]
-        let entropyLoss = -entropyRegularizationWeight * entropy.mean()
-        return policyGradientLoss + valueEstimationLoss + entropyLoss
+        entropyLoss = entropyLoss - entropyRegularizationWeight * entropy.mean()
       }
-      return policyGradientLoss + valueEstimationLoss
+      return policyGradientLoss + valueEstimationLoss + entropyLoss
     }
     optimizer.update(&network, along: gradient)
-    return loss.scalar!
+    return loss.scalarized()
   }
 
   @discardableResult
@@ -163,8 +166,8 @@ where
         state: state)
       replayBuffer!.record(trajectory)
       stepCallbacks.forEach { $0(trajectory) }
-      numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalar!)
-      numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalar!)
+      numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
+      numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
     }
     let batch = replayBuffer!.recordedData()

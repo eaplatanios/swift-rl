@@ -144,7 +144,7 @@ where
     }
     optimizer.update(&qNetwork, along: gradient)
     updateTargetQNetwork()
-    return loss.scalar!
+    return loss.scalarized()
   }
 
   @discardableResult
@@ -173,8 +173,8 @@ where
         state: state)
       replayBuffer!.record(trajectory)
       stepCallbacks.forEach { $0(trajectory) }
-      numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalar!)
-      numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalar!)
+      numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
+      numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
     }
     var loss: Float = 0.0

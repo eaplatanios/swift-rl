@@ -20,7 +20,7 @@ functionality of Gym. Currently supported features are:
   - Policy Gradient Algorithms:
     - [REINFORCE](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/Reinforce.swift)
     - [Advantage Actor Critic (A2C)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/AdvantageActorCritic.swift)
-    - *UPCOMING: Proximal Policy Optimization (PPO)*
+    - [Proximal Policy Optimization (PPO)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/ProximalPolicyOptimization.swift)
     - *UPCOMING: Deep Deterministic Policy Gradients (DDPG)*
     - *UPCOMING: Twin Delayed Deep Deterministic Policy Gradients (TD3)*
     - *UPCOMING: Soft Actor Critic (SAC)*
