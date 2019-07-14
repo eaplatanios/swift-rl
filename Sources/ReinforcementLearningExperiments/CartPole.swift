@@ -139,7 +139,6 @@ public func runCartPole(
         for: environment,
         network: network,
         optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        maxReplayedSequenceLength: maxReplayedSequenceLength,
         discountFactor: discountFactor,
         returnsNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
         entropyRegularizationWeight: entropyRegularizationWeight)
@@ -164,7 +163,6 @@ public func runCartPole(
         for: environment,
         network: network,
         optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        maxReplayedSequenceLength: maxReplayedSequenceLength,
         advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
         advantagesNormalizer: { standardNormalize($0, alongAxes: 0, 1) },
         entropyRegularizationWeight: entropyRegularizationWeight)
@@ -189,7 +187,6 @@ public func runCartPole(
         for: environment,
         network: network,
         optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        maxReplayedSequenceLength: maxReplayedSequenceLength,
         clip: PPOClip(),
         entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight),
         advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),

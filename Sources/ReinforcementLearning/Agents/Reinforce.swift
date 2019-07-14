@@ -44,18 +44,14 @@ where
     set { network.state = newValue }
   }
 
-  public let maxReplayedSequenceLength: Int
   public let discountFactor: Float
   public let returnsNormalizer: (Tensor<Float>) -> Tensor<Float>
   public let entropyRegularizationWeight: Float
-
-  private var replayBuffer: UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>?
 
   public init(
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
-    maxReplayedSequenceLength: Int,
     discountFactor: Float,
     returnsNormalizer: @escaping (Tensor<Float>) -> Tensor<Float> = {
       standardNormalize($0, alongAxes: 0, 1) },
@@ -64,11 +60,9 @@ where
     self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
-    self.maxReplayedSequenceLength = maxReplayedSequenceLength
     self.discountFactor = discountFactor
     self.returnsNormalizer = returnsNormalizer
     self.entropyRegularizationWeight = entropyRegularizationWeight
-    self.replayBuffer = nil
   }
 
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
@@ -126,11 +120,7 @@ where
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
   ) -> Float {
-    if replayBuffer == nil {
-      replayBuffer = UniformReplayBuffer(
-        batchSize: environment.batchSize,
-        maxLength: maxReplayedSequenceLength)
-    }
+    var trajectories = [Trajectory<Observation, Action, Reward, State>]()
     var currentStep = environment.currentStep()
     var numSteps = 0
     var numEpisodes = 0
@@ -143,14 +133,12 @@ where
         action: action,
         reward: nextStep.reward,
         state: state)
-      replayBuffer!.record(trajectory)
+      trajectories.append(trajectory)
       stepCallbacks.forEach { $0(trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
     }
-    let batch = replayBuffer!.recordedData()
-    replayBuffer!.reset()
-    return update(using: batch)
+    return update(using: Trajectory<Observation, Action, Reward, State>.stack(trajectories))
   }
 }
