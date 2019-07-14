@@ -64,3 +64,13 @@ public struct Bernoulli<Scalar: TensorFlowInteger>: DifferentiableDistribution, 
     return Tensor<Scalar>(logProbabilities .< log(uniform))
   }
 }
+
+// TODO: !!! Is the following correct?
+extension Bernoulli: DifferentiableKLDivergence {
+  @differentiable
+  public func klDivergence(to target: Bernoulli) -> Tensor<Float> {
+    let logProbabilities = logSigmoid(logits)
+    let kl = exp(logProbabilities) * (logProbabilities - logSigmoid(target.logits))
+    return kl.sum(squeezingAxes: -1)
+  }
+}
