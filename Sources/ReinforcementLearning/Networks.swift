@@ -17,6 +17,10 @@ import TensorFlow
 public protocol Network: Layer, Copyable {
   associatedtype State
   var state: State { get set }
+
+  // TODO: We need to support the following to allow for stateful networks:
+  // @differentiable
+  // mutating func callAsFunction(_ input: Input) -> Output
 }
 
 // public struct LayerNetwork<WrappedLayer: Layer>: Network {

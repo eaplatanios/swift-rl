@@ -14,6 +14,11 @@
 
 import TensorFlow
 
+// Evaluator:
+//   - Contains a set of metrics.
+//     - update(_ step)
+//     - value()
+
 public protocol Metric {
   associatedtype Observation
   associatedtype Action

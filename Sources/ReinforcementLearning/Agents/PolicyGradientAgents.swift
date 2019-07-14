@@ -353,13 +353,13 @@ where
     set { network.state = newValue }
   }
 
+  public let advantageFunction: AdvantageFunction
+  public let useTDLambdaReturn: Bool
   public let clip: PPOClip?
   public let penalty: PPOPenalty?
   public let entropyRegularization: PPOEntropyRegularization?
-  public let advantageFunction: AdvantageFunction
-  public let useTDLambdaReturn: Bool
   public let valueEstimationLossWeight: Float
-  public let epochCount: Int
+  public let iterationCountPerUpdate: Int
 
   public private(set) var advantagesNormalizer: StreamingTensorNormalizer<Float>?
 
@@ -367,30 +367,30 @@ where
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
-    clip: PPOClip? = PPOClip(),
-    penalty: PPOPenalty? = nil,
-    entropyRegularization: PPOEntropyRegularization? = nil,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
       discountWeight: 0.95),
     normalizeAdvantages: Bool = true,
     useTDLambdaReturn: Bool = false,
+    clip: PPOClip? = PPOClip(),
+    penalty: PPOPenalty? = nil,
+    entropyRegularization: PPOEntropyRegularization? = nil,
     valueEstimationLossWeight: Float = 0.2,
-    epochCount: Int = 4
+    iterationCountPerUpdate: Int = 10
   ) {
     self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
-    self.clip = clip
-    self.penalty = penalty
-    self.entropyRegularization = entropyRegularization
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = normalizeAdvantages ?
       StreamingTensorNormalizer(alongAxes: 0, 1) :
       nil
     self.useTDLambdaReturn = useTDLambdaReturn
+    self.clip = clip
+    self.penalty = penalty
+    self.entropyRegularization = entropyRegularization
     self.valueEstimationLossWeight = valueEstimationLossWeight
-    self.epochCount = epochCount
+    self.iterationCountPerUpdate = iterationCountPerUpdate
   }
 
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
@@ -434,7 +434,7 @@ where
     )[0..<sequenceLength]
     
     var lastEpochLoss: Float = 0.0
-    for _ in 0..<epochCount {
+    for _ in 0..<iterationCountPerUpdate {
       // Restore the network state before computing the loss function.
       network.state = trajectory.state
       let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
@@ -495,8 +495,6 @@ where
         p.adaptiveKLBeta = beta * p.adaptiveKLBetaScalingFactor
       }
     }
-
-    // TODO: Update reward and observation normalizers.
 
     return lastEpochLoss
   }

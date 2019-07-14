@@ -185,9 +185,9 @@ public func runCartPole(
         for: environment,
         network: network,
         optimizer: AMSGrad(for: network, learningRate: 1e-3),
+        advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
         clip: PPOClip(),
-        entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight),
-        advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor))
+        entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight))
       for step in 0..<10000 {
         let loss = agent.update(
           using: &environment,
