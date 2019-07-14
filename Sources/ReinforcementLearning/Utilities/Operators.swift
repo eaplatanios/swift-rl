@@ -305,3 +305,134 @@ public extension Tensor {
     return flatResult.reshaped(toShape: indices.shapeTensor.concatenated(with: outerShape))
   }
 }
+
+/// Returns the softmax cross entropy (categorical cross entropy) between logits and labels.
+///
+/// - Parameters:
+///   - logits: One-hot encoded outputs from a neural network.
+///   - labels: Indices (zero-indexed) of the correct outputs.
+@inlinable
+@differentiable(wrt: logits, vjp: _vjpSoftmaxCrossEntropy)
+internal func softmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
+    logits: Tensor<Scalar>,
+    labels: Tensor<Int32>
+) -> Tensor<Scalar> {
+    Raw.sparseSoftmaxCrossEntropyWithLogits(features: logits, labels: labels).loss
+}
+
+@inlinable
+internal func _vjpSoftmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
+    logits: Tensor<Scalar>,
+    labels: Tensor<Int32>
+) -> (Tensor<Scalar>, (Tensor<Scalar>) -> Tensor<Scalar>) {
+    let (loss, grad) = Raw.sparseSoftmaxCrossEntropyWithLogits(features: logits, labels: labels)
+    return (loss, { $0.expandingShape(at: -1) * grad })
+}
+
+/// Returns the element-wise maximum of two tensors.
+/// - Note: `max` supports broadcasting.
+@inlinable
+@differentiable(vjp: _vjpMax(_:_:) where T: TensorFlowFloatingPoint)
+public func max<T>(_ lhs: Tensor<T>, _ rhs: Tensor<T>) -> Tensor<T> where T: Numeric & Comparable {
+  Raw.maximum(lhs, rhs)
+}
+
+@inlinable
+internal func _vjpMax<T: TensorFlowFloatingPoint>(
+  _ x: Tensor<T>,
+  _ y: Tensor<T>
+) -> (Tensor<T>, (Tensor<T>) -> (Tensor<T>, Tensor<T>)) {
+  let value = max(x, y)
+  return (value, { v in _vjpMinMaxHelper(x, y, originalValue: value, seed: v) })
+}
+
+/// Returns the element-wise maximum of the scalar and the tensor, broadcasting the scalar.
+@inlinable
+@differentiable(wrt: rhs where T: TensorFlowFloatingPoint)
+public func max<T>(_ lhs: T, _ rhs: Tensor<T>) -> Tensor<T> where T: Numeric & Comparable {
+  max(Tensor(lhs), rhs)
+}
+
+/// Returns the element-wise maximum of the scalar and the tensor, broadcasting the scalar.
+@inlinable
+@differentiable(wrt: lhs where T: TensorFlowFloatingPoint)
+public func max<T>(_ lhs: Tensor<T>, _ rhs: T) -> Tensor<T> where T: Numeric & Comparable {
+  max(lhs, Tensor(rhs))
+}
+
+/// Returns the element-wise minimum of two tensors.
+/// - Note: `min` supports broadcasting.
+@inlinable
+@differentiable(vjp: _vjpMin(_:_:) where T: TensorFlowFloatingPoint)
+public func min<T>(_ lhs: Tensor<T>, _ rhs: Tensor<T>) -> Tensor<T> where T: Numeric & Comparable {
+  Raw.minimum(lhs, rhs)
+}
+
+@inlinable
+internal func _vjpMin<T: TensorFlowFloatingPoint>(
+  _ x: Tensor<T>,
+  _ y: Tensor<T>
+) -> (Tensor<T>, (Tensor<T>) -> (Tensor<T>, Tensor<T>)) {
+  let value = min(x, y)
+  return (value, { v in _vjpMinMaxHelper(x, y, originalValue: value, seed: v) })
+}
+
+/// Returns the element-wise minimum of the scalar and the tensor, broadcasting the scalar.
+@inlinable
+@differentiable(wrt: rhs where T: TensorFlowFloatingPoint)
+public func min<T>(_ lhs: T, _ rhs: Tensor<T>) -> Tensor<T> where T: Numeric & Comparable {
+  min(Tensor(lhs), rhs)
+}
+
+/// Returns the element-wise minimum of the scalar and the tensor, broadcasting the scalar.
+@inlinable
+@differentiable(wrt: lhs where T: TensorFlowFloatingPoint)
+public func min<T>(_ lhs: Tensor<T>, _ rhs: T) -> Tensor<T> where T: Numeric & Comparable {
+  min(lhs, Tensor(rhs))
+}
+
+@inlinable
+internal func _vjpMinMaxHelper<T: TensorFlowFloatingPoint>(
+  _ x: Tensor<T>,
+  _ y: Tensor<T>,
+  originalValue: Tensor<T>,
+  seed: Tensor<T>
+) -> (Tensor<T>, Tensor<T>) {
+  let denominator = 1 + Tensor<T>(x .== y)
+  let lhsGrad = seed * Tensor<T>(x .== originalValue) / denominator
+  let rhsGrad = seed * Tensor<T>(y .== originalValue) / denominator
+  let (lhsShape, rhsShape) = (x.shapeTensor, y.shapeTensor)
+  let (lhsAxes, rhsAxes) = Raw.broadcastGradientArgs(s0: lhsShape, s1: rhsShape)
+  return (lhsGrad.sum(squeezingAxes: lhsAxes).reshaped(toShape: lhsShape),
+          rhsGrad.sum(squeezingAxes: rhsAxes).reshaped(toShape: rhsShape))
+}
+
+public extension Tensor where Scalar: TensorFlowNumeric {
+  @inlinable
+  @differentiable(vjp: _vjpClipping where Scalar: TensorFlowFloatingPoint)
+  func clipping(min: Tensor, max: Tensor) -> Tensor {
+    Raw.clipByValue(t: self, clipValueMin: min, clipValueMax: max)
+  }
+}
+
+internal extension Tensor where Scalar: TensorFlowFloatingPoint {
+  @inlinable
+  func _vjpClipping(min: Tensor, max: Tensor) -> (Tensor, (Tensor) -> (Tensor, Tensor, Tensor)) {
+    (clipping(min: min, max: max), { v in
+      let selfShape = self.shapeTensor
+      let minShape = min.shapeTensor
+      let maxShape = max.shapeTensor
+      let zeros = Tensor(zerosLike: v)
+      let minMask = self .< min
+      let maxMask = self .> max
+      let selfGradient = v.replacing(with: zeros, where: minMask.elementsLogicalOr(maxMask))
+      let minGradient = zeros.replacing(with: v, where: minMask)
+      let maxGradient = zeros.replacing(with: v, where: maxMask)
+      let (selfAxes, minAxes) = Raw.broadcastGradientArgs(s0: selfShape, s1: minShape)
+      let (_, maxAxes) = Raw.broadcastGradientArgs(s0: selfShape, s1: maxShape)
+      return (selfGradient.sum(squeezingAxes: selfAxes).reshaped(toShape: selfShape),
+              minGradient.sum(squeezingAxes: minAxes).reshaped(toShape: minShape),
+              maxGradient.sum(squeezingAxes: maxAxes).reshaped(toShape: maxShape))
+    })
+  }
+}

@@ -73,26 +73,9 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
   }
 }
 
-// TODO: [SWIFT-APIS] Remove these when merged to `tensorflow/swift-apis`.
-
-/// Returns the softmax cross entropy (categorical cross entropy) between logits and labels.
-///
-/// - Parameters:
-///   - logits: One-hot encoded outputs from a neural network.
-///   - labels: Indices (zero-indexed) of the correct outputs.
-@inlinable
-@differentiable(wrt: logits, vjp: _vjpSoftmaxCrossEntropy)
-internal func softmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
-    logits: Tensor<Scalar>,
-    labels: Tensor<Int32>
-) -> Tensor<Scalar> {
-    Raw.sparseSoftmaxCrossEntropyWithLogits(features: logits, labels: labels).loss
-}
-
-@inlinable
-internal func _vjpSoftmaxCrossEntropy<Scalar: TensorFlowFloatingPoint>(
-    logits: Tensor<Scalar>, labels: Tensor<Int32>
-) -> (Tensor<Scalar>, (Tensor<Scalar>) -> Tensor<Scalar>) {
-    let (loss, grad) = Raw.sparseSoftmaxCrossEntropyWithLogits(features: logits, labels: labels)
-    return (loss, { $0.expandingShape(at: -1) * grad })
+extension Categorical: DifferentiableKLDivergence {
+  @differentiable
+  public func klDivergence(to target: Categorical) -> Tensor<Float> {
+    (exp(logProbabilities) * (logProbabilities - target.logProbabilities)).sum(squeezingAxes: -1)
+  }
 }

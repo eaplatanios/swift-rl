@@ -48,3 +48,16 @@ public extension DifferentiableDistribution {
     exp(logProbability(of: value))
   }
 }
+
+// TODO: It would be great to support KL divergence between different distributions, but that
+// would require multiple conformances to the same protocol with different `TargetDistribution`
+// types, which is not currently supported in Swift. :( This is also a place where a feature
+// similar to Scala implicits would be great.
+public protocol KLDivergence where Self: Distribution {
+  func klDivergence(to target: Self) -> Tensor<Float>
+}
+
+public protocol DifferentiableKLDivergence: KLDivergence where Self: DifferentiableDistribution {
+  @differentiable
+  func klDivergence(to target: Self) -> Tensor<Float>
+}
