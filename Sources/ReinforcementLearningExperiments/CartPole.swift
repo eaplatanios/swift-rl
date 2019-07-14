@@ -191,11 +191,11 @@ public func runCartPole(
     for step in 0..<10000 {
       let loss = agent.update(
         using: &environment,
-        maxSteps: maxReplayedSequenceLength * batchSize,
+        maxSteps: 1000 * batchSize,
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ trajectory in
           averageEpisodeLength.update(using: trajectory)
-          if step > 30 {
+          if step > 100 {
             try! renderer.render(trajectory.observation)
           }
         }])
