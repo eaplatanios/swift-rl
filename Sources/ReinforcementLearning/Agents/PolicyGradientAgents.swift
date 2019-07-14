@@ -14,11 +14,9 @@
 
 import TensorFlow
 
-// TODO: Add support for reward normalization.
 // TODO: Add support for gradient clipping.
 // TODO: L2 regularization support for networks.
 // TODO: Reward normalizer.
-// TODO: Observation normalizer.
 // TODO: Reward norm clipping.
 
 public protocol PolicyGradientAgent: ProbabilisticAgent {
@@ -142,8 +140,6 @@ where
       precondition(
         episodeCount.scalarized() > 0,
         "REINFORCE requires at least one completed episode.")
-      
-      // TODO: Mask out `isLast` steps?
 
       // We compute the mean of the policy gradient loss over the number of episodes.
       let policyGradientLoss = -(actionLogProbWeightedReturns * mask).sum() / episodeCount
@@ -218,7 +214,9 @@ where
     self.network = network
     self.optimizer = optimizer
     self.advantageFunction = advantageFunction
-    self.advantagesNormalizer = normalizeAdvantages ? StreamingTensorNormalizer(alongAxes: 0, 1) : nil
+    self.advantagesNormalizer = normalizeAdvantages ?
+      StreamingTensorNormalizer(alongAxes: 0, 1) :
+      nil
     self.valueEstimationLossWeight = valueEstimationLossWeight
     self.entropyRegularizationWeight = entropyRegularizationWeight
   }
@@ -260,8 +258,6 @@ where
       let actionLogProbs = actionDistribution.logProbability(
         of: trajectory.action
       )[0..<sequenceLength]
-
-      // TODO: Mask out `isLast` steps?
 
       // The policy gradient loss is defined as the sum, over time steps, of action
       // log-probabilities multiplied with the normalized advantages.
@@ -389,7 +385,9 @@ where
     self.penalty = penalty
     self.entropyRegularization = entropyRegularization
     self.advantageFunction = advantageFunction
-    self.advantagesNormalizer = normalizeAdvantages ? StreamingTensorNormalizer(alongAxes: 0, 1) : nil
+    self.advantagesNormalizer = normalizeAdvantages ?
+      StreamingTensorNormalizer(alongAxes: 0, 1) :
+      nil
     self.useTDLambdaReturn = useTDLambdaReturn
     self.valueEstimationLossWeight = valueEstimationLossWeight
     self.epochCount = epochCount
@@ -447,8 +445,6 @@ where
         let newActionLogProbs = newActionDistribution.logProbability(
           of: trajectory.action
         )[0..<sequenceLength]
-
-        // TODO: Mask out `isLast` steps?
 
         let importanceRatio = exp(newActionLogProbs - actionLogProbs)
         var loss = importanceRatio * advantages

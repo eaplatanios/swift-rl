@@ -17,10 +17,10 @@ functionality of Gym. Currently supported features are:
   - [Cart-Pole (classic control example)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Environments/ClassicControl/CartPole.swift)
   - [Retro Games (atari/sega/... games)](https://github.com/eaplatanios/retro-swift/tree/master/Sources/Retro)
 - [Agents](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/Agent.swift):
-  - Policy Gradient Algorithms:
-    - [REINFORCE](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/Reinforce.swift)
-    - [Advantage Actor Critic (A2C)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/AdvantageActorCritic.swift)
-    - [Proximal Policy Optimization (PPO)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/ProximalPolicyOptimization.swift)
+  - [Policy Gradient Algorithms](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/PolicyGradientAgents.swift):
+    - REINFORCE
+    - Advantage Actor Critic (A2C)
+    - Proximal Policy Optimization (PPO)
     - *UPCOMING: Deep Deterministic Policy Gradients (DDPG)*
     - *UPCOMING: Twin Delayed Deep Deterministic Policy Gradients (TD3)*
     - *UPCOMING: Soft Actor Critic (SAC)*
