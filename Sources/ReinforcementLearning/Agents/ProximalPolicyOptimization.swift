@@ -31,7 +31,8 @@ public struct PPOPenalty {
   public let klCutoffFactor: Float
   public let klCutoffCoefficient: Float
   public let adaptiveKLTarget: Float
-  public let adaptiveKLTolerance: Float
+  public let adaptiveKLToleranceFactor: Float
+  public let adaptiveKLBetaScalingFactor: Float
 
   public fileprivate(set) var adaptiveKLBeta: Float?
 
@@ -39,13 +40,16 @@ public struct PPOPenalty {
     klCutoffFactor: Float = 0.2,
     klCutoffCoefficient: Float = 1000.0,
     adaptiveKLTarget: Float = 0.01,
-    adaptiveKLTolerance: Float = 0.3,
+    adaptiveKLToleranceFactor: Float = 1.5,
+    adaptiveKLBetaScalingFactor: Float = 2.0,
     adaptiveKLBeta: Float? = 1.0
   ) {
+    precondition(adaptiveKLBetaScalingFactor > 0, "The beta scaling factor must be positive.")
     self.klCutoffFactor = klCutoffFactor
     self.klCutoffCoefficient = klCutoffCoefficient
     self.adaptiveKLTarget = adaptiveKLTarget
-    self.adaptiveKLTolerance = adaptiveKLTolerance
+    self.adaptiveKLToleranceFactor = adaptiveKLToleranceFactor
+    self.adaptiveKLBetaScalingFactor = adaptiveKLBetaScalingFactor
     self.adaptiveKLBeta = adaptiveKLBeta
   }
 }
@@ -231,10 +235,10 @@ where
       let klDivergence = network(trajectory.observation).actionDistribution.klDivergence(
         to: actionDistribution)
       let klMean = klDivergence.mean().scalarized()
-      if klMean < p.adaptiveKLTarget * (1 - p.adaptiveKLTolerance) {
-        p.adaptiveKLBeta = max(beta / 1.5, 1e-16)
-      } else if klMean > p.adaptiveKLTarget * (1 + p.adaptiveKLTolerance) {
-        p.adaptiveKLBeta = max(beta * 1.5, 1e-16)
+      if klMean < p.adaptiveKLTarget / p.adaptiveKLToleranceFactor {
+        p.adaptiveKLBeta = max(beta / p.adaptiveKLBetaScalingFactor, 1e-16)
+      } else if klMean > p.adaptiveKLTarget * p.adaptiveKLToleranceFactor {
+        p.adaptiveKLBeta = beta * p.adaptiveKLBetaScalingFactor
       }
     }
 
