@@ -24,7 +24,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let actionsType: ActionsType
   public let actionSpace: ActionsType.Space
   public let observationsType: ObservationsType
-  public let observationSpace: DiscreteBox<UInt8>
+  public let observationSpace: Box<Float>
   public let startingStates: [StartingState]
   public let randomSeed: TensorFlowSeed
 
@@ -39,7 +39,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public init(
     using emulator: RetroEmulator,
     actionsType: ActionsType,
-    observationsType: ObservationsType = .screen,
+    observationsType: ObservationsType = .screen(height: 84, width: 84, grayscale: true),
     startingState: StartingState? = nil,
     movieURL: URL? = nil,
     randomSeed: TensorFlowSeed = Context.local.randomSeed
@@ -56,7 +56,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public init(
     using emulators: [RetroEmulator],
     actionsType: ActionsType,
-    observationsType: ObservationsType = .screen,
+    observationsType: ObservationsType = .screen(height: 84, width: 84, grayscale: true),
     startingStates: [StartingState]? = nil,
     movieURLs: [URL?]? = nil,
     randomSeed: TensorFlowSeed = Context.local.randomSeed
@@ -68,16 +68,16 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     self.actionSpace = actionsType.space(for: emulators[0], batchSize: batchSize)
     self.observationsType = observationsType
     switch observationsType {
-    case .screen:
-      self.observationSpace = DiscreteBox(
-        shape: emulators[0].screen()!.shape,
+    case let .screen(height, width, grayscale):
+      self.observationSpace = Box<Float>(
+        shape: TensorShape([height, width, grayscale ? 1 : 3]),
         lowerBound: 0,
-        upperBound: 255)
+        upperBound: 1)
     case .memory:
-      self.observationSpace = DiscreteBox(
+      self.observationSpace = Box<Float>(
         shape: emulators[0].memory()!.shape,
         lowerBound: 0,
-        upperBound: 255)
+        upperBound: 1)
     }
     self.randomSeed = randomSeed
     self.movies = [Movie?](repeating: nil, count: batchSize)
@@ -130,33 +130,47 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     self.needsReset = [Bool](repeating: true, count: batchSize)
   }
 
-  public func currentStep() -> Step<Tensor<UInt8>, Tensor<Float>> {
-    Step<Tensor<UInt8>, Tensor<Float>>.stack((0..<batchSize).map { currentStep(batchIndex: $0) })
+  public func currentStep() -> Step<Tensor<Float>, Tensor<Float>> {
+    Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map { currentStep(batchIndex: $0) })
   }
 
-  public func currentStep(batchIndex: Int) -> Step<Tensor<UInt8>, Tensor<Float>> {
-    let observation: Tensor<UInt8>? = {
-      switch observationsType {
-      case .screen: return emulators[batchIndex].screen()
-      case .memory: return emulators[batchIndex].memory()
-      }
-    }()
+  public func currentStep(batchIndex: Int) -> Step<Tensor<Float>, Tensor<Float>> {
+    let observation = currentObservation(batchIndex: batchIndex)
     let finished = emulators[batchIndex].finished()
 
     // TODO: What about the 'info' dict?
     let numPlayers = self.numPlayers(batchIndex: batchIndex)
     return Step(
       kind: finished ? .last : .transition,
-      observation: observation!,
+      observation: observation,
       reward: Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) }))
+  }
+
+  private func currentObservation(batchIndex: Int) -> Tensor<Float> {
+    switch observationsType {
+    case let .screen(height, width, true):
+      let emulatorScreen = Tensor<Float>(emulators[batchIndex].screen()!) / 255.0
+      return resize(
+        images: convertRGBToGrayscale(emulatorScreen),
+        to: Tensor<Int32>([Int32(height), Int32(width)]),
+        method: .area)
+    case let .screen(height, width, false):
+      let emulatorScreen = Tensor<Float>(emulators[batchIndex].screen()!) / 255.0
+      return resize(
+        images: emulatorScreen,
+        to: Tensor<Int32>([Int32(height), Int32(width)]),
+        method: .area)
+    case .memory:
+      return Tensor<Float>(emulators[batchIndex].memory()!) / 255.0
+    }
   }
 
   @discardableResult
   public mutating func step(
     taking action: ActionsType.Space.Value
-  ) -> Step<Tensor<UInt8>, Tensor<Float>> {
+  ) -> Step<Tensor<Float>, Tensor<Float>> {
     let actions = action.unstacked()
-    return Step<Tensor<UInt8>, Tensor<Float>>.stack((0..<batchSize).map {
+    return Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map {
       step(taking: actions[$0], batchIndex: $0)
     })
   }
@@ -165,7 +179,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public mutating func step(
     taking action: ActionsType.Space.Value,
     batchIndex: Int
-  ) -> Step<Tensor<UInt8>, Tensor<Float>> {
+  ) -> Step<Tensor<Float>, Tensor<Float>> {
     if needsReset[batchIndex] {
       reset(batchIndex: batchIndex)
     }
@@ -192,12 +206,12 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @discardableResult
-  public mutating func reset() -> Step<Tensor<UInt8>, Tensor<Float>> {
-    Step<Tensor<UInt8>, Tensor<Float>>.stack((0..<batchSize).map { reset(batchIndex: $0) })
+  public mutating func reset() -> Step<Tensor<Float>, Tensor<Float>> {
+    Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map { reset(batchIndex: $0) })
   }
 
   @discardableResult
-  public mutating func reset(batchIndex: Int) -> Step<Tensor<UInt8>, Tensor<Float>> {
+  public mutating func reset(batchIndex: Int) -> Step<Tensor<Float>, Tensor<Float>> {
     emulators[batchIndex].reset()
 
     // Reset the recording.
@@ -211,16 +225,11 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 
     movies[batchIndex]?.step()
 
-    let observation: Tensor<UInt8>? = {
-      switch observationsType {
-      case .screen: return emulators[batchIndex].screen()
-      case .memory: return emulators[batchIndex].memory()
-      }
-    }()
+    let observation = currentObservation(batchIndex: batchIndex)
     let numPlayers = emulators[batchIndex].numPlayers
     let reward = Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) })
     needsReset[batchIndex] = false
-    return Step(kind: .first, observation: observation!, reward: reward)
+    return Step(kind: .first, observation: observation, reward: reward)
   }
 
   @inlinable
@@ -306,16 +315,16 @@ public extension RetroEnvironment {
   }
 
   struct StepResult {
-    let observation: Tensor<UInt8>?
+    let observation: Tensor<Float>?
     let reward: Tensor<Float>
     let finished: Bool
   }
 }
 
 /// Represents different settings for the observation space of the environment.
-public enum ObservationsType: Int {
+public enum ObservationsType {
   /// Use RGB image observations.
-  case screen
+  case screen(height: Int, width: Int, grayscale: Bool)
 
   /// Use RAM observations where you can see the memory of the game instead of the screen.
   case memory
@@ -339,6 +348,8 @@ public protocol ActionsType {
 public struct FullActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = MultiBinary
+
+  public init() {}
 
   public func space(for emulator: RetroEmulator, batchSize: Int) -> MultiBinary {
     MultiBinary(
@@ -367,6 +378,8 @@ public struct FilteredActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = MultiBinary
 
+  public init() {}
+
   public func space(for emulator: RetroEmulator, batchSize: Int) -> MultiBinary {
     MultiBinary(
       withSize: emulator.buttons().count * Int(emulator.numPlayers),
@@ -393,6 +406,8 @@ public struct FilteredActions: ActionsType {
 public struct DiscreteActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = Discrete
+
+  public init() {}
 
   public func space(for emulator: RetroEmulator, batchSize: Int) -> Discrete {
     let numCombos = emulator.buttonCombos().map { Int32($0.count) } .reduce(1, *)
@@ -422,6 +437,8 @@ public struct DiscreteActions: ActionsType {
 public struct MultiDiscreteActions: ActionsType {
   public typealias Scalar = Int32
   public typealias Space = MultiDiscrete
+
+  public init() {}
 
   public func space(for emulator: RetroEmulator, batchSize: Int) -> MultiDiscrete {
     MultiDiscrete(

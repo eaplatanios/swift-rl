@@ -64,11 +64,11 @@ public struct MultiBinary: Space {
   }
 
   public var description: String {
-    return "MultiBinary(\(size))"
+    "MultiBinary(\(size))"
   }
 
   public func contains(_ value: Tensor<Int32>) -> Bool {
-    return value.shape == shape && value.scalars.allSatisfy{$0 == 0 || $0 == 1}
+    value.shape == shape && value.scalars.allSatisfy{$0 == 0 || $0 == 1}
   }
 }
 
@@ -86,7 +86,7 @@ public struct MultiDiscrete: Space {
   }
 
   public var description: String {
-    return "MultiDiscrete(\(sizes.map{String($0)}.joined(separator: ", ")))"
+    "MultiDiscrete(\(sizes.map{String($0)}.joined(separator: ", ")))"
   }
 
   public func contains(_ value: Tensor<Int32>) -> Bool {
@@ -125,13 +125,11 @@ public struct MultiDiscrete: Space {
     }
 
     public func mode() -> Tensor<Int32> {
-      let modes = distributions.map { $0.mode() }
-      return Tensor<Int32>(concatenating: modes)
+      Tensor<Int32>(concatenating: distributions.map { $0.mode() })
     }
 
     public func sample() -> Tensor<Int32> {
-      let samples = distributions.map { $0.sample() }
-      return Tensor<Int32>(concatenating: samples)
+      Tensor<Int32>(concatenating: distributions.map { $0.sample() })
     }
   }
 }
@@ -168,7 +166,7 @@ public struct DiscreteBox<Scalar: TensorFlowInteger>: Space {
   }
 
   public var description: String {
-    return "DiscreteBox(\(shape.dimensions.map{String($0)}.joined(separator: ", ")))"
+    "DiscreteBox(\(shape.dimensions.map{String($0)}.joined(separator: ", ")))"
   }
 
   public func contains(_ value: Tensor<Scalar>) -> Bool {
@@ -235,7 +233,7 @@ public struct Box<Scalar: TensorFlowFloatingPoint>: Space {
   }
 
   public var description: String {
-    return "Box(\(shape.dimensions.map{String($0)}.joined(separator: ", ")))"
+    "Box(\(shape.dimensions.map{String($0)}.joined(separator: ", ")))"
   }
 
   public func contains(_ value: Tensor<Scalar>) -> Bool {
