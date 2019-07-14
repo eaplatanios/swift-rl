@@ -183,12 +183,22 @@ public extension Tensor where Scalar: TensorFlowFloatingPoint {
   /// are removed.
   @inlinable
   @differentiable(wrt: self)
-  func moments(squeezingAxes axes: [Int]) -> Moments<Scalar> {
+  func moments(squeezingAxes axes: Tensor<Int32>) -> Moments<Scalar> {
     let mean = self.mean(alongAxes: axes)
-    let variance = squaredDifference(self, mean).mean(alongAxes: axes)
+    let variance = squaredDifference(self, mean).mean(squeezingAxes: axes)
     return Moments(
-      mean: mean.squeezingShape(at: axes),
-      variance: variance.squeezingShape(at: axes))
+      mean: mean.sum(squeezingAxes: axes),
+      variance: variance)
+  }
+
+  /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
+  /// are removed.
+  @inlinable
+  @differentiable(wrt: self)
+  func moments(squeezingAxes axes: [Int]) -> Moments<Scalar> {
+    // TODO(TF-433): Remove workaround for differentiating `map`.
+    let axes = {axes.map(Int32.init)}()
+    return moments(squeezingAxes: Tensor<Int32>(axes))
   }
 
   /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
@@ -210,10 +220,20 @@ public extension Tensor where Scalar: TensorFlowFloatingPoint {
   /// are retained with value `1`.
   @inlinable
   @differentiable(wrt: self)
-  func moments(alongAxes axes: [Int]) -> Moments<Scalar> {
+  func moments(alongAxes axes: Tensor<Int32>) -> Moments<Scalar> {
     let mean = self.mean(alongAxes: axes)
     let variance = squaredDifference(self, mean).mean(alongAxes: axes)
     return Moments(mean: mean, variance: variance)
+  }
+
+  /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
+  /// are retained with value `1`.
+  @inlinable
+  @differentiable(wrt: self)
+  func moments(alongAxes axes: [Int]) -> Moments<Scalar> {
+    // TODO(TF-433): Remove workaround for differentiating `map`.
+    let axes = {axes.map(Int32.init)}()
+    return moments(alongAxes: Tensor<Int32>(axes))
   }
 
   /// Returns the mean and variance of this tensor along the specified axes. The reduced dimensions
@@ -410,37 +430,37 @@ internal func _vjpMinMaxHelper<T: TensorFlowFloatingPoint>(
 public extension Tensor where Scalar: TensorFlowNumeric {
   /// Returns `max(min(self, max), min)`.
   @inlinable
-  @differentiable(vjp: _vjpClipping where Scalar: TensorFlowFloatingPoint)
-  func clipping(min: Tensor, max: Tensor) -> Tensor {
+  @differentiable(vjp: _vjpClipped where Scalar: TensorFlowFloatingPoint)
+  func clipped(min: Tensor, max: Tensor) -> Tensor {
     Raw.clipByValue(t: self, clipValueMin: min, clipValueMax: max)
   }
 
   /// Returns `max(min(self, max), min)`.
   @inlinable
   @differentiable(wrt: (self, min) where Scalar: TensorFlowFloatingPoint)
-  func clipping(min: Tensor, max: Scalar) -> Tensor {
-    clipping(min: min, max: Tensor(max))
+  func clipped(min: Tensor, max: Scalar) -> Tensor {
+    clipped(min: min, max: Tensor(max))
   }
 
   /// Returns `max(min(self, max), min)`.
   @inlinable
   @differentiable(wrt: (self, max) where Scalar: TensorFlowFloatingPoint)
-  func clipping(min: Scalar, max: Tensor) -> Tensor {
-    clipping(min: Tensor(min), max: max)
+  func clipped(min: Scalar, max: Tensor) -> Tensor {
+    clipped(min: Tensor(min), max: max)
   }
 
   /// Returns `max(min(self, max), min)`.
   @inlinable
   @differentiable(wrt: self where Scalar: TensorFlowFloatingPoint)
-  func clipping(min: Scalar, max: Scalar) -> Tensor {
-    clipping(min: Tensor(min), max: Tensor(max))
+  func clipped(min: Scalar, max: Scalar) -> Tensor {
+    clipped(min: Tensor(min), max: Tensor(max))
   }
 }
 
 internal extension Tensor where Scalar: TensorFlowFloatingPoint {
   @inlinable
-  func _vjpClipping(min: Tensor, max: Tensor) -> (Tensor, (Tensor) -> (Tensor, Tensor, Tensor)) {
-    (clipping(min: min, max: max), { v in
+  func _vjpClipped(min: Tensor, max: Tensor) -> (Tensor, (Tensor) -> (Tensor, Tensor, Tensor)) {
+    (clipped(min: min, max: max), { v in
       let selfShape = self.shapeTensor
       let minShape = min.shapeTensor
       let maxShape = max.shapeTensor

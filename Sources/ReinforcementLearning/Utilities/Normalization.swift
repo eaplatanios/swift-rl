@@ -14,13 +14,63 @@
 
 import TensorFlow
 
-/// Returns the value of `tensor` standard-normalized along `axes`.
-public func standardNormalize(_ tensor: Tensor<Float>, alongAxes axes: [Int]) -> Tensor<Float> {
-  let moments = tensor.moments(alongAxes: axes)
-  return (tensor - moments.mean) / (sqrt(moments.variance) + Float.ulpOfOne)
+public protocol Normalizer {
+  associatedtype Value
+
+  func normalize(_ value: Value) -> Value
+  mutating func update(using value: Value)
+  mutating func reset()
 }
 
-/// Returns the value of `tensor` standard-normalized along `axes`.
-public func standardNormalize(_ tensor: Tensor<Float>, alongAxes axes: Int...) -> Tensor<Float> {
-  standardNormalize(tensor, alongAxes: axes)
+public protocol TensorNormalizer: Normalizer where Value == Tensor<Scalar> {
+  associatedtype Scalar: TensorFlowFloatingPoint
+  func momentsEstimate() -> Moments<Scalar>
+}
+
+extension TensorNormalizer {
+  public func normalize(_ value: Tensor<Scalar>) -> Tensor<Scalar> {
+    let moments = momentsEstimate()
+    return (value - moments.mean) / (sqrt(moments.variance) + Scalar(Float.ulpOfOne))
+  }
+}
+
+public struct StreamingTensorNormalizer<Scalar: TensorFlowFloatingPoint>: TensorNormalizer {
+  public let axes: Tensor<Int32>
+
+  private var count: Tensor<Scalar>
+  private var valueSum: Tensor<Scalar>
+  private var valueSquaredSum: Tensor<Scalar>
+
+  public init(alongAxes axes: Tensor<Int32>) {
+    self.axes = axes
+    self.count = Tensor<Scalar>(Scalar(Float.ulpOfOne))
+    self.valueSum = Tensor<Scalar>(zeros: [])
+    self.valueSquaredSum = Tensor<Scalar>(zeros: [])
+  }
+
+  public init(alongAxes axes: [Int]) {
+    self.init(alongAxes: Tensor<Int32>(axes.map(Int32.init)))
+  }
+
+  public init(alongAxes axes: Int...) {
+    self.init(alongAxes: Tensor<Int32>(axes.map(Int32.init)))
+  }
+
+  public func momentsEstimate() -> Moments<Scalar> {
+    Moments(
+      mean: valueSum / count,
+      variance: (valueSquaredSum - valueSum.squared() / count) / count)
+  }
+
+  public mutating func update(using value: Tensor<Scalar>) {
+    count += Tensor<Scalar>(value.shapeTensor.gathering(atIndices: axes).product())
+    valueSum += value.sum(alongAxes: axes)
+    valueSquaredSum += value.squared().sum(alongAxes: axes)
+  }
+
+  public mutating func reset() {
+    count = Tensor<Scalar>(Scalar(Float.ulpOfOne))
+    valueSum = Tensor<Scalar>(zeros: [])
+    valueSquaredSum = Tensor<Scalar>(zeros: [])
+  }
 }
