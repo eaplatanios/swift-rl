@@ -37,7 +37,7 @@ let package = Package(
             swiftSettings: [.define("GLFW")]),
         .target(
             name: "ReinforcementLearningExperiments",
-            dependencies: ["ReinforcementLearning"]),
+            dependencies: ["ReinforcementLearning", "Retro"]),
         .target(
             name: "CRetro",
             path: ".",

@@ -133,103 +133,103 @@ public func runCartPole(
 
   // Agent Type:
   switch agentType {
-    case .reinforce:
-      let network = CartPoleActor()
-      var agent = ReinforceAgent(
-        for: environment,
-        network: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        discountFactor: discountFactor,
-        entropyRegularizationWeight: entropyRegularizationWeight)
-      for step in 0..<10000 {
-        let loss = agent.update(
-          using: &environment,
-          maxSteps: maxReplayedSequenceLength * batchSize,
-          maxEpisodes: maxEpisodes,
-          stepCallbacks: [{ trajectory in
-            averageEpisodeLength.update(using: trajectory)
-            if step > 100 {
-              try! renderer.render(trajectory.observation)
-            }
-          }])
-        if step % 1 == 0 {
-          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
-        }
+  case .reinforce:
+    let network = CartPoleActor()
+    var agent = ReinforceAgent(
+      for: environment,
+      network: network,
+      optimizer: AMSGrad(for: network, learningRate: 1e-3),
+      discountFactor: discountFactor,
+      entropyRegularizationWeight: entropyRegularizationWeight)
+    for step in 0..<10000 {
+      let loss = agent.update(
+        using: &environment,
+        maxSteps: maxReplayedSequenceLength * batchSize,
+        maxEpisodes: maxEpisodes,
+        stepCallbacks: [{ trajectory in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 100 {
+            try! renderer.render(trajectory.observation)
+          }
+        }])
+      if step % 1 == 0 {
+        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
-    case .advantageActorCritic:
-      let network = CartPoleActorCritic()
-      var agent = A2CAgent(
-        for: environment,
-        network: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
-        entropyRegularizationWeight: entropyRegularizationWeight)
-      for step in 0..<10000 {
-        let loss = agent.update(
-          using: &environment,
-          maxSteps: maxReplayedSequenceLength * batchSize,
-          maxEpisodes: maxEpisodes,
-          stepCallbacks: [{ trajectory in
-            averageEpisodeLength.update(using: trajectory)
-            if step > 100 {
-              try! renderer.render(trajectory.observation)
-            }
-          }])
-        if step % 1 == 0 {
-          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
-        }
+    }
+  case .advantageActorCritic:
+    let network = CartPoleActorCritic()
+    var agent = A2CAgent(
+      for: environment,
+      network: network,
+      optimizer: AMSGrad(for: network, learningRate: 1e-3),
+      advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
+      entropyRegularizationWeight: entropyRegularizationWeight)
+    for step in 0..<10000 {
+      let loss = agent.update(
+        using: &environment,
+        maxSteps: maxReplayedSequenceLength * batchSize,
+        maxEpisodes: maxEpisodes,
+        stepCallbacks: [{ trajectory in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 100 {
+            try! renderer.render(trajectory.observation)
+          }
+        }])
+      if step % 1 == 0 {
+        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
-    case .ppo:
-      let network = CartPoleActorCritic()
-      var agent = PPOAgent(
-        for: environment,
-        network: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
-        clip: PPOClip(),
-        entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight))
-      for step in 0..<10000 {
-        let loss = agent.update(
-          using: &environment,
-          maxSteps: maxReplayedSequenceLength * batchSize,
-          maxEpisodes: maxEpisodes,
-          stepCallbacks: [{ trajectory in
-            averageEpisodeLength.update(using: trajectory)
-            if step > 30 {
-              try! renderer.render(trajectory.observation)
-            }
-          }])
-        if step % 1 == 0 {
-          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
-        }
+    }
+  case .ppo:
+    let network = CartPoleActorCritic()
+    var agent = PPOAgent(
+      for: environment,
+      network: network,
+      optimizer: AMSGrad(for: network, learningRate: 1e-3),
+      advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
+      clip: PPOClip(),
+      entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight))
+    for step in 0..<10000 {
+      let loss = agent.update(
+        using: &environment,
+        maxSteps: maxReplayedSequenceLength * batchSize,
+        maxEpisodes: maxEpisodes,
+        stepCallbacks: [{ trajectory in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 30 {
+            try! renderer.render(trajectory.observation)
+          }
+        }])
+      if step % 1 == 0 {
+        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
-    case .dqn:
-      let network = CartPoleQNetwork()
-      var agent = DQNAgent(
-        for: environment,
-        qNetwork: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        trainSequenceLength: 1,
-        maxReplayedSequenceLength: maxReplayedSequenceLength,
-        epsilonGreedy: 0.1,
-        targetUpdateForgetFactor: 0.95,
-        targetUpdatePeriod: 5,
-        discountFactor: 0.99,
-        trainStepsPerIteration: 1)
-      for step in 0..<10000 {
-        let loss = agent.update(
-          using: &environment,
-          maxSteps: 32 * 10,
-          maxEpisodes: 32,
-          stepCallbacks: [{ trajectory in
-            averageEpisodeLength.update(using: trajectory)
-            if step > 100 {
-              try! renderer.render(trajectory.observation)
-            }
-          }])
-        if step % 1 == 0 {
-          print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
-        }
+    }
+  case .dqn:
+    let network = CartPoleQNetwork()
+    var agent = DQNAgent(
+      for: environment,
+      qNetwork: network,
+      optimizer: AMSGrad(for: network, learningRate: 1e-3),
+      trainSequenceLength: 1,
+      maxReplayedSequenceLength: maxReplayedSequenceLength,
+      epsilonGreedy: 0.1,
+      targetUpdateForgetFactor: 0.95,
+      targetUpdatePeriod: 5,
+      discountFactor: 0.99,
+      trainStepsPerIteration: 1)
+    for step in 0..<10000 {
+      let loss = agent.update(
+        using: &environment,
+        maxSteps: 32 * 10,
+        maxEpisodes: 32,
+        stepCallbacks: [{ trajectory in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 100 {
+            try! renderer.render(trajectory.observation)
+          }
+        }])
+      if step % 1 == 0 {
+        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
+    }
   }
 }
