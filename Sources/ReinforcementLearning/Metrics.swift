@@ -31,12 +31,11 @@ public protocol Metric {
   func value() -> Value
 }
 
-// TODO: Improve this temporary and bad implementation. :)
 public struct AverageEpisodeLength<Observation, Action, Reward, State>: Metric {
   public let batchSize: Int
   public let bufferSize: Int
 
-  private var buffer: [Float]
+  private var buffer: [Int]
   private var index: Int
   private var full: Bool
   private var episodeSteps: Tensor<Int32>
@@ -44,21 +43,18 @@ public struct AverageEpisodeLength<Observation, Action, Reward, State>: Metric {
   public init(batchSize: Int, bufferSize: Int) {
     self.batchSize = batchSize
     self.bufferSize = bufferSize
-    self.buffer = [Float](repeating: 0, count: bufferSize)
+    self.buffer = [Int](repeating: 0, count: bufferSize)
     self.index = 0
     self.full = false
     self.episodeSteps = Tensor<Int32>(repeating: 0, shape: [batchSize])
   }
 
   public mutating func update(using trajectory: Trajectory<Observation, Action, Reward, State>) {
-    let isLast = Tensor<Int32>(trajectory.stepKind.isLast())
-    let isNotLast = 1 - isLast
+    let isLast = trajectory.stepKind.isLast()
+    let isNotLast = 1 - Tensor<Int32>(isLast)
     episodeSteps += isNotLast
-    let count = isLast.sum().scalarized()
-    let totalLength = (episodeSteps * isLast).sum().scalarized()
-    let averageLength = Float(totalLength) / Float(count)
-    for _ in 0..<count {
-      buffer[index] = averageLength
+    for length in episodeSteps.gathering(where: isLast).scalars {
+      buffer[index] = Int(length)
       index += 1
       full = full || index == buffer.count
       index = index % buffer.count
@@ -73,9 +69,53 @@ public struct AverageEpisodeLength<Observation, Action, Reward, State>: Metric {
   }
 
   public func value() -> Float {
-    if full {
-      return buffer.reduce(0, +) / Float(buffer.count)
+    let sum = Float(full ? buffer.reduce(0, +) : buffer[0..<index].reduce(0, +))
+    let count = Float(full ? buffer.count : index)
+    return sum / count
+  }
+}
+
+public struct AverageEpisodeReward<Observation, Action, State>: Metric {
+  public let batchSize: Int
+  public let bufferSize: Int
+
+  private var buffer: [Float]
+  private var index: Int
+  private var full: Bool
+  private var episodeRewards: Tensor<Float>
+
+  public init(batchSize: Int, bufferSize: Int) {
+    self.batchSize = batchSize
+    self.bufferSize = bufferSize
+    self.buffer = [Float](repeating: 0, count: bufferSize)
+    self.index = 0
+    self.full = false
+    self.episodeRewards = Tensor<Float>(repeating: 0, shape: [batchSize])
+  }
+
+  public mutating func update(
+    using trajectory: Trajectory<Observation, Action, Tensor<Float>, State>
+  ) {
+    let isLast = trajectory.stepKind.isLast()
+    episodeRewards += trajectory.reward
+    for reward in episodeRewards.gathering(where: isLast).scalars {
+      buffer[index] = reward
+      index += 1
+      full = full || index == buffer.count
+      index = index % buffer.count
     }
-    return buffer[0..<index].reduce(0, +) / Float(index)
+    episodeRewards *= (1 - Tensor<Float>(isLast))
+  }
+
+  public mutating func reset() {
+    index = 0
+    full = false
+    episodeRewards = Tensor<Float>(repeating: 0, shape: [batchSize])
+  }
+
+  public func value() -> Float {
+    let sum = full ? buffer.reduce(0, +) : buffer[0..<index].reduce(0, +)
+    let count = Float(full ? buffer.count : index)
+    return sum / count
   }
 }
