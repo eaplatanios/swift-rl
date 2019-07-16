@@ -75,6 +75,7 @@ public struct AverageEpisodeLength<Observation, Action, Reward, State>: Metric {
   }
 }
 
+// TODO: Make generic over the `Reward` type.
 public struct AverageEpisodeReward<Observation, Action, State>: Metric {
   public let batchSize: Int
   public let bufferSize: Int
@@ -117,5 +118,31 @@ public struct AverageEpisodeReward<Observation, Action, State>: Metric {
     let sum = full ? buffer.reduce(0, +) : buffer[0..<index].reduce(0, +)
     let count = Float(full ? buffer.count : index)
     return sum / count
+  }
+}
+
+// TODO: Make generic over the `Reward` type.
+public struct TotalCumulativeReward<Observation, Action, State>: Metric {
+  public let batchSize: Int
+
+  private var rewards: Tensor<Float>
+
+  public init(batchSize: Int) {
+    self.batchSize = batchSize
+    self.rewards = Tensor<Float>(repeating: 0, shape: [batchSize])
+  }
+
+  public mutating func update(
+    using trajectory: Trajectory<Observation, Action, Tensor<Float>, State>
+  ) {
+    rewards += trajectory.reward
+  }
+
+  public mutating func reset() {
+    rewards = Tensor<Float>(repeating: 0, shape: [batchSize])
+  }
+
+  public func value() -> [Float] {
+    rewards.scalars
   }
 }
