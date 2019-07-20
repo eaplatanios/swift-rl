@@ -199,7 +199,9 @@ public class RetroEmulator {
 
   @usableFromInline @discardableResult
   internal func updateCachedScreen() -> Tensor<UInt8> {
-    let cScreen = emulatorGetScreen(handle)!.pointee
+    let cScreenHandle = emulatorGetScreen(handle)!
+    defer { emulatorScreenDelete(cScreenHandle) }
+    let cScreen = cScreenHandle.pointee
     let shape = [cScreen.height, cScreen.width, cScreen.channels]
     let values = Array(UnsafeBufferPointer(start: cScreen.values, count: shape.reduce(1, *)))
     let screen = Tensor(shape: TensorShape(shape), scalars: values)
@@ -233,7 +235,12 @@ public class RetroEmulator {
   @usableFromInline @discardableResult
   internal func updateCachedMemory() -> Tensor<UInt8> {
     let memoryHandle = gameDataMemory(gameData.handle)
-    let cBlocks = memoryViewBlocks(memoryHandle)!.pointee
+    let cBlocksHandle = memoryViewBlocks(memoryHandle)!
+    defer {
+      memoryViewDelete(memoryHandle)
+      memoryViewBlocksDelete(cBlocksHandle)
+    }
+    let cBlocks = cBlocksHandle.pointee
     let blocks = Array(UnsafeBufferPointer(start: cBlocks.blocks, count: cBlocks.numBlocks))
     var memoryBytes = [UInt8]()
     var numBytesPerBlock = 0
