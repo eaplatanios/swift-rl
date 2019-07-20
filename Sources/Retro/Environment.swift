@@ -24,7 +24,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let actionsType: ActionsType
   public let actionSpace: ActionsType.Space
   public let observationsType: ObservationsType
-  public let observationSpace: Box<Float>
+  public let observationSpace: Box<Float> // TODO: Use UInt8 for large replay buffers.
   public let startingStates: [StartingState]
   public let randomSeed: TensorFlowSeed
 
