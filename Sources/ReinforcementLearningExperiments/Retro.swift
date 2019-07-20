@@ -85,7 +85,7 @@ fileprivate struct RetroActorCritic: Network {
 
 public func runRetro(
   using agentType: AgentType,
-  batchSize: Int = 32,
+  batchSize: Int = 1,
   maxEpisodes: Int = 1,
   maxReplayedSequenceLength: Int = 1000,
   discountFactor: Float = 0.9,
@@ -108,10 +108,9 @@ public func runRetro(
   var renderer = TensorImageRenderer(initialMaxWidth: 800)
 
   // Metrics:
-  var averageEpisodeLength = AverageEpisodeLength<
+  var averageEpisodeReward = AverageEpisodeReward<
     Tensor<Float>,
     Tensor<Int32>,
-    Tensor<Float>,
     None
   >(batchSize: batchSize, bufferSize: 10)
 
@@ -131,7 +130,7 @@ public func runRetro(
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ trajectory in
-          averageEpisodeLength.update(using: trajectory)
+          averageEpisodeReward.update(using: trajectory)
           if step > 0 {
             try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
               .reshaped(to: [84, 84, 1])
@@ -139,7 +138,7 @@ public func runRetro(
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        print("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
       }
     }
   case .advantageActorCritic:
@@ -156,7 +155,7 @@ public func runRetro(
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ trajectory in
-          averageEpisodeLength.update(using: trajectory)
+          averageEpisodeReward.update(using: trajectory)
           if step > 100 {
             try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
               .reshaped(to: [84, 84, 1])
@@ -164,7 +163,7 @@ public func runRetro(
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        print("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
       }
     }
   case .ppo:
@@ -179,10 +178,10 @@ public func runRetro(
     for step in 0..<10000 {
       let loss = agent.update(
         using: &environment,
-        maxSteps: 100,
-        maxEpisodes: maxEpisodes,
+        maxSteps: 10000,
+        maxEpisodes: 1,
         stepCallbacks: [{ trajectory in
-          averageEpisodeLength.update(using: trajectory)
+          averageEpisodeReward.update(using: trajectory)
           if step > 100 {
             try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
               .reshaped(to: [84, 84, 1])
@@ -190,7 +189,7 @@ public func runRetro(
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        print("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
       }
     }
   case _: fatalError("This agent type is not supported yet for this experiment.")

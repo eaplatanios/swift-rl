@@ -123,8 +123,8 @@ where
     network.state = trajectory.state
     let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
       let actionDistribution = network(trajectory.observation)
-      returnsNormalizer?.update(using: returns)
-      if let normalizer = returnsNormalizer {
+      self.returnsNormalizer?.update(using: returns)
+      if let normalizer = self.returnsNormalizer {
         returns = normalizer.normalize(returns)
       }
       let actionLogProbs = actionDistribution.logProbability(of: trajectory.action)
@@ -147,9 +147,9 @@ where
       // If entropy regularization is being used for the action distribution, then we also
       // compute the entropy loss term.
       var entropyLoss = Tensor<Float>(0.0)
-      if entropyRegularizationWeight > 0.0 {
+      if self.entropyRegularizationWeight > 0.0 {
         let entropy = actionDistribution.entropy()
-        entropyLoss = entropyLoss - entropyRegularizationWeight * entropy.mean()
+        entropyLoss = entropyLoss - self.entropyRegularizationWeight * entropy.mean()
       }
       return policyGradientLoss + entropyLoss
     }
@@ -241,14 +241,14 @@ where
       let finalValue = networkOutput.value[sequenceLength]
 
       // Estimate the advantages for the provided trajectory.
-      let advantageEstimate = advantageFunction(
+      let advantageEstimate = self.advantageFunction(
         stepKinds: stepKinds,
         rewards: trajectory.reward[0..<sequenceLength],
         values: withoutDerivative(at: values),
         finalValue: withoutDerivative(at: finalValue))
       var advantages = advantageEstimate.advantages
-      advantagesNormalizer?.update(using: advantages)
-      if let normalizer = advantagesNormalizer {
+      self.advantagesNormalizer?.update(using: advantages)
+      if let normalizer = self.advantagesNormalizer {
         advantages = normalizer.normalize(advantages)
       }
       let returns = advantageEstimate.discountedReturns
@@ -267,14 +267,14 @@ where
       // The value estimation loss is defined as the mean squared error between the value
       // estimates and the discounted returns.
       let valueMSE = (values - returns).squared().mean()
-      let valueEstimationLoss = valueEstimationLossWeight * valueMSE
+      let valueEstimationLoss = self.valueEstimationLossWeight * valueMSE
 
       // If entropy regularization is being used for the action distribution, then we also
       // compute the entropy loss term.
       var entropyLoss = Tensor<Float>(0.0)
-      if entropyRegularizationWeight > 0.0 {
+      if self.entropyRegularizationWeight > 0.0 {
         let entropy = actionDistribution.entropy()[0..<sequenceLength]
-        entropyLoss = entropyLoss - entropyRegularizationWeight * entropy.mean()
+        entropyLoss = entropyLoss - self.entropyRegularizationWeight * entropy.mean()
       }
       return policyGradientLoss + valueEstimationLoss + entropyLoss
     }
@@ -448,9 +448,9 @@ where
 
         let importanceRatio = exp(newActionLogProbs - actionLogProbs)
         var loss = importanceRatio * advantages
-        
+
         // Importance ratio clipping loss term.
-        if let c = clip {
+        if let c = self.clip {
           let ε = Tensor<Float>(c.epsilon)
           let importanceRatioClipped = importanceRatio.clipped(min: 1 - ε, max: 1 + ε)
           loss = -min(loss, importanceRatioClipped * advantages).mean()
@@ -459,7 +459,7 @@ where
         }
 
         // KL penalty loss term.
-        if let p = penalty {
+        if let p = self.penalty {
           let klDivergence = actionDistribution.klDivergence(to: newActionDistribution)
           let klMean = klDivergence.mean()
           let klCutoffLoss = max(klMean - p.klCutoffFactor * p.adaptiveKLTarget, 0).squared()
@@ -470,7 +470,7 @@ where
         }
 
         // Entropy regularization loss term.
-        if let e = entropyRegularization {
+        if let e = self.entropyRegularization {
           let entropy = actionDistribution.entropy()[0..<sequenceLength]
           loss = loss - e.weight * entropy.mean()
         }
@@ -478,7 +478,7 @@ where
         // Value estimation loss term.
         let values = newNetworkOutput.value[0..<sequenceLength]
         let valueMSE = (values - returns).squared().mean()
-        return loss + valueEstimationLossWeight * valueMSE
+        return loss + self.valueEstimationLossWeight * valueMSE
       }
       optimizer.update(&network, along: gradient)
       lastEpochLoss = loss.scalarized()

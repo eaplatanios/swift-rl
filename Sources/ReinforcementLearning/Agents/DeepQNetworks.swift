@@ -113,12 +113,12 @@ where
       // Split the trajectory such that the last step is only used to compute the next Q value.
       let sequenceLength = qValue.shape[0] - 1
       let currentStepKind = StepKind(trajectory.stepKind.rawValue[0..<sequenceLength])
-      let nextQValue = computeNextQValue(
+      let nextQValue = self.computeNextQValue(
         stepKind: trajectory.stepKind,
         observation: trajectory.observation
       )[1...]
       let currentReward = trajectory.reward[0..<sequenceLength]
-      let targetQValue = currentReward + discountFactor * nextQValue
+      let targetQValue = currentReward + self.discountFactor * nextQValue
 
       // Compute the temporal difference (TD) loss.
       let error = abs(qValue[0..<sequenceLength] - targetQValue)
