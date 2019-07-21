@@ -12,13 +12,21 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-public enum AgentType {
-  case reinforce
-  case advantageActorCritic
-  case ppo
-  case dqn
-}
+import NELFramework
 
-// runCartPole(using: .ppo, maxReplayedSequenceLength: 2000)
-// runRetro(using: .ppo, maxReplayedSequenceLength: 2000)
-runJellyBeanWorld(using: .ppo)
+public struct ItemCollectionReward: JellyBeanWorldRewardFunction {
+  public let item: Item
+  public let reward: Float
+
+  public init(item: Item, reward: Float) {
+    self.item = item
+    self.reward = reward
+  }
+
+  public func callAsFunction(
+    previousItems: [Item: UInt32]?,
+    currentItems: [Item: UInt32]?
+  ) -> Float {
+    Float((currentItems?[item] ?? 0) - (previousItems?[item] ?? 0)) * reward
+  }
+}

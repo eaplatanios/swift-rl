@@ -11,6 +11,15 @@
         }
       },
       {
+        "package": "NELFramework",
+        "repositoryURL": "https://github.com/eaplatanios/nel_framework.git",
+        "state": {
+          "branch": "master",
+          "revision": "0d89575aad4dda55f1478d026e976a1afb6ef26c",
+          "version": null
+        }
+      },
+      {
         "package": "ZIPFoundation",
         "repositoryURL": "https://github.com/weichsel/ZIPFoundation.git",
         "state": {
