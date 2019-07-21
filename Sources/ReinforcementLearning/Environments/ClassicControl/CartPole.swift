@@ -39,16 +39,12 @@ public struct CartPoleEnvironment: Environment {
     self.observationSpace = ObservationSpace(batchSize: batchSize)
     self.step = Step(
       kind: StepKind.first(batchSize: batchSize),
-      observation: Observation(
-        position: CartPoleEnvironment.randomTensor(withShape: [batchSize]),
-        positionDerivative: CartPoleEnvironment.randomTensor(withShape: [batchSize]),
-        angle: CartPoleEnvironment.randomTensor(withShape: [batchSize]),
-        angleDerivative: CartPoleEnvironment.randomTensor(withShape: [batchSize])),
+      observation: observationSpace.sample(),
       reward: Tensor<Float>(ones: [batchSize]))
     self.needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
   }
 
-  public func currentStep() -> Step<Observation, Reward> {
+  public func currentStep() -> Step<Observation, Tensor<Float>> {
     step
   }
 
@@ -76,17 +72,14 @@ public struct CartPoleEnvironment: Environment {
     angleDerivative += secondCountBetweenUpdates * angleAcc
 
     // Take into account the finished simulations in the batch.
-    step.observation.position = position.replacing(
-      with: CartPoleEnvironment.randomTensor(withShape: position.shape),
-      where: needsReset)
+    let sample = observationSpace.sample()
+    step.observation.position = position.replacing(with: sample.position, where: needsReset)
     step.observation.positionDerivative = positionDerivative.replacing(
-      with: CartPoleEnvironment.randomTensor(withShape: positionDerivative.shape),
+      with: sample.positionDerivative,
       where: needsReset)
-    step.observation.angle = angle.replacing(
-      with: CartPoleEnvironment.randomTensor(withShape: angle.shape),
-      where: needsReset)
+    step.observation.angle = angle.replacing(with: sample.angle, where: needsReset)
     step.observation.angleDerivative = angleDerivative.replacing(
-      with: CartPoleEnvironment.randomTensor(withShape: angleDerivative.shape),
+      with: sample.angleDerivative,
       where: needsReset)
     let newNeedsReset = (step.observation.position .< -positionThreshold)
       .elementsLogicalOr(step.observation.position .> positionThreshold)
@@ -103,10 +96,7 @@ public struct CartPoleEnvironment: Environment {
   @discardableResult
   public mutating func reset() -> Step<Observation, Tensor<Float>> {
     step.kind = StepKind.first(batchSize: batchSize)
-    step.observation.position = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    step.observation.positionDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    step.observation.angle = CartPoleEnvironment.randomTensor(withShape: [batchSize])
-    step.observation.angleDerivative = CartPoleEnvironment.randomTensor(withShape: [batchSize])
+    step.observation = observationSpace.sample()
     needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
     return step
   }
@@ -118,13 +108,6 @@ public struct CartPoleEnvironment: Environment {
 }
 
 extension CartPoleEnvironment {
-  private static func randomTensor(withShape shape: TensorShape = []) -> Tensor<Float> {
-    Tensor<Float>(
-      randomUniform: shape,
-      lowerBound: Tensor<Float>(-0.05),
-      upperBound: Tensor<Float>(0.05))
-  }
-
   public struct Observation: Differentiable, KeyPathIterable {
     public var position: Tensor<Float>
     public var positionDerivative: Tensor<Float>
@@ -133,13 +116,9 @@ extension CartPoleEnvironment {
   }
 
   public struct ObservationSpace: Space {
-    public typealias Scalar = Int32
-
-    public let shape: TensorShape
     public let distribution: ValueDistribution
 
     public init(batchSize: Int) {
-      self.shape = [batchSize, 4]
       self.distribution = ValueDistribution()
     }
 

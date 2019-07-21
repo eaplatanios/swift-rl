@@ -178,11 +178,11 @@ public func runRetro(
     for step in 0..<10000 {
       let loss = agent.update(
         using: &environment,
-        maxSteps: 10000,
+        maxSteps: 18000,
         maxEpisodes: 1,
         stepCallbacks: [{ trajectory in
           averageEpisodeReward.update(using: trajectory)
-          if step > 100 {
+          if step > 1000 {
             try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
               .reshaped(to: [84, 84, 1])
               .tiled(multiples: Tensor<Int32>([1, 1, 3]))))

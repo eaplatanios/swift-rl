@@ -18,7 +18,6 @@ public protocol Space: CustomStringConvertible {
   associatedtype Value
   associatedtype ValueDistribution: Distribution where ValueDistribution.Value == Value
 
-  var shape: TensorShape { get }
   var distribution: ValueDistribution { get }
 
   /// Returns a boolean specifying if `value` is a valid member of this space.
@@ -34,8 +33,6 @@ public extension Space {
 
 public struct Discrete: Space {
   public let size: Int
-  public let shape: TensorShape = []
-
   public let distribution: Categorical<Int32>
 
   public init(withSize size: Int, batchSize: Int) {
@@ -73,8 +70,6 @@ public struct MultiBinary: Space {
 }
 
 public struct MultiDiscrete: Space {
-  public typealias Scalar = Int32
-
   public let sizes: [Int]
   public let shape: TensorShape
   public let distribution: ValueDistribution
