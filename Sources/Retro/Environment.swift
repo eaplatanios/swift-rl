@@ -36,6 +36,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   @usableFromInline internal var step: Step<Tensor<Float>, Tensor<Float>>? = nil
   @usableFromInline internal var renderer: ImageRenderer? = nil
 
+  @inlinable
   public init(
     using emulator: RetroEmulator,
     actionsType: ActionsType,
@@ -55,6 +56,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       randomSeed: randomSeed)
   }
 
+  @inlinable
   public init(
     using emulators: [RetroEmulator],
     actionsType: ActionsType,
@@ -208,15 +210,15 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       reward: Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) }))
   }
 
-  @discardableResult
   @inlinable
+  @discardableResult
   public mutating func reset() -> Step<Tensor<Float>, Tensor<Float>> {
     step = Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map { reset(batchIndex: $0) })
     return step!
   }
 
-  @discardableResult
   @inlinable
+  @discardableResult
   public mutating func reset(batchIndex: Int) -> Step<Tensor<Float>, Tensor<Float>> {
     emulators[batchIndex].reset()
 
@@ -246,6 +248,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       observationsType: observationsType,
       startingStates: startingStates,
       movieURLs: movieURLs,
+      renderer: renderer,
       randomSeed: randomSeed)
   }
 
@@ -257,11 +260,11 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     case let .screen(height, width, true):
       try renderer!.render(
         Tensor<UInt8>(255 * observation
-          .reshaped(to: [84, 84, 1])
+          .reshaped(to: [height, width, 1])
           .tiled(multiples: Tensor<Int32>([1, 1, 3]))).array)
     case let .screen(height, width, false):
       try renderer!.render(
-        Tensor<UInt8>(255 * observation.reshaped(to: [84, 84, 3])).array)
+        Tensor<UInt8>(255 * observation.reshaped(to: [height, width, 3])).array)
     case .memory:
       let size = observation.shape.contiguousSize
       try renderer!.render(
@@ -271,12 +274,14 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     }
   }
 
+  @inlinable
   public mutating func startRecordings(at urls: [URL]) {
     for batchIndex in 0..<batchSize {
       startRecording(at: urls[batchIndex], batchIndex: batchIndex)
     }
   }
 
+  @inlinable
   public mutating func startRecording(at url: URL, batchIndex: Int) {
     let numPlayers = emulators[batchIndex].numPlayers
     movies[batchIndex] = Movie(at: url, recording: true, numPlayers: numPlayers)
@@ -286,20 +291,24 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     }
   }
 
+  @inlinable
   public mutating func enableRecordings(at urls: [URL]) {
     movieURLs = urls
   }
 
+  @inlinable
   public mutating func enableRecording(at url: URL, batchIndex: Int) {
     movieURLs[batchIndex] = url
   }
 
+  @inlinable
   public mutating func disableRecordings() {
     for batchIndex in 0..<batchSize {
       disableRecording(batchIndex: batchIndex)
     }
   }
 
+  @inlinable
   public mutating func disableRecording(batchIndex: Int) {
     movieIDs[batchIndex] = 0
     movieURLs[batchIndex] = nil

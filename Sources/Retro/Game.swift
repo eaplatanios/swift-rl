@@ -203,8 +203,8 @@ internal extension RetroGame {
 internal extension RetroGame {
   @usableFromInline
   struct Metadata: Codable {
-    let defaultState: String?
-    let defaultPlayerState: [String]?
+    @usableFromInline let defaultState: String?
+    @usableFromInline let defaultPlayerState: [String]?
 
     enum CodingKeys: String, CodingKey {
       case defaultState = "default_state"
