@@ -14,7 +14,7 @@
 
 import TensorFlow
 
-public protocol Network: Layer, Copyable {
+public protocol Network: Module, Copyable {
   associatedtype State
   var state: State { get set }
 
