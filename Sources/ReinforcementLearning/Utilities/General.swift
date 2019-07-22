@@ -102,7 +102,6 @@ func zip<A: Sequence, B: Sequence, C: Sequence>(
 /// - Returns: Boolean value indicating whether a download was
 ///     performed (as opposed to not needed).
 public func maybeDownload(from url: URL, to destination: URL) throws {
-  print(destination.path)
   if !FileManager.default.fileExists(atPath: destination.path) {
     // Create any potentially missing directories.
     try FileManager.default.createDirectory(

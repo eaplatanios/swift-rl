@@ -21,6 +21,7 @@ import TensorFlow
 /// - Parameter images: Tensor containing RGB image(s). Its last dimension must have size 3.
 /// - Returns: Tensor containing the converted Grayscale image(s).
 @differentiable
+@inlinable
 public func convertRGBToGrayscale<Scalar: TensorFlowFloatingPoint>(
   _ images: Tensor<Scalar>
 ) -> Tensor<Scalar> {
@@ -28,13 +29,15 @@ public func convertRGBToGrayscale<Scalar: TensorFlowFloatingPoint>(
   return (images * rgbWeights).sum(alongAxes: -1)
 }
 
-public enum ImageResizeMethod {
+@usableFromInline
+internal enum ImageResizeMethod {
   case nearestNeighbor
   case bilinear
   case bicubic
   case area
 
-  public func resize(
+  @inlinable
+  internal func resize(
     images: Tensor<Float>,
     size: Tensor<Int32>,
     alignCorners: Bool = false
@@ -52,7 +55,8 @@ public enum ImageResizeMethod {
   }
 }
 
-public func resize<Scalar: TensorFlowNumeric>(
+@inlinable
+internal func resize<Scalar: TensorFlowNumeric>(
   images: Tensor<Scalar>,
   to size: Tensor<Int32>,
   method: ImageResizeMethod = .bilinear,

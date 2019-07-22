@@ -135,7 +135,10 @@ internal extension RetroGame {
     @usableFromInline var handle: UnsafeMutablePointer<CGameData>?
 
     @usableFromInline lazy var buttonCombos: [[Int32]] = {
-      let cValidActions = gameDataValidActions(handle)!.pointee
+      let cValidActionsHandle = gameDataValidActions(handle)!
+      defer { gameDataValidActionsDelete(cValidActionsHandle) }
+      let cValidActions = cValidActionsHandle.pointee
+      var counter = 0
       return (0 ..< cValidActions.numActionsOuter).map { combo in
         let numColumns = cValidActions.numActionsInner.advanced(by: combo).pointee
         return Array(UnsafeBufferPointer(

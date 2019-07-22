@@ -28,13 +28,12 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let startingStates: [StartingState]
   public let randomSeed: TensorFlowSeed
 
-  private let startingStateData: [String?]
-
-  public private(set) var movies: [Movie?]
-  public private(set) var movieIDs: [Int]
-  public private(set) var movieURLs: [URL?]
-
-  private var needsReset: [Bool]
+  @usableFromInline internal let startingStateData: [String?]
+  @usableFromInline internal var movies: [Movie?]
+  @usableFromInline internal var movieIDs: [Int]
+  @usableFromInline internal var movieURLs: [URL?]
+  @usableFromInline internal var needsReset: [Bool]
+  @usableFromInline internal var step: Step<Tensor<Float>, Tensor<Float>>? = nil
 
   public init(
     using emulator: RetroEmulator,
@@ -130,23 +129,14 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     self.needsReset = [Bool](repeating: true, count: batchSize)
   }
 
-  public func currentStep() -> Step<Tensor<Float>, Tensor<Float>> {
-    Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map { currentStep(batchIndex: $0) })
+  @inlinable
+  public mutating func currentStep() -> Step<Tensor<Float>, Tensor<Float>> {
+    if step == nil { step = reset() }
+    return step!
   }
 
-  public func currentStep(batchIndex: Int) -> Step<Tensor<Float>, Tensor<Float>> {
-    let observation = currentObservation(batchIndex: batchIndex)
-    let finished = emulators[batchIndex].finished()
-
-    // TODO: What about the 'info' dict?
-    let numPlayers = self.numPlayers(batchIndex: batchIndex)
-    return Step(
-      kind: finished ? .last : .transition,
-      observation: observation,
-      reward: Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) }))
-  }
-
-  private func currentObservation(batchIndex: Int) -> Tensor<Float> {
+  @inlinable
+  internal func currentObservation(batchIndex: Int) -> Tensor<Float> {
     switch observationsType {
     case let .screen(height, width, true):
       let emulatorScreen = Tensor<Float>(emulators[batchIndex].screen()!) / 255.0
@@ -166,24 +156,24 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @discardableResult
+  @inlinable
   public mutating func step(
     taking action: ActionsType.Space.Value
   ) -> Step<Tensor<Float>, Tensor<Float>> {
     let actions = action.unstacked()
-    return Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map {
+    step = Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map {
       step(taking: actions[$0], batchIndex: $0)
     })
+    return step!
   }
 
   @discardableResult
+  @inlinable
   public mutating func step(
     taking action: ActionsType.Space.Value,
     batchIndex: Int
   ) -> Step<Tensor<Float>, Tensor<Float>> {
-    if needsReset[batchIndex] {
-      reset(batchIndex: batchIndex)
-    }
-
+    if needsReset[batchIndex] { reset(batchIndex: batchIndex) }
     for p in 0..<numPlayers(batchIndex: batchIndex) {
       let numButtons = emulators[batchIndex].buttons().count
       let encodedAction = actionsType.encodeAction(action, for: p, in: emulators[batchIndex])
@@ -202,15 +192,26 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       needsReset[batchIndex] = true
     }
 
-    return currentStep(batchIndex: batchIndex)
+    let observation = currentObservation(batchIndex: batchIndex)
+    let finished = emulators[batchIndex].finished()
+
+    // TODO: What about the 'info' dict?
+    let numPlayers = self.numPlayers(batchIndex: batchIndex)
+    return Step(
+      kind: finished ? .last : .transition,
+      observation: observation,
+      reward: Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) }))
   }
 
   @discardableResult
+  @inlinable
   public mutating func reset() -> Step<Tensor<Float>, Tensor<Float>> {
-    Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map { reset(batchIndex: $0) })
+    step = Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map { reset(batchIndex: $0) })
+    return step!
   }
 
   @discardableResult
+  @inlinable
   public mutating func reset(batchIndex: Int) -> Step<Tensor<Float>, Tensor<Float>> {
     emulators[batchIndex].reset()
 
@@ -312,12 +313,6 @@ public extension RetroEnvironment {
     /// Start the game from the save state file specified.
     /// The provided string is the name of the `.state` file to use.
     case custom(String)
-  }
-
-  struct StepResult {
-    let observation: Tensor<Float>?
-    let reward: Tensor<Float>
-    let finished: Bool
   }
 }
 
