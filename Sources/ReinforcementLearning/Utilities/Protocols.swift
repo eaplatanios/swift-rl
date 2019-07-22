@@ -133,10 +133,6 @@ extension Tensor: DifferentiableBatchable where Scalar: TensorFlowFloatingPoint 
   }
 }
 
-// public protocol Updatable {
-//   mutating func update(using other: Self, forgetFactor: Float)
-// }
-
 extension Tensor where Scalar: TensorFlowFloatingPoint {
   public mutating func update(using other: Tensor, forgetFactor: Float) {
     let forgetFactor = Scalar(forgetFactor)
@@ -147,6 +143,9 @@ extension Tensor where Scalar: TensorFlowFloatingPoint {
 extension KeyPathIterable {
   public static func stack(_ values: [Self]) -> Self {
     var result = values[0]
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<UInt8>.self) {
+      result[keyPath: kp] = Tensor.stack(values.map { $0[keyPath: kp] })
+    }
     for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
       result[keyPath: kp] = Tensor.stack(values.map { $0[keyPath: kp] })
     }
@@ -164,6 +163,15 @@ extension KeyPathIterable {
 
   public func unstacked() -> [Self] {
     var result = [Self]()
+    for kp in recursivelyAllWritableKeyPaths(to: Tensor<UInt8>.self) {
+      let unstacked = self[keyPath: kp].unstacked()
+      if result.isEmpty {
+        result = [Self](repeating: self, count: unstacked.count)
+      }
+      for i in result.indices {
+        result[i][keyPath: kp] = unstacked[i]
+      }
+    }
     for kp in recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
       let unstacked = self[keyPath: kp].unstacked()
       if result.isEmpty {
@@ -205,6 +213,9 @@ extension KeyPathIterable {
 
   public init(emptyLike example: Self, withCapacity capacity: Int) {
     self = example
+    for kp in recursivelyAllWritableKeyPaths(to: Tensor<UInt8>.self) {
+      self[keyPath: kp] = Tensor(emptyLike: example[keyPath: kp], withCapacity: capacity)
+    }
     for kp in recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
       self[keyPath: kp] = Tensor(emptyLike: example[keyPath: kp], withCapacity: capacity)
     }
@@ -220,6 +231,9 @@ extension KeyPathIterable {
   }
 
   public mutating func update(atIndices indices: Tensor<Int64>, using values: Self) {
+    for kp in recursivelyAllWritableKeyPaths(to: Tensor<UInt8>.self) {
+      self[keyPath: kp].update(atIndices: indices, using: values[keyPath: kp])
+    }
     for kp in recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
       self[keyPath: kp].update(atIndices: indices, using: values[keyPath: kp])
     }
@@ -236,6 +250,9 @@ extension KeyPathIterable {
 
   public func gathering(atIndices indices: Tensor<Int64>) -> Self {
     var result = self
+    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<UInt8>.self) {
+      result[keyPath: kp] = result[keyPath: kp].gathering(atIndices: indices)
+    }
     for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Int32>.self) {
       result[keyPath: kp] = result[keyPath: kp].gathering(atIndices: indices)
     }
