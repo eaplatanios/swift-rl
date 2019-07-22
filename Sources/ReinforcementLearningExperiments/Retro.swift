@@ -13,6 +13,7 @@
 // the License.
 
 import Foundation
+import Logging
 import ReinforcementLearning
 import Retro
 
@@ -34,7 +35,7 @@ fileprivate struct RetroActor: Network {
   }
 
   @differentiable
-  public func callAsFunction(_ input: Tensor<Float>) -> Bernoulli<Int32> {
+  public func callAsFunction(_ input: Tensor<Float>) -> Categorical<Int32> {
     let outerDimCount = input.rank - 3
     let outerDims = [Int](input.shape.dimensions[0..<outerDimCount])
     let flattenedBatchInput = input.flattenedBatch(outerDimCount: outerDimCount)
@@ -42,7 +43,7 @@ fileprivate struct RetroActor: Network {
     let conv2 = leakyRelu(self.conv2(conv1)).reshaped(to: [-1, 2592])
     let hidden = leakyRelu(denseHidden(conv2))
     let actionLogits = denseAction(hidden)    
-    let flattenedActionDistribution = Bernoulli<Int32>(logits: actionLogits)
+    let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
     return flattenedActionDistribution.unflattenedBatch(outerDims: outerDims)
   }
 }
@@ -53,7 +54,7 @@ fileprivate struct RetroActorCritic: Network {
   public var conv1: Conv2D<Float> = Conv2D<Float>(filterShape: (8, 8, 1, 4), strides: (4, 4))
   public var conv2: Conv2D<Float> = Conv2D<Float>(filterShape: (4, 4, 4, 4), strides: (2, 2))
   public var denseHidden: Dense<Float> = Dense<Float>(inputSize: 324, outputSize: 32)
-  public var denseAction: Dense<Float> = Dense<Float>(inputSize: 32, outputSize: 8) // TODO: Easy way to get the number of actions.
+  public var denseAction: Dense<Float> = Dense<Float>(inputSize: 32, outputSize: 18) // TODO: Easy way to get the number of actions.
   public var denseValue: Dense<Float> = Dense<Float>(inputSize: 32, outputSize: 1)
 
   public init() {}
@@ -67,7 +68,7 @@ fileprivate struct RetroActorCritic: Network {
   }
 
   @differentiable
-  public func callAsFunction(_ input: Tensor<Float>) -> ActorCriticOutput<Bernoulli<Int32>> {
+  public func callAsFunction(_ input: Tensor<Float>) -> ActorCriticOutput<Categorical<Int32>> {
     let outerDimCount = input.rank - 3
     let outerDims = [Int](input.shape.dimensions[0..<outerDimCount])
     let flattenedBatchInput = input.flattenedBatch(outerDimCount: outerDimCount)
@@ -76,7 +77,7 @@ fileprivate struct RetroActorCritic: Network {
     let hidden = leakyRelu(denseHidden(conv2))
     let actionLogits = denseAction(hidden)
     let flattenedValue = denseValue(hidden)
-    let flattenedActionDistribution = Bernoulli<Int32>(logits: actionLogits)
+    let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
     return ActorCriticOutput(
       actionDistribution: flattenedActionDistribution.unflattenedBatch(outerDims: outerDims),
       value: flattenedValue.unflattenedBatch(outerDims: outerDims).squeezingShape(at: -1))
@@ -100,11 +101,14 @@ public func runRetro(
       gameROMLookupPaths: [URL(fileURLWithPath: "temp")],
       gameRomsDownloadPath: URL(fileURLWithPath: "temp").appendingPathComponent("downloads"))
   }()
-  let game = emulatorConfig.game(called: "SpaceInvaders-Atari2600")!
+  // let game = emulatorConfig.game(called: "SpaceInvaders-Atari2600")!
+  let game = emulatorConfig.game(called: "Breakout-Atari2600")!
   let emulator = try! RetroEmulator(for: game, configuredAs: emulatorConfig)
-  
+
+  let logger = Logger(label: "Breakout Experiment")
+
   // Environment:
-  var environment = try! RetroEnvironment(using: emulator, actionsType: FilteredActions())
+  var environment = try! RetroEnvironment(using: emulator, actionsType: DiscreteActions())
   var renderer = TensorImageRenderer(initialMaxWidth: 800)
 
   // Metrics:
@@ -129,7 +133,7 @@ public func runRetro(
         using: &environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ trajectory in
+        stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeReward.update(using: trajectory)
           if step > 0 {
             try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
@@ -154,7 +158,7 @@ public func runRetro(
         using: &environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ trajectory in
+        stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeReward.update(using: trajectory)
           if step > 100 {
             try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
@@ -178,9 +182,9 @@ public func runRetro(
     for step in 0..<10000 {
       let loss = agent.update(
         using: &environment,
-        maxSteps: 18000,
+        maxSteps: 4000,
         maxEpisodes: 1,
-        stepCallbacks: [{ trajectory in
+        stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeReward.update(using: trajectory)
           if step > 1000 {
             try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
@@ -189,7 +193,7 @@ public func runRetro(
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
+        logger.info("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
       }
     }
   case _: fatalError("This agent type is not supported yet for this experiment.")
