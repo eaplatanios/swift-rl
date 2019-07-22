@@ -12,12 +12,9 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-import TensorFlow
-
-#if GLFW
-
 import GLFW
 import Foundation
+import TensorFlow
 
 public class ImageRenderer {
   public let framesPerSecond: Double?
@@ -478,5 +475,3 @@ public class GLFWCircle: GLFWGeometry {
 //       width, height, GLenum(GL_COLOR_BUFFER_BIT), GLenum(GL_LINEAR))
 //   }
 // }
-
-#endif

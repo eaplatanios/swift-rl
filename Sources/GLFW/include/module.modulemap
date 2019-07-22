@@ -1,5 +1,0 @@
-module GLFW {
-    export *
-    link "glfw"
-    header "glfw.h"
-}

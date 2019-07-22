@@ -27,19 +27,18 @@ let package = Package(
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", .branch("master"))
     ],
     targets: [
-        .target(
+        .systemLibrary(
             name: "GLFW",
-            path: ".",
-            sources: ["Sources/GLFW"],
-            publicHeadersPath: "Sources/GLFW/include",
-            linkerSettings: [
-                .linkedLibrary("glfw"),
-                .unsafeFlags(["-L/usr/local/lib"])]),
+            path: "Sources/GLFW",
+            pkgConfig: "glfw3",
+            providers: [
+                .brew(["--HEAD git glfw3"]),
+                .apt(["libglfw3", "libglfw3-dev"])
+            ]),
         .target(
             name: "ReinforcementLearning",
             dependencies: ["GLFW"],
-            path: "Sources/ReinforcementLearning",
-            swiftSettings: [.define("GLFW")]),
+            path: "Sources/ReinforcementLearning"),
         .target(
             name: "ReinforcementLearningExperiments",
             dependencies: ["JellyBeanWorld", "Logging", "ReinforcementLearning", "Retro"]),
@@ -61,7 +60,6 @@ let package = Package(
             path: "Sources/Retro"),
         .testTarget(
             name: "RetroTests",
-            dependencies: ["Retro"],
-            swiftSettings: [.define("GLFW")])
+            dependencies: ["Retro"])
     ]
 )

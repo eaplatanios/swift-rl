@@ -110,7 +110,7 @@ public struct CartPoleEnvironment: Environment {
   /// Returns a copy of this environment that is reset before being returned.
   @inlinable
   public func copy() -> CartPoleEnvironment {
-    CartPoleEnvironment(batchSize: batchSize)
+    CartPoleEnvironment(batchSize: batchSize, renderer: renderer)
   }
 
   @inlinable
@@ -230,8 +230,6 @@ extension CartPoleEnvironment {
   }
 }
 
-#if GLFW
-
 public struct CartPoleRenderer: GLFWScene {
   public let windowWidth: Int
   public let windowHeight: Int
@@ -321,5 +319,3 @@ public struct CartPoleRenderer: GLFWScene {
     render(in: window)
   }
 }
-
-#endif
