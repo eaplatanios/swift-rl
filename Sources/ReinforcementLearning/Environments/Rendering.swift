@@ -23,8 +23,9 @@ public protocol Renderer {
 public struct TensorPrinter<Scalar: TensorFlowScalar & LosslessStringConvertible>: Renderer {
   public typealias Data = Tensor<Scalar>
 
-  private var printer: ShapedArrayPrinter<Scalar>
+  @usableFromInline internal var printer: ShapedArrayPrinter<Scalar>
 
+  @inlinable
   public init(
     lineWidth: Int = 80,
     edgeElementCount: Int = 3,
@@ -48,6 +49,7 @@ public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
   public let edgeElementCount: Int
   public let summarizing: Bool
 
+  @inlinable
   public init(
     lineWidth: Int = 80,
     edgeElementCount: Int = 3,
@@ -58,6 +60,7 @@ public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
     self.summarizing = summarizing
   }
 
+  @inlinable
   public mutating func render(_ data: ShapedArray<Scalar>) throws {
     print(data.description(
       lineWidth: lineWidth,
@@ -73,14 +76,16 @@ import Foundation
 public struct TensorImageRenderer: Renderer {
   public typealias Data = Tensor<UInt8>
 
-  private var renderer: ShapedArrayImageRenderer
+  @usableFromInline internal var renderer: ShapedArrayImageRenderer
 
+  @inlinable
   public init(initialMaxWidth: Int32, framesPerSecond: Double? = nil) {
     self.renderer = ShapedArrayImageRenderer(
       initialMaxWidth: initialMaxWidth,
       framesPerSecond: framesPerSecond)
   }
 
+  @inlinable
   public mutating func render(_ data: Tensor<UInt8>) throws {
     try renderer.render(data.array)
   }
@@ -91,23 +96,25 @@ public class ShapedArrayImageRenderer: Renderer {
 
   public let framesPerSecond: Double?
 
-  private var window: OpaquePointer?
-  private var frameBuffer: GLuint = 0
-  private var texture: GLuint = 0
+  @usableFromInline internal var window: OpaquePointer?
+  @usableFromInline internal var frameBuffer: GLuint = 0
+  @usableFromInline internal var texture: GLuint = 0
 
-  private let initialMaxWidth: Int32
+  @usableFromInline internal let initialMaxWidth: Int32
+  @usableFromInline internal var isOpen: Bool = true
 
-  public private(set) var isOpen: Bool = true
-
+  @inlinable
   public init(initialMaxWidth: Int32, framesPerSecond: Double? = nil) {
     self.initialMaxWidth = initialMaxWidth
     self.framesPerSecond = framesPerSecond
   }
 
+  @inlinable
   deinit {
     closeWindow()
   }
 
+  @inlinable
   public func render(_ data: ShapedArray<UInt8>) throws {
     if !isOpen { return }
 
@@ -157,6 +164,7 @@ public class ShapedArrayImageRenderer: Renderer {
     }
   }
 
+  @inlinable
   public func createWindow(width: Int32, height: Int32) throws {
     // Initialize GLFW.
     if glfwInit() == 0 {
@@ -189,6 +197,7 @@ public class ShapedArrayImageRenderer: Renderer {
       GLenum(GL_TEXTURE_2D), texture, 0)
   }
 
+  @inlinable
   public func closeWindow() {
     if let window = self.window {
       glDeleteTextures(1, &texture)
@@ -201,7 +210,8 @@ public class ShapedArrayImageRenderer: Renderer {
     }
   }
 
-  private static func preprocessData(_ data: ShapedArray<UInt8>) throws -> [UInt8] {
+  @inlinable
+  internal static func preprocessData(_ data: ShapedArray<UInt8>) throws -> [UInt8] {
     precondition(data.rank == 3 && data.shape[2] == 3, "Data must have shape '[Height, Width, 3]'.")
     let rowSize = data.shape[1] * data.shape[2]
     let scalars = data.scalars
@@ -219,27 +229,42 @@ public protocol GLFWScene {
   func draw()
 }
 
+extension GLFWScene {
+  @inlinable
+  public func render(in window: GLFWWindow) {
+    if !window.isOpen { return }
+    if let fps = window.framesPerSecond { Thread.sleep(forTimeInterval: 1 / fps) }
+    if let w = window.window {
+      // TODO: Should the following be exiting the running problem?
+      if glfwWindowShouldClose(w) > 0 { window.close(); exit(0) }
+      glfwMakeContextCurrent(w)
+      glClearColor(1, 1, 1, 1)
+      glClear(GLbitfield(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT))
+      draw()
+      glfwSwapBuffers(w)
+      glfwPollEvents()
+    }
+  }
+}
+
 public class GLFWWindow {
   public let name: String
 
-  private var window: OpaquePointer?
+  @usableFromInline internal let width: Int
+  @usableFromInline internal let height: Int
+  @usableFromInline internal let framesPerSecond: Double?
+  @usableFromInline internal var window: OpaquePointer?
+  @usableFromInline internal var isOpen: Bool = true
 
-  private let width: Int
-  private let height: Int
-  private let framesPerSecond: Double?
-
-  public private(set) var isOpen: Bool = true
-
+  @inlinable
   public init(name: String, width: Int, height: Int, framesPerSecond: Double? = nil) throws {
     self.name = name
     self.width = width
     self.height = height
     self.framesPerSecond = framesPerSecond
-    
+
     // Initialize GLFW.
-    if glfwInit() == 0 {
-      throw RLError.GLFWError("Failed to initialize GLFW.")
-    }
+    if glfwInit() == 0 { throw RLError.GLFWError("Failed to initialize GLFW.") }
 
     // Open a new window.
     guard let window = glfwCreateWindow(Int32(width), Int32(height), name, nil, nil) else {
@@ -248,46 +273,21 @@ public class GLFWWindow {
     }
 
     self.window = window
-
     glfwMakeContextCurrent(window)
     glEnable(GLenum(GL_BLEND))
     glBlendFunc(GLenum(GL_SRC_ALPHA), GLenum(GL_ONE_MINUS_SRC_ALPHA))
-
     glViewport(0, 0, Int32(width), Int32(height))
     glMatrixMode(GLenum(GL_PROJECTION))
     glLoadIdentity()
     glOrtho(0, GLdouble(width), 0, GLdouble(height), 0, 1)
   }
 
+  @inlinable
   deinit {
     close()
   }
 
-  public func render(scene: GLFWScene? = nil) {
-    if !isOpen { return }
-
-    if let fps = framesPerSecond {
-      Thread.sleep(forTimeInterval: 1 / fps)
-    }
-
-    if let window = self.window {
-      if glfwWindowShouldClose(window) > 0 {
-        close()
-        exit(0)
-      }
-
-      glfwMakeContextCurrent(window)
-      glClearColor(1, 1, 1, 1)
-      glClear(GLbitfield(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT))
-
-      scene?.draw()
-
-      // Swap the OpenGL front and back buffers to show the image.
-      glfwSwapBuffers(window)
-      glfwPollEvents()
-    }
-  }
-
+  @inlinable
   public func close() {
     if let window = self.window {
       glfwDestroyWindow(window)
@@ -309,6 +309,7 @@ public class GLFWTransform: GLFWAttribute {
   public var rotation: Float
   public var scale: (Float, Float)
 
+  @inlinable
   public init(
     translation: (Float, Float) = (0.0, 0.0),
     rotation: Float = 0.0,
@@ -319,6 +320,7 @@ public class GLFWTransform: GLFWAttribute {
     self.scale = scale
   }
 
+  @inlinable
   public func enable() {
     glPushMatrix()
     glTranslatef(translation.0, translation.1, 0)
@@ -326,6 +328,7 @@ public class GLFWTransform: GLFWAttribute {
     glScalef(scale.0, scale.1, 1)
   }
 
+  @inlinable
   public func disable() {
     glPopMatrix()
   }
@@ -336,31 +339,37 @@ public class GLFWColor: GLFWAttribute {
   public let green: Float
   public let blue: Float
 
+  @inlinable
   public init(red: Float, green: Float, blue: Float) {
     self.red = red
     self.green = green
     self.blue = blue
   }
 
+  @inlinable
   public func enable() {
     glColor3f(red, green, blue)
   }
 
+  @inlinable
   public func disable() { }
 }
 
 public class GLFWLineStyle: GLFWAttribute {
   public let pattern: UInt16
 
+  @inlinable
   public init(_ pattern: UInt16) {
     self.pattern = pattern
   }
 
+  @inlinable
   public func enable() {
     glEnable(GLenum(GL_LINE_STIPPLE))
     glLineStipple(1, pattern)
   }
 
+  @inlinable
   public func disable() {
     glDisable(GLenum(GL_LINE_STIPPLE))
   }
@@ -369,14 +378,17 @@ public class GLFWLineStyle: GLFWAttribute {
 public class GLFWLineWidth: GLFWAttribute {
   public let width: Float
 
+  @inlinable
   public init(_ width: Float) {
     self.width = width
   }
 
+  @inlinable
   public func enable() {
     glLineWidth(width)
   }
 
+  @inlinable
   public func disable() { }
 }
 
@@ -387,6 +399,7 @@ public protocol GLFWGeometry: AnyObject {
 }
 
 extension GLFWGeometry {
+  @inlinable
   public func renderWithAttributes() {
     attributes.reversed().forEach { $0.enable() }
     render()
@@ -398,15 +411,18 @@ public class GLFWCompoundGeometry: GLFWGeometry {
   public var attributes: [GLFWAttribute] = []
   public var components: [GLFWGeometry]
 
+  @inlinable
   public init(_ components: GLFWGeometry...) {
     self.components = components
     attributes = components.flatMap { $0.attributes }
   }
 
+  @inlinable
   public func render() {
     components.forEach { $0.render() }
   }
 
+  @inlinable
   public func renderWithAttributes() {
     components.forEach { $0.renderWithAttributes() }
   }
@@ -416,10 +432,12 @@ public class GLFWPoint: GLFWGeometry {
   public var attributes: [GLFWAttribute] = []
   public var coordinates: (Float, Float, Float)
 
+  @inlinable
   public init(coordinates: (Float, Float, Float) = (0, 0, 0)) {
     self.coordinates = coordinates
   }
 
+  @inlinable
   public func render() {
     glBegin(GLenum(GL_POINTS))
     glVertex3f(0, 0, 0)
@@ -432,11 +450,13 @@ public class GLFWLine: GLFWGeometry {
   public var start: (Float, Float)
   public var end: (Float, Float)
 
+  @inlinable
   public init(start: (Float, Float), end: (Float, Float)) {
     self.start = start
     self.end = end
   }
 
+  @inlinable
   public func render() {
     glBegin(GLenum(GL_LINES))
     glVertex2f(start.0, start.1)
@@ -449,10 +469,12 @@ public class GLFWPolygon: GLFWGeometry {
   public var attributes: [GLFWAttribute] = []
   public var vertices: [(Float, Float)]
 
+  @inlinable
   public init(vertices: [(Float, Float)]) {
     self.vertices = vertices
   }
 
+  @inlinable
   public func render() {
     switch vertices.count {
     case 4: glBegin(GLenum(GL_QUADS))
@@ -469,11 +491,13 @@ public class GLFWPolyLine: GLFWGeometry {
   public var vertices: [(Float, Float)]
   public var closed: Bool
 
+  @inlinable
   public init(vertices: [(Float, Float)], closed: Bool) {
     self.vertices = vertices
     self.closed = closed
   }
 
+  @inlinable
   public func render() {
     glBegin(GLenum(closed ? GL_LINE_LOOP : GL_LINE_STRIP))
     vertices.forEach { glVertex3f($0.0, $0.1, 0) }
@@ -487,6 +511,7 @@ public class GLFWCircle: GLFWGeometry {
   public var resolution: Int = 30
   public var filled: Bool = true
 
+  @inlinable
   public func render() {
     let vertices = (0..<resolution).map { i -> (Float, Float) in
       let angle = 2 * Float.pi * Float(i) / Float(resolution)

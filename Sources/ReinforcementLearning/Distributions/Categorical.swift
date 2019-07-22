@@ -74,6 +74,7 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
 }
 
 extension Categorical: DifferentiableKLDivergence {
+  @inlinable
   @differentiable
   public func klDivergence(to target: Categorical) -> Tensor<Float> {
     (exp(logProbabilities) * (logProbabilities - target.logProbabilities)).sum(squeezingAxes: -1)

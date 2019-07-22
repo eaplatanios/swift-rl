@@ -51,6 +51,7 @@ public struct Step<Observation, Reward>: KeyPathIterable {
   public var observation: Observation
   public var reward: Reward
 
+  @inlinable
   public init(kind: StepKind, observation: Observation, reward: Reward) {
     self.kind = kind
     self.observation = observation
@@ -75,6 +76,7 @@ public struct StepKind: KeyPathIterable {
   // TODO: Make `internal(set)` once `@usableFromInline` is supported.
   public var rawValue: Tensor<Int32>
 
+  @inlinable
   public init(_ rawValue: Tensor<Int32>) {
     self.rawValue = rawValue
   }
@@ -91,18 +93,21 @@ extension StepKind {
   public static let last = StepKind(Tensor<Int32>(2))
 
   /// Returns a batched `StepKind` filled with "first" step kind values.
+  @inlinable
   public static func first(batchSize: Int) -> StepKind {
     StepKind(first.rawValue.expandingShape(at: 0)
       .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
   }
 
   /// Returns a batched `StepKind` filled with "transition" step kind values.
+  @inlinable
   public static func transition(batchSize: Int) -> StepKind {
     StepKind(transition.rawValue.expandingShape(at: 0)
       .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
   }
 
   /// Returns a batched `StepKind` filled with "last" step kind values.
+  @inlinable
   public static func last(batchSize: Int) -> StepKind {
     StepKind(last.rawValue.expandingShape(at: 0)
       .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
@@ -125,6 +130,7 @@ extension StepKind {
 
   /// Returns a tensor containing the number of completed episodes contained in the trajectory
   /// that this step kind corresponds to.
+  @inlinable
   public func episodeCount() -> Tensor<Float> {
     Tensor<Float>(isLast()).sum()
   }

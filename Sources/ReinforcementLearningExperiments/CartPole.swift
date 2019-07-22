@@ -124,7 +124,6 @@ public func runCartPole(
 
   // Environment:
   var environment = CartPoleEnvironment(batchSize: batchSize)
-  var renderer = CartPoleRenderer()
 
   // Metrics:
   var averageEpisodeLength = AverageEpisodeLength<
@@ -149,11 +148,9 @@ public func runCartPole(
         using: &environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ trajectory in
+        stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeLength.update(using: trajectory)
-          if step > 100 {
-            try! environment.render(using: &renderer)
-          }
+          if step > 100 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
@@ -172,11 +169,9 @@ public func runCartPole(
         using: &environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ trajectory in
+        stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeLength.update(using: trajectory)
-          if step > 100 {
-            try! environment.render(using: &renderer)
-          }
+          if step > 100 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
@@ -196,11 +191,9 @@ public func runCartPole(
         using: &environment,
         maxSteps: 1000 * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ trajectory in
+        stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeLength.update(using: trajectory)
-          if step > 100 {
-            try! environment.render(using: &renderer)
-          }
+          if step > 1 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
@@ -226,9 +219,7 @@ public func runCartPole(
         maxEpisodes: 32,
         stepCallbacks: [{ trajectory in
           averageEpisodeLength.update(using: trajectory)
-          if step > 100 {
-            try! environment.render(using: &renderer)
-          }
+          if step > 100 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")

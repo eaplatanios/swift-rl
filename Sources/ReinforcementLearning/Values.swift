@@ -66,6 +66,7 @@ public struct AdvantageEstimate<Scalar: TensorFlowFloatingPoint> {
   public let advantages: Tensor<Scalar>
   public let discountedReturns: Tensor<Scalar>
 
+  @inlinable
   public init(advantages: Tensor<Scalar>, discountedReturns: Tensor<Scalar>) {
     self.advantages = advantages
     self.discountedReturns = discountedReturns
@@ -96,6 +97,7 @@ public struct EmpiricalAdvantageEstimation: AdvantageFunction {
 
   /// - Parameters:
   ///   - discountFactor: Reward discount factor value, which must be between `0.0` and `1.0`.
+  @inlinable
   public init(discountFactor: Float) {
     self.discountFactor = discountFactor
   }
@@ -136,6 +138,7 @@ public struct GeneralizedAdvantageEstimation: AdvantageFunction {
   ///   - discountFactor: Reward discount factor value, which must be between `0.0` and `1.0`.
   ///   - discountWeight: A weight between `0.0` and `1.0` that is used for variance reduction in 
   ///     the temporal differences.
+  @inlinable
   public init(discountFactor: Float, discountWeight: Float = 1) {
     self.discountFactor = discountFactor
     self.discountWeight = discountWeight

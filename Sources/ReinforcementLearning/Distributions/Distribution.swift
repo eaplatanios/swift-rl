@@ -42,9 +42,10 @@ public protocol DifferentiableDistribution: Distribution, Differentiable {
   func entropy() -> Tensor<Float>
 }
 
-public extension DifferentiableDistribution {
+extension DifferentiableDistribution {
+  @inlinable
   @differentiable(wrt: self)
-  func probability(of value: Value) -> Tensor<Float> {
+  public func probability(of value: Value) -> Tensor<Float> {
     exp(logProbability(of: value))
   }
 }

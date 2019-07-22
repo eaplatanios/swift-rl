@@ -25,17 +25,24 @@ public protocol PolicyGradientAgent: ProbabilisticAgent {
     using environment: inout Environment,
     maxSteps: Int,
     maxEpisodes: Int,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
+    stepCallbacks: [(
+      inout Environment,
+      inout Trajectory<Observation, Action, Reward, State>
+    ) -> Void]
   ) -> Float
 }
 
 extension PolicyGradientAgent {
+  @inlinable
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void] = []
+    stepCallbacks: [(
+      inout Environment,
+      inout Trajectory<Observation, Action, Reward, State>
+    ) -> Void] = []
   ) -> Float {
     var trajectories = [Trajectory<Observation, Action, Reward, State>]()
     var currentStep = environment.currentStep()
@@ -44,14 +51,14 @@ extension PolicyGradientAgent {
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep, mode: .probabilistic)
       let nextStep = environment.step(taking: action)
-      let trajectory = Trajectory(
+      var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
         reward: nextStep.reward,
         state: state)
       trajectories.append(trajectory)
-      stepCallbacks.forEach { $0(trajectory) }
+      stepCallbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
@@ -90,8 +97,9 @@ where
   public let discountFactor: Float
   public let entropyRegularizationWeight: Float
 
-  public private(set) var returnsNormalizer: StreamingTensorNormalizer<Float>?
+  @usableFromInline internal var returnsNormalizer: StreamingTensorNormalizer<Float>?
 
+  @inlinable
   public init(
     for environment: Environment,
     network: Network,
@@ -108,10 +116,12 @@ where
     self.entropyRegularizationWeight = entropyRegularizationWeight
   }
 
+  @inlinable
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
     network(step.observation)
   }
 
+  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, Action, Reward, State>
@@ -162,6 +172,7 @@ public struct ActorCriticOutput<ActionDistribution: DifferentiableDistribution>:
   public var actionDistribution: ActionDistribution
   public var value: Tensor<Float>
 
+  @inlinable
   @differentiable
   public init(actionDistribution: ActionDistribution, value: Tensor<Float>) {
     self.actionDistribution = actionDistribution
@@ -199,8 +210,9 @@ where
   public let valueEstimationLossWeight: Float
   public let entropyRegularizationWeight: Float
 
-  public private(set) var advantagesNormalizer: StreamingTensorNormalizer<Float>?
+  @usableFromInline internal var advantagesNormalizer: StreamingTensorNormalizer<Float>?
 
+  @inlinable
   public init(
     for environment: Environment,
     network: Network,
@@ -221,10 +233,12 @@ where
     self.entropyRegularizationWeight = entropyRegularizationWeight
   }
 
+  @inlinable
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
     network(step.observation).actionDistribution
   }
 
+  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, Action, Reward, State>
@@ -286,6 +300,7 @@ where
 public struct PPOClip {
   public let epsilon: Float
 
+  @inlinable
   public init(epsilon: Float = 0.2) {
     self.epsilon = epsilon
   }
@@ -298,8 +313,9 @@ public struct PPOPenalty {
   public let adaptiveKLToleranceFactor: Float
   public let adaptiveKLBetaScalingFactor: Float
 
-  public fileprivate(set) var adaptiveKLBeta: Float?
+  @usableFromInline internal var adaptiveKLBeta: Float?
 
+  @inlinable
   public init(
     klCutoffFactor: Float = 0.2,
     klCutoffCoefficient: Float = 1000.0,
@@ -321,6 +337,7 @@ public struct PPOPenalty {
 public struct PPOEntropyRegularization {
   public let weight: Float
 
+  @inlinable
   public init(weight: Float) {
     self.weight = weight
   }
@@ -361,8 +378,9 @@ where
   public let valueEstimationLossWeight: Float
   public let iterationCountPerUpdate: Int
 
-  public private(set) var advantagesNormalizer: StreamingTensorNormalizer<Float>?
+  @usableFromInline internal var advantagesNormalizer: StreamingTensorNormalizer<Float>?
 
+  @inlinable
   public init(
     for environment: Environment,
     network: Network,
@@ -393,10 +411,12 @@ where
     self.iterationCountPerUpdate = iterationCountPerUpdate
   }
 
+  @inlinable
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
     network(step.observation).actionDistribution
   }
 
+  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, Action, Reward, State>

@@ -155,8 +155,8 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     }
   }
 
-  @discardableResult
   @inlinable
+  @discardableResult
   public mutating func step(
     taking action: ActionsType.Space.Value
   ) -> Step<Tensor<Float>, Tensor<Float>> {
@@ -167,8 +167,8 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     return step!
   }
 
-  @discardableResult
   @inlinable
+  @discardableResult
   public mutating func step(
     taking action: ActionsType.Space.Value,
     batchIndex: Int

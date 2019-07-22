@@ -33,6 +33,7 @@ extension Agent {
   public typealias Action = Environment.Action
   public typealias Reward = Environment.Reward
 
+  @inlinable
   public mutating func run(
     in environment: inout Environment,
     maxSteps: Int = Int.max,
@@ -83,6 +84,7 @@ public struct Trajectory<Observation, Action, Reward, State>: KeyPathIterable {
   public var reward: Reward
   public var state: State
 
+  @inlinable
   public init(
     stepKind: StepKind,
     observation: Observation,
@@ -114,12 +116,14 @@ public protocol ProbabilisticAgent: Agent {
 }
 
 extension ProbabilisticAgent {
+  @inlinable
   public mutating func action(for step: Step<Observation, Reward>) -> Action {
     action(for: step, mode: .greedy)
   }
 
   /// - Note: We cannot use a default argument value for `mode` here because of the `Agent`
   ///   protocol requirement for an `Agent.action(for:)` function.
+  @inlinable
   public mutating func action(
     for step: Step<Observation, Reward>,
     mode: ProbabilisticAgentMode
@@ -138,6 +142,7 @@ extension ProbabilisticAgent {
     }
   }
 
+  @inlinable
   public mutating func run(
     in environment: inout Environment,
     mode: ProbabilisticAgentMode = .greedy,
@@ -175,14 +180,17 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
   public let actionSpace: Environment.ActionSpace
   public var state: None = None()
 
+  @inlinable
   public init(for environment: Environment) {
     actionSpace = environment.actionSpace
   }
 
+  @inlinable
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
     actionSpace.distribution
   }
 
+  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, Action, Reward, State>
@@ -190,6 +198,7 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
     0.0
   }
 
+  @inlinable
   @discardableResult
   public mutating func update(
     using environment: inout Environment,

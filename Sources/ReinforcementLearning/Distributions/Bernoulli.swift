@@ -67,6 +67,7 @@ public struct Bernoulli<Scalar: TensorFlowInteger>: DifferentiableDistribution, 
 
 // TODO: !!! Is the following correct?
 extension Bernoulli: DifferentiableKLDivergence {
+  @inlinable
   @differentiable
   public func klDivergence(to target: Bernoulli) -> Tensor<Float> {
     let logProbabilities = logSigmoid(logits)

@@ -14,26 +14,28 @@
 
 import TensorFlow
 
-fileprivate let gravity: Float = 9.8
-fileprivate let cartMass: Float = 1.0
-fileprivate let poleMass: Float = 0.1
-fileprivate let length: Float = 0.5
-fileprivate let forceMagnitude: Float = 10.0
-fileprivate let secondCountBetweenUpdates: Float = 0.02
-fileprivate let angleThreshold: Float = 12 * 2 * Float.pi / 360
-fileprivate let positionThreshold: Float = 2.4
-fileprivate let totalMass: Float = cartMass + poleMass
-fileprivate let poleMassLength: Float = poleMass * length
+@usableFromInline internal let gravity: Float = 9.8
+@usableFromInline internal let cartMass: Float = 1.0
+@usableFromInline internal let poleMass: Float = 0.1
+@usableFromInline internal let length: Float = 0.5
+@usableFromInline internal let forceMagnitude: Float = 10.0
+@usableFromInline internal let secondCountBetweenUpdates: Float = 0.02
+@usableFromInline internal let angleThreshold: Float = 12 * 2 * Float.pi / 360
+@usableFromInline internal let positionThreshold: Float = 2.4
+@usableFromInline internal let totalMass: Float = cartMass + poleMass
+@usableFromInline internal let poleMassLength: Float = poleMass * length
 
 public struct CartPoleEnvironment: Environment {
   public let batchSize: Int
   public let actionSpace: Discrete
   public var observationSpace: ObservationSpace
 
-  private var step: Step<Observation, Tensor<Float>>
-  private var needsReset: Tensor<Bool>
+  @usableFromInline internal var step: Step<Observation, Tensor<Float>>
+  @usableFromInline internal var needsReset: Tensor<Bool>
+  @usableFromInline internal var renderer: CartPoleRenderer? = nil
 
-  public init(batchSize: Int) {
+  @inlinable
+  public init(batchSize: Int, renderer: CartPoleRenderer? = nil) {
     self.batchSize = batchSize
     self.actionSpace = Discrete(withSize: 2, batchSize: batchSize)
     self.observationSpace = ObservationSpace(batchSize: batchSize)
@@ -42,13 +44,16 @@ public struct CartPoleEnvironment: Environment {
       observation: observationSpace.sample(),
       reward: Tensor<Float>(ones: [batchSize]))
     self.needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
+    self.renderer = renderer
   }
 
+  @inlinable
   public func currentStep() -> Step<Observation, Tensor<Float>> {
     step
   }
 
   /// Updates the environment according to the provided action.
+  @inlinable
   @discardableResult
   public mutating func step(taking action: Tensor<Int32>) -> Step<Observation, Tensor<Float>> {
     precondition(actionSpace.contains(action), "Invalid action provided.")
@@ -93,6 +98,7 @@ public struct CartPoleEnvironment: Environment {
   }
 
   /// Resets the environment.
+  @inlinable
   @discardableResult
   public mutating func reset() -> Step<Observation, Tensor<Float>> {
     step.kind = StepKind.first(batchSize: batchSize)
@@ -102,8 +108,15 @@ public struct CartPoleEnvironment: Environment {
   }
 
   /// Returns a copy of this environment that is reset before being returned.
+  @inlinable
   public func copy() -> CartPoleEnvironment {
     CartPoleEnvironment(batchSize: batchSize)
+  }
+
+  @inlinable
+  public mutating func render() {
+    if renderer == nil { renderer = CartPoleRenderer() }
+    renderer!.render(observation: step.observation)
   }
 }
 
@@ -112,20 +125,36 @@ extension CartPoleEnvironment {
     public var position: Tensor<Float>
     public var positionDerivative: Tensor<Float>
     public var angle: Tensor<Float>
-    public var angleDerivative: Tensor<Float> 
+    public var angleDerivative: Tensor<Float>
+
+    @inlinable
+    public init(
+      position: Tensor<Float>,
+      positionDerivative: Tensor<Float>,
+      angle: Tensor<Float>,
+      angleDerivative: Tensor<Float>
+    ) {
+      self.position = position
+      self.positionDerivative = positionDerivative
+      self.angle = angle
+      self.angleDerivative = angleDerivative
+    }
   }
 
   public struct ObservationSpace: Space {
     public let distribution: ValueDistribution
 
+    @inlinable
     public init(batchSize: Int) {
       self.distribution = ValueDistribution(batchSize: batchSize)
     }
 
+    @inlinable
     public var description: String {
       "CartPoleObservation"
     }
 
+    @inlinable
     public func contains(_ value: Observation) -> Bool {
       true
     }
@@ -133,34 +162,36 @@ extension CartPoleEnvironment {
     public struct ValueDistribution: DifferentiableDistribution, KeyPathIterable {
       @noDerivative public let batchSize: Int
 
-      private var positionDistribution: Uniform<Float> { 
+      public var positionDistribution: Uniform<Float> { 
         Uniform<Float>(
           lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
           upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
       }
 
-      private var positionDerivativeDistribution: Uniform<Float> {
+      public var positionDerivativeDistribution: Uniform<Float> {
         Uniform<Float>(
           lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
           upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
       }
 
-      private var angleDistribution: Uniform<Float> {
+      public var angleDistribution: Uniform<Float> {
         Uniform<Float>(
           lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
           upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
       }
 
-      private var angleDerivativeDistribution: Uniform<Float> {
+      public var angleDerivativeDistribution: Uniform<Float> {
         Uniform<Float>(
           lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
           upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
       }
 
+      @inlinable
       public init(batchSize: Int) {
         self.batchSize = batchSize
       }
 
+      // TODO: @inlinable
       @differentiable(wrt: self)
       public func logProbability(of value: Observation) -> Tensor<Float> {
         positionDistribution.logProbability(of: value.position) +
@@ -169,6 +200,7 @@ extension CartPoleEnvironment {
           angleDerivativeDistribution.logProbability(of: value.angleDerivative)
       }
 
+      // TODO: @inlinable
       @differentiable(wrt: self)
       public func entropy() -> Tensor<Float> {
         positionDistribution.entropy() +
@@ -177,6 +209,7 @@ extension CartPoleEnvironment {
           angleDerivativeDistribution.entropy()
       }
 
+      @inlinable
       public func mode() -> Observation {
         Observation(
           position: positionDistribution.mode(),
@@ -185,6 +218,7 @@ extension CartPoleEnvironment {
           angleDerivative: angleDerivativeDistribution.mode())
       }
 
+      @inlinable
       public func sample() -> Observation {
         Observation(
           position: positionDistribution.sample(),
@@ -217,6 +251,7 @@ public struct CartPoleRenderer: GLFWScene {
   @usableFromInline internal var cartTransform: GLFWTransform
   @usableFromInline internal var poleTransform: GLFWTransform
 
+  @inlinable
   public init(
     windowWidth: Int = 600,
     windowHeight: Int = 400,
@@ -268,26 +303,22 @@ public struct CartPoleRenderer: GLFWScene {
     self.track.attributes.append(GLFWColor(red: 0, green: 0, blue: 0))
   }
 
+  @inlinable
   public func draw() {
     cart.renderWithAttributes()
     pole.renderWithAttributes()
     axle.renderWithAttributes()
     track.renderWithAttributes()
   }
-}
 
-extension CartPoleEnvironment {
   @inlinable
-  public func render(using renderer: inout CartPoleRenderer) throws {
+  public mutating func render(observation: CartPoleEnvironment.Observation) {
     // TODO: Support batched environments.
-    let step = currentStep()
-    let position = step.observation.position[0].scalarized()
-    let angle = step.observation.angle[0].scalarized()
-    renderer.cartTransform.translation = (
-      position * renderer.scale + Float(renderer.windowWidth) / 2,
-      renderer.cartTop)
-    renderer.poleTransform.rotation = -angle
-    renderer.window.render(scene: renderer)
+    let position = observation.position[0].scalarized()
+    let angle = observation.angle[0].scalarized()
+    cartTransform.translation = (position * scale + Float(windowWidth) / 2, cartTop)
+    poleTransform.rotation = -angle
+    render(in: window)
   }
 }
 

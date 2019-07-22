@@ -56,9 +56,11 @@ where
   public let discountFactor: Float
   public let trainStepsPerIteration: Int
 
-  private var replayBuffer: UniformReplayBuffer<Trajectory<Observation, Action, Reward, State>>?
-  private var trainingStep: Int = 0
+  @usableFromInline internal var replayBuffer: UniformReplayBuffer<
+    Trajectory<Observation, Action, Reward, State>>?
+  @usableFromInline internal var trainingStep: Int = 0
 
+  @inlinable
   public init(
     for environment: Environment,
     qNetwork: QNetwork,
@@ -94,10 +96,12 @@ where
     self.replayBuffer = nil
   }
 
+  @inlinable
   public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
     Categorical<Int32>(logits: qNetwork(step.observation))
   }
 
+  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, Action, Reward, State>
@@ -147,6 +151,7 @@ where
     return loss.scalarized()
   }
 
+  @inlinable
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
@@ -193,13 +198,15 @@ where
   /// For each parameter, `pTarget`, in the target Q-network the following update is performed:
   /// `pTarget = targetUpdateForgetFactor * pTarget + (1 - targetUpdateForgetFactor) * p`,
   /// where `p` is the corresponding parameter in the current Q-network.
-  private mutating func updateTargetQNetwork() {
+  @inlinable
+  internal mutating func updateTargetQNetwork() {
     if trainingStep % targetUpdatePeriod == 0 && targetUpdateForgetFactor < 1.0 {
       targetQNetwork.update(using: qNetwork, forgetFactor: targetUpdateForgetFactor)
     }
   }
 
-  private func computeNextQValue(stepKind: StepKind, observation: Observation) -> Tensor<Float> {
+  @inlinable
+  internal func computeNextQValue(stepKind: StepKind, observation: Observation) -> Tensor<Float> {
     targetQNetwork(observation).max(squeezingAxes: -1)
   }
 }
