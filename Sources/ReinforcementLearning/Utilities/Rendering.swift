@@ -14,97 +14,22 @@
 
 import TensorFlow
 
-public protocol Renderer {
-  associatedtype Data
-
-  mutating func render(_ data: Data) throws
-}
-
-public struct TensorPrinter<Scalar: TensorFlowScalar & LosslessStringConvertible>: Renderer {
-  public typealias Data = Tensor<Scalar>
-
-  @usableFromInline internal var printer: ShapedArrayPrinter<Scalar>
-
-  @inlinable
-  public init(
-    lineWidth: Int = 80,
-    edgeElementCount: Int = 3,
-    summarizing: Bool = false
-  ) {
-    self.printer = ShapedArrayPrinter<Scalar>(
-      lineWidth: lineWidth,
-      edgeElementCount: edgeElementCount,
-      summarizing: summarizing)
-  }
-
-  public mutating func render(_ data: Tensor<Scalar>) throws {
-    try printer.render(data.array)
-  }
-}
-
-public struct ShapedArrayPrinter<Scalar: LosslessStringConvertible>: Renderer {
-  public typealias Data = ShapedArray<Scalar>
-
-  public let lineWidth: Int
-  public let edgeElementCount: Int
-  public let summarizing: Bool
-
-  @inlinable
-  public init(
-    lineWidth: Int = 80,
-    edgeElementCount: Int = 3,
-    summarizing: Bool = false
-  ) {
-    self.lineWidth = lineWidth
-    self.edgeElementCount = edgeElementCount
-    self.summarizing = summarizing
-  }
-
-  @inlinable
-  public mutating func render(_ data: ShapedArray<Scalar>) throws {
-    print(data.description(
-      lineWidth: lineWidth,
-      edgeElementCount: edgeElementCount,
-      summarizing: summarizing))
-  }
-}
-
 #if GLFW
+
 import GLFW
 import Foundation
 
-public struct TensorImageRenderer: Renderer {
-  public typealias Data = Tensor<UInt8>
-
-  @usableFromInline internal var renderer: ShapedArrayImageRenderer
-
-  @inlinable
-  public init(initialMaxWidth: Int32, framesPerSecond: Double? = nil) {
-    self.renderer = ShapedArrayImageRenderer(
-      initialMaxWidth: initialMaxWidth,
-      framesPerSecond: framesPerSecond)
-  }
-
-  @inlinable
-  public mutating func render(_ data: Tensor<UInt8>) throws {
-    try renderer.render(data.array)
-  }
-}
-
-public class ShapedArrayImageRenderer: Renderer {
-  public typealias Data = ShapedArray<UInt8>
-
+public class ImageRenderer {
   public let framesPerSecond: Double?
 
+  @usableFromInline internal let initialMaxWidth: Int32
   @usableFromInline internal var window: OpaquePointer?
   @usableFromInline internal var frameBuffer: GLuint = 0
   @usableFromInline internal var texture: GLuint = 0
-
-  @usableFromInline internal let initialMaxWidth: Int32
   @usableFromInline internal var isOpen: Bool = true
 
   @inlinable
-  public init(initialMaxWidth: Int32, framesPerSecond: Double? = nil) {
+  public init(initialMaxWidth: Int32 = 800, framesPerSecond: Double? = nil) {
     self.initialMaxWidth = initialMaxWidth
     self.framesPerSecond = framesPerSecond
   }
@@ -117,10 +42,7 @@ public class ShapedArrayImageRenderer: Renderer {
   @inlinable
   public func render(_ data: ShapedArray<UInt8>) throws {
     if !isOpen { return }
-
-    if let fps = framesPerSecond {
-      Thread.sleep(forTimeInterval: 1 / fps)
-    }
+    if let fps = framesPerSecond { Thread.sleep(forTimeInterval: 1 / fps) }
 
     if self.window == nil {
       var width = Int32(data.shape[1])
@@ -130,21 +52,16 @@ public class ShapedArrayImageRenderer: Renderer {
         width = Int32(scale * Float(width))
         height = Int32(scale * Float(height))
       }
-
       try createWindow(width: width, height: height)
     }
 
     if let window = self.window {
-      if glfwWindowShouldClose(window) > 0 {
-        closeWindow()
-        exit(0)
-      }
-
+      if glfwWindowShouldClose(window) > 0 { closeWindow(); exit(0) }
       glfwMakeContextCurrent(window)
       glClear(UInt32(GL_COLOR_BUFFER_BIT))
-      
+
       // Generate the image texture.
-      try ShapedArrayImageRenderer.preprocessData(data).withUnsafeBufferPointer {
+      try ImageRenderer.preprocessData(data).withUnsafeBufferPointer {
         glTexImage2D(
           GLenum(GL_TEXTURE_2D), 0, GL_RGB8, GLsizei(data.shape[1]), GLsizei(data.shape[0]), 
           0, GLenum(GL_RGB), GLenum(GL_UNSIGNED_BYTE), $0.baseAddress)

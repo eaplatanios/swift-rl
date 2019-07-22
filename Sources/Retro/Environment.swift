@@ -34,6 +34,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   @usableFromInline internal var movieURLs: [URL?]
   @usableFromInline internal var needsReset: [Bool]
   @usableFromInline internal var step: Step<Tensor<Float>, Tensor<Float>>? = nil
+  @usableFromInline internal var renderer: ImageRenderer? = nil
 
   public init(
     using emulator: RetroEmulator,
@@ -41,6 +42,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     observationsType: ObservationsType = .screen(height: 84, width: 84, grayscale: true),
     startingState: StartingState? = nil,
     movieURL: URL? = nil,
+    renderer: ImageRenderer? = nil,
     randomSeed: TensorFlowSeed = Context.local.randomSeed
   ) throws {
     try self.init(
@@ -49,6 +51,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       observationsType: observationsType,
       startingStates: startingState == nil ? nil : [startingState!],
       movieURLs: [movieURL],
+      renderer: renderer,
       randomSeed: randomSeed)
   }
 
@@ -58,6 +61,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
     observationsType: ObservationsType = .screen(height: 84, width: 84, grayscale: true),
     startingStates: [StartingState]? = nil,
     movieURLs: [URL?]? = nil,
+    renderer: ImageRenderer? = nil,
     randomSeed: TensorFlowSeed = Context.local.randomSeed
   ) throws {
     precondition(emulators.count > 0, "At least one emulator must be provided.")
@@ -78,6 +82,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
         lowerBound: 0,
         upperBound: 1)
     }
+    self.renderer = renderer
     self.randomSeed = randomSeed
     self.movies = [Movie?](repeating: nil, count: batchSize)
     self.movieIDs = [Int](repeating: 0, count: batchSize)
@@ -242,6 +247,28 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
       startingStates: startingStates,
       movieURLs: movieURLs,
       randomSeed: randomSeed)
+  }
+
+  @inlinable
+  public mutating func render() throws {
+    if renderer == nil { renderer = ImageRenderer() }
+    let observation = currentStep().observation
+    switch observationsType {
+    case let .screen(height, width, true):
+      try renderer!.render(
+        Tensor<UInt8>(255 * observation
+          .reshaped(to: [84, 84, 1])
+          .tiled(multiples: Tensor<Int32>([1, 1, 3]))).array)
+    case let .screen(height, width, false):
+      try renderer!.render(
+        Tensor<UInt8>(255 * observation.reshaped(to: [84, 84, 3])).array)
+    case .memory:
+      let size = observation.shape.contiguousSize
+      try renderer!.render(
+        Tensor<UInt8>(255 * observation
+          .reshaped(to: [size / 2, size / 2, 1])
+          .tiled(multiples: Tensor<Int32>([1, 1, 3]))).array)
+    }
   }
 
   public mutating func startRecordings(at urls: [URL]) {

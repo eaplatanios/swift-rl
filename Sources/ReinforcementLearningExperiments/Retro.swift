@@ -108,8 +108,9 @@ public func runRetro(
   let logger = Logger(label: "Breakout Experiment")
 
   // Environment:
-  var environment = try! RetroEnvironment(using: emulator, actionsType: DiscreteActions())
-  var renderer = TensorImageRenderer(initialMaxWidth: 800)
+  var environment = try! RetroEnvironment(
+    using: emulator, actionsType: DiscreteActions(),
+    renderer: ImageRenderer(initialMaxWidth: 800))
 
   // Metrics:
   var averageEpisodeReward = AverageEpisodeReward<
@@ -135,11 +136,7 @@ public func runRetro(
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeReward.update(using: trajectory)
-          if step > 0 {
-            try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
-              .reshaped(to: [84, 84, 1])
-              .tiled(multiples: Tensor<Int32>([1, 1, 3]))))
-          }
+          if step > 0 { try! environment.render() }
         }])
       if step % 1 == 0 {
         print("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
@@ -160,11 +157,7 @@ public func runRetro(
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeReward.update(using: trajectory)
-          if step > 100 {
-            try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
-              .reshaped(to: [84, 84, 1])
-              .tiled(multiples: Tensor<Int32>([1, 1, 3]))))
-          }
+          if step > 100 { try! environment.render() }
         }])
       if step % 1 == 0 {
         print("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
@@ -186,11 +179,7 @@ public func runRetro(
         maxEpisodes: 1,
         stepCallbacks: [{ (environment, trajectory) in
           averageEpisodeReward.update(using: trajectory)
-          if step > 1000 {
-            try! renderer.render(Tensor<UInt8>(255 * trajectory.observation
-              .reshaped(to: [84, 84, 1])
-              .tiled(multiples: Tensor<Int32>([1, 1, 3]))))
-          }
+          if step > 1 { try! environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Reward: \(averageEpisodeReward.value())")
