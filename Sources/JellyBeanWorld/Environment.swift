@@ -19,13 +19,11 @@ import TensorFlow
 
 fileprivate typealias Agent = NELFramework.Agent
 
-public protocol JellyBeanWorldRewardFunction: Hashable {
+public protocol JellyBeanWorldRewardFunction {
   func callAsFunction(previousItems: [Item: UInt32]?, currentItems: [Item: UInt32]?) -> Float
 }
 
-public struct JellyBeanWorldConfiguration<
-  RewardFunction: JellyBeanWorldRewardFunction
->: Equatable, Hashable {
+public struct JellyBeanWorldConfiguration<RewardFunction: JellyBeanWorldRewardFunction> {
   public let simulatorConfig: SimulatorConfig
   public let rewardFunction: RewardFunction
 

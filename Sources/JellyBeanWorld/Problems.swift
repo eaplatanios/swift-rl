@@ -14,6 +14,25 @@
 
 import NELFramework
 
+public struct CombinedReward: JellyBeanWorldRewardFunction {
+  public let rewardFunctions: [JellyBeanWorldRewardFunction]
+
+  public init(_ rewardFunctions: JellyBeanWorldRewardFunction...) {
+    self.rewardFunctions = rewardFunctions
+  }
+
+  public func callAsFunction(
+    previousItems: [Item: UInt32]?,
+    currentItems: [Item: UInt32]?
+  ) -> Float {
+    var reward: Float = 0.0
+    for rewardFunction in rewardFunctions {
+      reward += rewardFunction(previousItems: previousItems, currentItems: currentItems)
+    }
+    return reward
+  }
+}
+
 public struct ItemCollectionReward: JellyBeanWorldRewardFunction {
   public let item: Item
   public let reward: Float
