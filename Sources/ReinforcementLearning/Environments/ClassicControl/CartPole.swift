@@ -119,7 +119,7 @@ extension CartPoleEnvironment {
     public let distribution: ValueDistribution
 
     public init(batchSize: Int) {
-      self.distribution = ValueDistribution()
+      self.distribution = ValueDistribution(batchSize: batchSize)
     }
 
     public var description: String {
@@ -131,18 +131,35 @@ extension CartPoleEnvironment {
     }
 
     public struct ValueDistribution: DifferentiableDistribution, KeyPathIterable {
-      private var positionDistribution: Uniform<Float> = Uniform<Float>(
-        lowerBound: Tensor<Float>(0),
-        upperBound: Tensor<Float>(positionThreshold * 2))
-      private var positionDerivativeDistribution: Uniform<Float> = Uniform<Float>(
-        lowerBound: Tensor<Float>(0),
-        upperBound: Tensor<Float>(Float.greatestFiniteMagnitude))
-      private var angleDistribution: Uniform<Float> = Uniform<Float>(
-        lowerBound: Tensor<Float>(0),
-        upperBound: Tensor<Float>(angleThreshold * 2))
-      private var angleDerivativeDistribution: Uniform<Float> = Uniform<Float>(
-        lowerBound: Tensor<Float>(0),
-        upperBound: Tensor<Float>(Float.greatestFiniteMagnitude))
+      @noDerivative public let batchSize: Int
+
+      private var positionDistribution: Uniform<Float> { 
+        Uniform<Float>(
+          lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
+          upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
+      }
+
+      private var positionDerivativeDistribution: Uniform<Float> {
+        Uniform<Float>(
+          lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
+          upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
+      }
+
+      private var angleDistribution: Uniform<Float> {
+        Uniform<Float>(
+          lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
+          upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
+      }
+
+      private var angleDerivativeDistribution: Uniform<Float> {
+        Uniform<Float>(
+          lowerBound: Tensor<Float>(repeating: -0.05, shape: [batchSize]),
+          upperBound: Tensor<Float>(repeating: 0.05, shape: [batchSize]))
+      }
+
+      public init(batchSize: Int) {
+        self.batchSize = batchSize
+      }
 
       @differentiable(wrt: self)
       public func logProbability(of value: Observation) -> Tensor<Float> {
@@ -181,7 +198,7 @@ extension CartPoleEnvironment {
 
 #if GLFW
 
-public struct CartPoleRenderer: Renderer, GLFWScene {
+public struct CartPoleRenderer: GLFWScene {
   public let windowWidth: Int
   public let windowHeight: Int
   public let worldWidth: Float
@@ -257,15 +274,20 @@ public struct CartPoleRenderer: Renderer, GLFWScene {
     axle.renderWithAttributes()
     track.renderWithAttributes()
   }
+}
 
+extension CartPoleEnvironment {
   @inlinable
-  public mutating func render(_ data: CartPoleEnvironment.Observation) throws {
+  public func render(using renderer: inout CartPoleRenderer) throws {
     // TODO: Support batched environments.
-    let position = data.position[0].scalarized()
-    let angle = data.angle[0].scalarized()
-    cartTransform.translation = (position * scale + Float(windowWidth) / 2, cartTop)
-    poleTransform.rotation = -angle
-    window.render(scene: self)
+    let step = currentStep()
+    let position = step.observation.position[0].scalarized()
+    let angle = step.observation.angle[0].scalarized()
+    renderer.cartTransform.translation = (
+      position * renderer.scale + Float(renderer.windowWidth) / 2,
+      renderer.cartTop)
+    renderer.poleTransform.rotation = -angle
+    renderer.window.render(scene: renderer)
   }
 }
 

@@ -21,6 +21,7 @@ let package = Package(
             targets: ["Retro"])
     ],
     dependencies: [
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
         .package(url: "https://github.com/eaplatanios/nel_framework.git", .branch("master")),
         .package(url: "https://github.com/1024jp/GzipSwift.git", from: "4.1.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", .branch("master"))
@@ -41,7 +42,7 @@ let package = Package(
             swiftSettings: [.define("GLFW")]),
         .target(
             name: "ReinforcementLearningExperiments",
-            dependencies: ["JellyBeanWorld", "ReinforcementLearning", "Retro"]),
+            dependencies: ["JellyBeanWorld", "Logging", "ReinforcementLearning", "Retro"]),
         .target(
             name: "JellyBeanWorld",
             dependencies: ["NELFramework", "ReinforcementLearning"],

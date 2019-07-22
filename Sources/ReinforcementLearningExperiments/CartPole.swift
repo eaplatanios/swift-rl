@@ -12,6 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+import Logging
 import ReinforcementLearning
 
 fileprivate struct CartPoleActor: Network {
@@ -69,7 +70,7 @@ fileprivate struct CartPoleActorCritic: Network {
       stacking: [
         input.position, input.positionDerivative,
         input.angle, input.angleDerivative],
-      alongAxis: input.position.rank)
+      alongAxis: -1)
     let outerDimCount = stackedInput.rank - 1
     let outerDims = [Int](stackedInput.shape.dimensions[0..<outerDimCount])
     let flattenedBatchStackedInput = stackedInput.flattenedBatch(outerDimCount: outerDimCount)
@@ -119,6 +120,8 @@ public func runCartPole(
   discountFactor: Float = 0.9,
   entropyRegularizationWeight: Float = 0.0
 ) {
+  let logger = Logger(label: "Cart-Pole Experiment")
+
   // Environment:
   var environment = CartPoleEnvironment(batchSize: batchSize)
   var renderer = CartPoleRenderer()
@@ -149,11 +152,11 @@ public func runCartPole(
         stepCallbacks: [{ trajectory in
           averageEpisodeLength.update(using: trajectory)
           if step > 100 {
-            try! renderer.render(trajectory.observation)
+            try! environment.render(using: &renderer)
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
     }
   case .advantageActorCritic:
@@ -172,11 +175,11 @@ public func runCartPole(
         stepCallbacks: [{ trajectory in
           averageEpisodeLength.update(using: trajectory)
           if step > 100 {
-            try! renderer.render(trajectory.observation)
+            try! environment.render(using: &renderer)
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
     }
   case .ppo:
@@ -196,11 +199,11 @@ public func runCartPole(
         stepCallbacks: [{ trajectory in
           averageEpisodeLength.update(using: trajectory)
           if step > 100 {
-            try! renderer.render(trajectory.observation)
+            try! environment.render(using: &renderer)
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
     }
   case .dqn:
@@ -224,11 +227,11 @@ public func runCartPole(
         stepCallbacks: [{ trajectory in
           averageEpisodeLength.update(using: trajectory)
           if step > 100 {
-            try! renderer.render(trajectory.observation)
+            try! environment.render(using: &renderer)
           }
         }])
       if step % 1 == 0 {
-        print("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
+        logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
       }
     }
   }
