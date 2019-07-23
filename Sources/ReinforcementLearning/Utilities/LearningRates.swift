@@ -44,6 +44,6 @@ public struct LinearLearningRateSchedule: LearningRateSchedule {
   @inlinable
   public func learningRate<Scalar: FloatingPoint>(step: Int) -> Scalar {
     // TODO: !! Figure out how to avoid this cast.
-    (initialValue + Float(step) * slope) as! Scalar
+    min((initialValue + Float(step) * slope) as! Scalar, Scalar(0))
   }
 }
