@@ -36,12 +36,12 @@ where
   WrappedEnvironment.Reward == Reward
 {
   @inlinable
-  mutating func step(taking action: Action) -> Step<Observation, Reward> {
+  func step(taking action: Action) -> Step<Observation, Reward> {
     wrappedEnvironment.step(taking: action)
   }
 
   @inlinable
-  mutating func reset() -> Step<Observation, Reward> {
+  func reset() -> Step<Observation, Reward> {
     wrappedEnvironment.reset()
   }
 }

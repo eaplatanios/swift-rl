@@ -15,7 +15,7 @@
 import Foundation
 import TensorFlow
 
-public protocol Environment {
+public protocol Environment: AnyObject {
   associatedtype ActionSpace: Space
   associatedtype ObservationSpace: Space
   associatedtype Reward
@@ -25,20 +25,21 @@ public protocol Environment {
   var observationSpace: ObservationSpace { get }
 
   /// Returns the result of the last step taken in this environment (i.e., its current state).
-  mutating func currentStep() -> Step<Observation, Reward>
+  func currentStep() -> Step<Observation, Reward>
 
   /// Updates the environment according to the provided action.
   @discardableResult
-  mutating func step(taking action: Action) -> Step<Observation, Reward>
+  func step(taking action: Action) -> Step<Observation, Reward>
 
   /// Resets the environment.
   @discardableResult
-  mutating func reset() -> Step<Observation, Reward>
+  func reset() -> Step<Observation, Reward>
 
   /// Returns a copy of this environment that is reset before being returned.
   func copy() -> Self
 }
 
+// TODO: Remove the following?
 public extension Environment {
   typealias Action = ActionSpace.Value
   typealias Observation = ObservationSpace.Value
