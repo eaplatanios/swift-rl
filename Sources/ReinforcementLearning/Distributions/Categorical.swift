@@ -39,11 +39,11 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
   @inlinable
   @differentiable(wrt: self)
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    let outerDimCount = logProbabilities.rank - 1
-    return -softmaxCrossEntropy(
-      logits: logProbabilities.flattenedBatch(outerDimCount: outerDimCount),
-      labels: Tensor<Int32>(value).flattenedBatch(outerDimCount: outerDimCount)
-    ).unflattenedBatch(outerDims: [Int](logProbabilities.shape.dimensions[0..<outerDimCount]))
+    logProbabilities.batchGatheringV2(
+      atIndices: value.expandingShape(at: -1),
+      alongAxis: 2,
+      batchDimensionCount: 2
+    ).squeezingShape(at: -1)
   }
 
   @inlinable
