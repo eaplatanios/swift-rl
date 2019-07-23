@@ -34,15 +34,17 @@ public protocol Metric {
 public struct AverageEpisodeLength<Observation, Action, Reward>: Metric {
   public let batchSize: Int
 
-  private var deque: Deque<Float>
-  private var episodeSteps: Tensor<Int32>
+  @usableFromInline internal var deque: Deque<Float>
+  @usableFromInline internal var episodeSteps: Tensor<Int32>
 
+  @inlinable
   public init(batchSize: Int, bufferSize: Int) {
     self.batchSize = batchSize
     self.deque = Deque(size: bufferSize)
     self.episodeSteps = Tensor<Int32>(repeating: 0, shape: [batchSize])
   }
 
+  @inlinable
   public mutating func update(
     stepKind: StepKind,
     observation: Observation,
@@ -58,11 +60,13 @@ public struct AverageEpisodeLength<Observation, Action, Reward>: Metric {
     episodeSteps *= isNotLast
   }
 
+  @inlinable
   public mutating func reset() {
     deque.reset()
     episodeSteps = Tensor<Int32>(repeating: 0, shape: [batchSize])
   }
 
+  @inlinable
   public func value() -> Float {
     deque.mean()
   }
@@ -71,15 +75,17 @@ public struct AverageEpisodeLength<Observation, Action, Reward>: Metric {
 public struct AverageEpisodeReward<Observation, Action, Reward: TensorFlowFloatingPoint>: Metric {
   public let batchSize: Int
 
-  private var deque: Deque<Reward>
-  private var episodeRewards: Tensor<Reward>
+  @usableFromInline internal var deque: Deque<Reward>
+  @usableFromInline internal var episodeRewards: Tensor<Reward>
 
+  @inlinable
   public init(batchSize: Int, bufferSize: Int) {
     self.batchSize = batchSize
     self.deque = Deque(size: bufferSize)
     self.episodeRewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
   }
 
+  @inlinable
   public mutating func update(
     stepKind: StepKind,
     observation: Observation,
@@ -94,11 +100,13 @@ public struct AverageEpisodeReward<Observation, Action, Reward: TensorFlowFloati
     episodeRewards *= (1 - Tensor<Reward>(isLast))
   }
 
+  @inlinable
   public mutating func reset() {
     deque.reset()
     episodeRewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
   }
 
+  @inlinable
   public func value() -> Reward {
     deque.mean()
   }
@@ -108,13 +116,15 @@ public struct AverageEpisodeReward<Observation, Action, Reward: TensorFlowFloati
 public struct TotalCumulativeReward<Observation, Action, Reward: TensorFlowFloatingPoint>: Metric {
   public let batchSize: Int
 
-  private var rewards: Tensor<Reward>
+  @usableFromInline internal var rewards: Tensor<Reward>
 
+  @inlinable
   public init(batchSize: Int) {
     self.batchSize = batchSize
     self.rewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
   }
 
+  @inlinable
   public mutating func update(
     stepKind: StepKind,
     observation: Observation,
@@ -124,11 +134,50 @@ public struct TotalCumulativeReward<Observation, Action, Reward: TensorFlowFloat
     rewards += reward
   }
 
+  @inlinable
   public mutating func reset() {
     rewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
   }
 
+  @inlinable
   public func value() -> [Reward] {
     rewards.scalars
+  }
+}
+
+@usableFromInline
+internal struct Deque<Scalar: FloatingPoint> {
+  @usableFromInline internal let size: Int
+  @usableFromInline internal var buffer: [Scalar]
+  @usableFromInline internal var index: Int
+  @usableFromInline internal var full: Bool
+
+  @inlinable
+  init(size: Int) {
+    self.size = size
+    self.buffer = [Scalar](repeating: 0, count: size)
+    self.index = 0
+    self.full = false
+  }
+
+  @inlinable
+  mutating func push(_ value: Scalar) {
+    buffer[index] = value
+    index += 1
+    full = full || index == buffer.count
+    index = index % buffer.count
+  }
+
+  @inlinable
+  mutating func reset() {
+    index = 0
+    full = false
+  }
+
+  @inlinable
+  func mean() -> Scalar {
+    let sum = full ? buffer.reduce(0, +) : buffer[0..<index].reduce(0, +)
+    let count = full ? buffer.count : index
+    return sum / Scalar(count)
   }
 }
