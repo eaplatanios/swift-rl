@@ -297,7 +297,6 @@ where
   }
 }
 
-// TODO: !! Allow the learning rate to change while training.
 // TODO: !! Allow `epsilon` to change while training.
 public struct PPOClip {
   public let epsilon: Float
@@ -314,8 +313,7 @@ public struct PPOPenalty {
   public let adaptiveKLTarget: Float
   public let adaptiveKLToleranceFactor: Float
   public let adaptiveKLBetaScalingFactor: Float
-
-  @usableFromInline internal var adaptiveKLBeta: Float?
+  public var adaptiveKLBeta: Float?
 
   @inlinable
   public init(
