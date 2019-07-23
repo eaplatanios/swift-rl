@@ -12,37 +12,112 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-public protocol Wrapper: Environment {
+public protocol EnvironmentWrapper: Environment {
   associatedtype WrappedEnvironment: Environment
   var wrappedEnvironment: WrappedEnvironment { get set }
 }
 
-public extension Wrapper where WrappedEnvironment.ActionSpace == ActionSpace {
+public extension EnvironmentWrapper where WrappedEnvironment.ActionSpace == ActionSpace {
   var actionSpace: ActionSpace {
     get { wrappedEnvironment.actionSpace }
   }
 }
 
-public extension Wrapper where WrappedEnvironment.ObservationSpace == ObservationSpace {
+public extension EnvironmentWrapper where WrappedEnvironment.ObservationSpace == ObservationSpace {
   var observationSpace: ObservationSpace {
     get { wrappedEnvironment.observationSpace }
   }
 }
 
-public extension Wrapper
+extension EnvironmentWrapper
 where
   WrappedEnvironment.Action == Action,
   WrappedEnvironment.Observation == Observation,
   WrappedEnvironment.Reward == Reward
 {
   @inlinable
-  func step(taking action: Action) -> Step<Observation, Reward> {
+  public func currentStep() -> Step<Observation, Reward> {
+    wrappedEnvironment.currentStep()
+  }
+
+  @inlinable
+  public func step(taking action: Action) -> Step<Observation, Reward> {
     wrappedEnvironment.step(taking: action)
   }
 
   @inlinable
-  func reset() -> Step<Observation, Reward> {
+  public func reset() -> Step<Observation, Reward> {
     wrappedEnvironment.reset()
+  }
+}
+
+public protocol EnvironmentCallback: AnyObject {
+  associatedtype Environment: ReinforcementLearning.Environment
+  func step(stepKind: StepKind, observation: Observation, action: Action, reward: Reward)  
+  func reset()
+}
+
+extension EnvironmentCallback {
+  public typealias ObservationSpace = Environment.ObservationSpace
+  public typealias Observation = Environment.Observation
+  public typealias ActionSpace = Environment.ActionSpace
+  public typealias Action = Environment.Action
+  public typealias Reward = Environment.Reward
+}
+
+public final class EnvironmentCallbackWrapper<
+  Environment,
+  Callback: EnvironmentCallback
+>: EnvironmentWrapper where Callback.Environment == Environment {
+  public typealias ObservationSpace = Environment.ObservationSpace
+  public typealias Observation = Environment.Observation
+  public typealias ActionSpace = Environment.ActionSpace
+  public typealias Action = Environment.Action
+  public typealias Reward = Environment.Reward
+
+  public var wrappedEnvironment: Environment
+  public let callback: Callback
+
+  public var batchSize: Int { wrappedEnvironment.batchSize }
+  public var observationSpace: ObservationSpace { wrappedEnvironment.observationSpace }
+  public var actionSpace: ActionSpace { wrappedEnvironment.actionSpace }
+
+  @inlinable
+  public init(_ wrappedEnvironment: Environment, callback: Callback) {
+    self.wrappedEnvironment = wrappedEnvironment
+    self.callback = callback
+  }
+
+  @inlinable
+  @discardableResult
+  public func step(taking action: Action) -> Step<Observation, Reward> {
+    let step = wrappedEnvironment.step(taking: action)
+    callback.step(
+      stepKind: step.kind,
+      observation: step.observation,
+      action: action,
+      reward: step.reward)
+    return step
+  }
+
+  @inlinable
+  @discardableResult
+  public func reset() -> Step<Observation, Reward> {
+    callback.reset()
+    return wrappedEnvironment.reset()
+  }
+
+  @inlinable
+  public func copy() -> EnvironmentCallbackWrapper<Environment, Callback> {
+    EnvironmentCallbackWrapper(wrappedEnvironment.copy(), callback: callback)
+  }
+}
+
+extension EnvironmentCallbackWrapper: RenderableEnvironment
+where Environment: RenderableEnvironment {
+  @inlinable
+  public func render() throws {
+    try wrappedEnvironment.render()
   }
 }
 
