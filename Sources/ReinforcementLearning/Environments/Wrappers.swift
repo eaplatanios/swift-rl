@@ -35,10 +35,7 @@ where
   WrappedEnvironment.Observation == Observation,
   WrappedEnvironment.Reward == Reward
 {
-  @inlinable
-  public func currentStep() -> Step<Observation, Reward> {
-    wrappedEnvironment.currentStep()
-  }
+  @inlinable public var currentStep: Step<Observation, Reward> { wrappedEnvironment.currentStep }
 
   @inlinable
   public func step(taking action: Action) -> Step<Observation, Reward> {
@@ -52,23 +49,13 @@ where
 }
 
 public protocol EnvironmentCallback: AnyObject {
-  associatedtype Environment: ReinforcementLearning.Environment
-  func step(stepKind: StepKind, observation: Observation, action: Action, reward: Reward)  
-  func reset()
-}
-
-extension EnvironmentCallback {
-  public typealias ObservationSpace = Environment.ObservationSpace
-  public typealias Observation = Environment.Observation
-  public typealias ActionSpace = Environment.ActionSpace
-  public typealias Action = Environment.Action
-  public typealias Reward = Environment.Reward
+  func updateOnStep()
+  func updateOnReset()
 }
 
 public final class EnvironmentCallbackWrapper<
-  Environment,
-  Callback: EnvironmentCallback
->: EnvironmentWrapper where Callback.Environment == Environment {
+  Environment: ReinforcementLearning.Environment
+>: EnvironmentWrapper {
   public typealias ObservationSpace = Environment.ObservationSpace
   public typealias Observation = Environment.Observation
   public typealias ActionSpace = Environment.ActionSpace
@@ -76,40 +63,41 @@ public final class EnvironmentCallbackWrapper<
   public typealias Reward = Environment.Reward
 
   public var wrappedEnvironment: Environment
-  public let callback: Callback
+  public var callbacks: [EnvironmentCallback]
 
   public var batchSize: Int { wrappedEnvironment.batchSize }
   public var observationSpace: ObservationSpace { wrappedEnvironment.observationSpace }
   public var actionSpace: ActionSpace { wrappedEnvironment.actionSpace }
 
   @inlinable
-  public init(_ wrappedEnvironment: Environment, callback: Callback) {
+  public convenience init(_ wrappedEnvironment: Environment, callbacks: EnvironmentCallback...) {
+    self.init(wrappedEnvironment, callbacks: callbacks)
+  }
+
+  @inlinable
+  public init(_ wrappedEnvironment: Environment, callbacks: [EnvironmentCallback]) {
     self.wrappedEnvironment = wrappedEnvironment
-    self.callback = callback
+    self.callbacks = callbacks
   }
 
   @inlinable
   @discardableResult
   public func step(taking action: Action) -> Step<Observation, Reward> {
     let step = wrappedEnvironment.step(taking: action)
-    callback.step(
-      stepKind: step.kind,
-      observation: step.observation,
-      action: action,
-      reward: step.reward)
+    callbacks.forEach { $0.updateOnStep() }
     return step
   }
 
   @inlinable
   @discardableResult
   public func reset() -> Step<Observation, Reward> {
-    callback.reset()
+    callbacks.forEach { $0.updateOnReset() }
     return wrappedEnvironment.reset()
   }
 
   @inlinable
-  public func copy() -> EnvironmentCallbackWrapper<Environment, Callback> {
-    EnvironmentCallbackWrapper(wrappedEnvironment.copy(), callback: callback)
+  public func copy() -> EnvironmentCallbackWrapper<Environment> {
+    EnvironmentCallbackWrapper(wrappedEnvironment.copy(), callbacks: callbacks)
   }
 }
 

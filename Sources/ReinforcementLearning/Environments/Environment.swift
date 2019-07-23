@@ -16,16 +16,16 @@ import Foundation
 import TensorFlow
 
 public protocol Environment: AnyObject {
-  associatedtype ActionSpace: Space
   associatedtype ObservationSpace: Space
+  associatedtype ActionSpace: Space
   associatedtype Reward
 
   var batchSize: Int { get }
-  var actionSpace: ActionSpace { get }
   var observationSpace: ObservationSpace { get }
+  var actionSpace: ActionSpace { get }
 
-  /// Returns the result of the last step taken in this environment (i.e., its current state).
-  func currentStep() -> Step<Observation, Reward>
+  /// Result of the last step taken in this environment (i.e., its current state).
+  var currentStep: Step<Observation, Reward> { get }
 
   /// Updates the environment according to the provided action.
   @discardableResult
@@ -39,10 +39,13 @@ public protocol Environment: AnyObject {
   func copy() -> Self
 }
 
-// TODO: Remove the following?
 public extension Environment {
-  typealias Action = ActionSpace.Value
   typealias Observation = ObservationSpace.Value
+  typealias Action = ActionSpace.Value
+}
+
+public protocol RenderableEnvironment: Environment {
+  func render() throws
 }
 
 /// Contains the data emitted by an environment at a single step of interaction.

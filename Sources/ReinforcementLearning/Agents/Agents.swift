@@ -35,12 +35,12 @@ extension Agent {
 
   @inlinable
   public mutating func run(
-    in environment: inout Environment,
+    in environment: Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void] = []
   ) {
-    var currentStep = environment.currentStep()
+    var currentStep = environment.currentStep
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
@@ -144,13 +144,13 @@ extension ProbabilisticAgent {
 
   @inlinable
   public mutating func run(
-    in environment: inout Environment,
+    in environment: Environment,
     mode: ProbabilisticAgentMode = .greedy,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void] = []
   ) {
-    var currentStep = environment.currentStep()
+    var currentStep = environment.currentStep
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
@@ -201,7 +201,7 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
   @inlinable
   @discardableResult
   public mutating func update(
-    using environment: inout Environment,
+    using environment: Environment,
     maxSteps: Int,
     maxEpisodes: Int,
     stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]

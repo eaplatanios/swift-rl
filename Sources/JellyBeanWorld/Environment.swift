@@ -17,7 +17,7 @@ import NELFramework
 import ReinforcementLearning
 import TensorFlow
 
-fileprivate typealias Agent = NELFramework.Agent
+@usableFromInline internal typealias Agent = NELFramework.Agent
 
 public protocol JellyBeanWorldRewardFunction {
   func callAsFunction(previousItems: [Item: UInt32]?, currentItems: [Item: UInt32]?) -> Float
@@ -27,6 +27,7 @@ public struct JellyBeanWorldConfiguration<RewardFunction: JellyBeanWorldRewardFu
   public let simulatorConfig: SimulatorConfig
   public let rewardFunction: RewardFunction
 
+  @inlinable
   public init(simulatorConfig: SimulatorConfig, rewardFunction: RewardFunction) {
     self.simulatorConfig = simulatorConfig
     self.rewardFunction = rewardFunction
@@ -37,6 +38,13 @@ public struct JellyBeanWorldObservation: Differentiable, KeyPathIterable {
   public var vision: Tensor<Float>
   public var scent: Tensor<Float>
   @noDerivative public var moved: Tensor<Bool>
+
+  @inlinable
+  public init(vision: Tensor<Float>, scent: Tensor<Float>, moved: Tensor<Bool>) {
+    self.vision = vision
+    self.scent = scent
+    self.moved = moved
+  }
 }
 
 public final class JellyBeanWorldEnvironment<
@@ -47,9 +55,12 @@ public final class JellyBeanWorldEnvironment<
   public let actionSpace: Discrete
   public let observationSpace: ObservationSpace
 
-  private var states: [State]
-  private var step: Step<JellyBeanWorldObservation, Tensor<Float>>
+  @usableFromInline internal var states: [State]
+  @usableFromInline internal var step: Step<JellyBeanWorldObservation, Tensor<Float>>
 
+  @inlinable public var currentStep: Step<JellyBeanWorldObservation, Tensor<Float>> { step }
+
+  @inlinable
   public init(configurations: [JellyBeanWorldConfiguration<RewardFunction>]) {
     let batchSize = configurations.count
     self.batchSize = batchSize
@@ -74,11 +85,8 @@ public final class JellyBeanWorldEnvironment<
       reward: Tensor<Float>(zeros: [batchSize]))
   }
 
-  public func currentStep() -> Step<JellyBeanWorldObservation, Tensor<Float>> {
-    step
-  }
-
   /// Updates the environment according to the provided action.
+  @inlinable
   @discardableResult
   public func step(
     taking action: Tensor<Int32>
@@ -102,6 +110,7 @@ public final class JellyBeanWorldEnvironment<
   }
 
   /// Resets the environment.
+  @inlinable
   @discardableResult
   public func reset() -> Step<JellyBeanWorldObservation, Tensor<Float>> {
     states = configurations.map { configuration -> State in
@@ -124,22 +133,34 @@ public final class JellyBeanWorldEnvironment<
   }
 
   /// Returns a copy of this environment that is reset before being returned.
+  @inlinable
   public func copy() -> JellyBeanWorldEnvironment<RewardFunction> {
     JellyBeanWorldEnvironment<RewardFunction>(configurations: configurations)
   }
 }
 
 extension JellyBeanWorldEnvironment {
-  private struct State {
-    let simulator: Simulator
-    let agent: Agent
-    var agentDelegate: AgentDelegate
+  @usableFromInline internal struct State {
+    @usableFromInline internal let simulator: Simulator
+    @usableFromInline internal let agent: Agent
+    @usableFromInline internal var agentDelegate: AgentDelegate
+
+    @inlinable
+    internal init(simulator: Simulator, agent: Agent, agentDelegate: AgentDelegate) {
+      self.simulator = simulator
+      self.agent = agent
+      self.agentDelegate = agentDelegate
+    }
   }
 
-  private class AgentDelegate: NELFramework.AgentDelegate {
-    var nextAction: Int? = nil
+  @usableFromInline internal class AgentDelegate: NELFramework.AgentDelegate {
+    @usableFromInline internal var nextAction: Int? = nil
 
-    func act(_ agent: Agent) {
+    @inlinable
+    internal init() {}
+
+    @inlinable
+    internal func act(_ agent: Agent) {
       switch nextAction {
         case 0: agent.move(towards: .up, by: 1)
         case 1: agent.turn(towards: .left)
@@ -148,8 +169,12 @@ extension JellyBeanWorldEnvironment {
       }
     }
 
-    func save(_ agent: Agent, to file: URL) throws {}
-    func load(_ agent: Agent, from file: URL) throws {}
+    @inlinable
+    internal func save(_ agent: Agent, to file: URL) throws {}
+
+
+    @inlinable
+    internal func load(_ agent: Agent, from file: URL) throws {}
   }
 }
 
@@ -157,29 +182,36 @@ extension JellyBeanWorldEnvironment {
   public struct ObservationSpace: Space {
     public let distribution: ValueDistribution
 
+    @inlinable
     public init(batchSize: Int) {
       self.distribution = ValueDistribution()
     }
 
+    @inlinable
     public var description: String {
       "JellyBeanWorldObservation"
     }
 
+    @inlinable
     public func contains(_ value: JellyBeanWorldObservation) -> Bool {
       true // TODO: Check for the range of values.
     }
 
     public struct ValueDistribution: DifferentiableDistribution, KeyPathIterable {
-      private var visionDistribution: Uniform<Float> = Uniform<Float>(
+      @usableFromInline internal var visionDistribution: Uniform<Float> = Uniform<Float>(
         lowerBound: Tensor<Float>(0),
         upperBound: Tensor<Float>(1))
       // TODO: Should we limit the range of the following values?
-      private var scentDistribution: Uniform<Float> = Uniform<Float>(
+      @usableFromInline internal var scentDistribution: Uniform<Float> = Uniform<Float>(
         lowerBound: Tensor<Float>(-Float.greatestFiniteMagnitude),
         upperBound: Tensor<Float>(Float.greatestFiniteMagnitude))
-      private var movedDistribution: Bernoulli<Int32> = Bernoulli<Int32>(
+      @usableFromInline internal var movedDistribution: Bernoulli<Int32> = Bernoulli<Int32>(
         probabilities: Tensor<Float>(0.5))
+      
+      @inlinable
+      public init() {}
 
+      @inlinable
       @differentiable(wrt: self)
       public func logProbability(of value: JellyBeanWorldObservation) -> Tensor<Float> {
         visionDistribution.logProbability(of: value.vision) +
@@ -187,11 +219,13 @@ extension JellyBeanWorldEnvironment {
           movedDistribution.logProbability(of: Tensor<Int32>(value.moved))
       }
 
+      @inlinable
       @differentiable(wrt: self)
       public func entropy() -> Tensor<Float> {
         visionDistribution.entropy() + scentDistribution.entropy() + movedDistribution.entropy()
       }
 
+      @inlinable
       public func mode() -> JellyBeanWorldObservation {
         JellyBeanWorldObservation(
           vision: visionDistribution.mode(),
@@ -199,6 +233,7 @@ extension JellyBeanWorldEnvironment {
           moved: movedDistribution.mode() .> 0)
       }
 
+      @inlinable
       public func sample() -> JellyBeanWorldObservation {
         JellyBeanWorldObservation(
           vision: visionDistribution.sample(),

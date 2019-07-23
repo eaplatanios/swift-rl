@@ -25,7 +25,7 @@ import TensorFlow
 @usableFromInline internal let totalMass: Float = cartMass + poleMass
 @usableFromInline internal let poleMassLength: Float = poleMass * length
 
-public final class CartPoleEnvironment: Environment {
+public final class CartPoleEnvironment: RenderableEnvironment {
   public let batchSize: Int
   public let actionSpace: Discrete
   public var observationSpace: ObservationSpace
@@ -33,6 +33,8 @@ public final class CartPoleEnvironment: Environment {
   @usableFromInline internal var step: Step<Observation, Tensor<Float>>
   @usableFromInline internal var needsReset: Tensor<Bool>
   @usableFromInline internal var renderer: CartPoleRenderer? = nil
+
+  @inlinable public var currentStep: Step<Observation, Tensor<Float>> { step }
 
   @inlinable
   public init(batchSize: Int, renderer: CartPoleRenderer? = nil) {
@@ -45,11 +47,6 @@ public final class CartPoleEnvironment: Environment {
       reward: Tensor<Float>(ones: [batchSize]))
     self.needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
     self.renderer = renderer
-  }
-
-  @inlinable
-  public func currentStep() -> Step<Observation, Tensor<Float>> {
-    step
   }
 
   /// Updates the environment according to the provided action.

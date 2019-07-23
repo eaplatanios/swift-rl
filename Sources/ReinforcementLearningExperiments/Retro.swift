@@ -108,16 +108,14 @@ public func runRetro(
   let logger = Logger(label: "Breakout Experiment")
 
   // Environment:
-  var environment = try! RetroEnvironment(
+  let environment = try! RetroEnvironment(
     using: emulator, actionsType: DiscreteActions(),
     renderer: ImageRenderer(initialMaxWidth: 800))
 
   // Metrics:
-  var averageEpisodeReward = AverageEpisodeReward<
-    Tensor<Float>,
-    Tensor<Int32>,
-    None
-  >(batchSize: batchSize, bufferSize: 10)
+  let averageEpisodeReward = AverageEpisodeReward<RetroEnvironment>(
+    for: environment,
+    bufferSize: 10)
 
   // Agent Type:
   switch agentType {
@@ -131,11 +129,11 @@ public func runRetro(
       entropyRegularizationWeight: entropyRegularizationWeight)
     for step in 0..<10000 {
       let loss = agent.update(
-        using: &environment,
+        using: environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ (environment, trajectory) in
-          averageEpisodeReward.update(using: trajectory)
+          averageEpisodeReward.update()
           if step > 0 { try! environment.render() }
         }])
       if step % 1 == 0 {
@@ -152,11 +150,11 @@ public func runRetro(
       entropyRegularizationWeight: entropyRegularizationWeight)
     for step in 0..<10000 {
       let loss = agent.update(
-        using: &environment,
+        using: environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ (environment, trajectory) in
-          averageEpisodeReward.update(using: trajectory)
+          averageEpisodeReward.update()
           if step > 100 { try! environment.render() }
         }])
       if step % 1 == 0 {
@@ -169,17 +167,17 @@ public func runRetro(
       for: environment,
       network: network,
       optimizer: AMSGrad(for: network),
-      learningRateSchedule: LinearLearningRateSchedule(initialValue: 2.5e-4, slope: 1.0 / 7812.0),
+      learningRateSchedule: LinearLearningRateSchedule(initialValue: 2.5e-4, slope: -2.5e-4 / 7812.0),
       advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
       clip: PPOClip(),
       entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight))
     for step in 0..<10000 {
       let loss = agent.update(
-        using: &environment,
+        using: environment,
         maxSteps: 4000,
         maxEpisodes: 1,
         stepCallbacks: [{ (environment, trajectory) in
-          averageEpisodeReward.update(using: trajectory)
+          averageEpisodeReward.update()
           if step > 1 { try! environment.render() }
         }])
       if step % 1 == 0 {

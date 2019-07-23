@@ -37,6 +37,12 @@ public final class RetroEnvironment<ActionsType: Retro.ActionsType>: Environment
   @usableFromInline internal var renderer: ImageRenderer? = nil
 
   @inlinable
+  public var currentStep: Step<Tensor<Float>, Tensor<Float>> {
+    if step == nil { step = reset() }
+    return step!
+  }
+
+  @inlinable
   public convenience init(
     using emulator: RetroEmulator,
     actionsType: ActionsType,
@@ -134,12 +140,6 @@ public final class RetroEnvironment<ActionsType: Retro.ActionsType>: Environment
     }
     self.startingStateData = startingStateData
     self.needsReset = [Bool](repeating: true, count: batchSize)
-  }
-
-  @inlinable
-  public func currentStep() -> Step<Tensor<Float>, Tensor<Float>> {
-    if step == nil { step = reset() }
-    return step!
   }
 
   @inlinable
@@ -253,7 +253,7 @@ public final class RetroEnvironment<ActionsType: Retro.ActionsType>: Environment
   @inlinable
   public func render() throws {
     if renderer == nil { renderer = ImageRenderer() }
-    let observation = currentStep().observation
+    let observation = currentStep.observation
     switch observationsType {
     case let .screen(height, width, true):
       try renderer!.render(

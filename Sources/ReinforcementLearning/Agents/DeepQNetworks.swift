@@ -154,7 +154,7 @@ where
   @inlinable
   @discardableResult
   public mutating func update(
-    using environment: inout Environment,
+    using environment: Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
@@ -164,7 +164,7 @@ where
         batchSize: environment.batchSize,
         maxLength: maxReplayedSequenceLength)
     }
-    var currentStep = environment.currentStep()
+    var currentStep = environment.currentStep
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {

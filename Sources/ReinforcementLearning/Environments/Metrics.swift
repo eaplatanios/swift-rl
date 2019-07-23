@@ -14,44 +14,47 @@
 
 import TensorFlow
 
-public protocol Metric {
-  associatedtype Observation
-  associatedtype Action
-  associatedtype Reward
+public protocol Metric: AnyObject {
+  associatedtype Environment: ReinforcementLearning.Environment
   associatedtype Value
 
-  mutating func update(
-    stepKind: StepKind,
-    observation: Observation,
-    action: Action,
-    reward: Reward)
+  var environment: Environment { get }
 
-  mutating func reset()
-
+  func update()
+  func reset()
   func value() -> Value
 }
 
-public struct AverageEpisodeLength<Observation, Action, Reward>: Metric {
-  public let batchSize: Int
+extension Metric {
+  @inlinable public func updater() -> MetricUpdater<Self> {
+    MetricUpdater(for: self)
+  }
+}
+
+public final class MetricUpdater<Metric: ReinforcementLearning.Metric>: EnvironmentCallback {
+  public let metric: Metric
+  @inlinable public init(for metric: Metric) { self.metric = metric }
+  @inlinable public func updateOnStep() { metric.update() }
+  @inlinable public func updateOnReset() {}
+}
+
+public class AverageEpisodeLength<Environment: ReinforcementLearning.Environment>: Metric {
+  public let environment: Environment
 
   @usableFromInline internal var deque: Deque<Float>
   @usableFromInline internal var episodeSteps: Tensor<Int32>
 
   @inlinable
-  public init(batchSize: Int, bufferSize: Int) {
-    self.batchSize = batchSize
+  public init(for environment: Environment, bufferSize: Int) {
+    self.environment = environment
     self.deque = Deque(size: bufferSize)
-    self.episodeSteps = Tensor<Int32>(repeating: 0, shape: [batchSize])
+    self.episodeSteps = Tensor<Int32>(repeating: 0, shape: [environment.batchSize])
   }
 
   @inlinable
-  public mutating func update(
-    stepKind: StepKind,
-    observation: Observation,
-    action: Action,
-    reward: Reward
-  ) {
-    let isLast = stepKind.isLast()
+  public func update() {
+    let step = environment.currentStep
+    let isLast = step.kind.isLast()
     let isNotLast = 1 - Tensor<Int32>(isLast)
     episodeSteps += isNotLast
     for length in episodeSteps.gathering(where: isLast).scalars {
@@ -61,9 +64,9 @@ public struct AverageEpisodeLength<Observation, Action, Reward>: Metric {
   }
 
   @inlinable
-  public mutating func reset() {
+  public func reset() {
     deque.reset()
-    episodeSteps = Tensor<Int32>(repeating: 0, shape: [batchSize])
+    episodeSteps = Tensor<Int32>(zerosLike: episodeSteps)
   }
 
   @inlinable
@@ -72,75 +75,67 @@ public struct AverageEpisodeLength<Observation, Action, Reward>: Metric {
   }
 }
 
-public struct AverageEpisodeReward<Observation, Action, Reward: TensorFlowFloatingPoint>: Metric {
-  public let batchSize: Int
+public class AverageEpisodeReward<Environment: ReinforcementLearning.Environment>: Metric
+where Environment.Reward == Tensor<Float> {
+  public let environment: Environment
 
-  @usableFromInline internal var deque: Deque<Reward>
-  @usableFromInline internal var episodeRewards: Tensor<Reward>
+  @usableFromInline internal var deque: Deque<Float>
+  @usableFromInline internal var episodeRewards: Tensor<Float>
 
   @inlinable
-  public init(batchSize: Int, bufferSize: Int) {
-    self.batchSize = batchSize
+  public init(for environment: Environment, bufferSize: Int) {
+    self.environment = environment
     self.deque = Deque(size: bufferSize)
-    self.episodeRewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
+    self.episodeRewards = Tensor<Float>(repeating: 0, shape: [environment.batchSize])
   }
 
   @inlinable
-  public mutating func update(
-    stepKind: StepKind,
-    observation: Observation,
-    action: Action,
-    reward: Tensor<Reward>
-  ) {
-    let isLast = stepKind.isLast()
-    episodeRewards += reward
+  public func update() {
+    let step = environment.currentStep
+    let isLast = step.kind.isLast()
+    episodeRewards += step.reward
     for reward in episodeRewards.gathering(where: isLast).scalars {
       deque.push(reward)
     }
-    episodeRewards *= (1 - Tensor<Reward>(isLast))
+    episodeRewards *= (1 - Tensor<Float>(isLast))
   }
 
   @inlinable
-  public mutating func reset() {
+  public func reset() {
     deque.reset()
-    episodeRewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
+    episodeRewards = Tensor<Float>(zerosLike: episodeRewards)
   }
 
   @inlinable
-  public func value() -> Reward {
+  public func value() -> Float {
     deque.mean()
   }
 }
 
-// TODO: Make generic over the `Reward` type.
-public struct TotalCumulativeReward<Observation, Action, Reward: TensorFlowFloatingPoint>: Metric {
-  public let batchSize: Int
+public class TotalCumulativeReward<Environment: ReinforcementLearning.Environment>: Metric
+where Environment.Reward == Tensor<Float> {
+  public let environment: Environment
 
-  @usableFromInline internal var rewards: Tensor<Reward>
+  @usableFromInline internal var rewards: Tensor<Float>
 
   @inlinable
-  public init(batchSize: Int) {
-    self.batchSize = batchSize
-    self.rewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
+  public init(for environment: Environment) {
+    self.environment = environment
+    self.rewards = Tensor<Float>(repeating: 0, shape: [environment.batchSize])
   }
 
   @inlinable
-  public mutating func update(
-    stepKind: StepKind,
-    observation: Observation,
-    action: Action,
-    reward: Tensor<Reward>
-  ) {
-    rewards += reward
+  public func update() {
+    rewards += environment.currentStep.reward
   }
 
   @inlinable
-  public mutating func reset() {
-    rewards = Tensor<Reward>(repeating: 0, shape: [batchSize])
+  public func reset() {
+    rewards = Tensor<Float>(zerosLike: rewards)
   }
 
   @inlinable
-  public func value() -> [Reward] {
+  public func value() -> [Float] {
     rewards.scalars
   }
 }
