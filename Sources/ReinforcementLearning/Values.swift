@@ -64,10 +64,10 @@ public func discountedReturns<Scalar: TensorFlowNumeric>(
 ///   - `discountedReturns`: Discounted returns that are typically used to train value networks.
 public struct AdvantageEstimate<Scalar: TensorFlowFloatingPoint> {
   public let advantages: Tensor<Scalar>
-  public let discountedReturns: Tensor<Scalar>
+  public let discountedReturns: () -> Tensor<Scalar>
 
   @inlinable
-  public init(advantages: Tensor<Scalar>, discountedReturns: Tensor<Scalar>) {
+  public init(advantages: Tensor<Scalar>, discountedReturns: @escaping () -> Tensor<Scalar>) {
     self.advantages = advantages
     self.discountedReturns = discountedReturns
   }
@@ -119,9 +119,7 @@ public struct EmpiricalAdvantageEstimation: AdvantageFunction {
       stepKinds: stepKinds,
       rewards: rewards,
       finalValue: finalValue)
-    return AdvantageEstimate(
-      advantages: returns - values,
-      discountedReturns: returns)
+    return AdvantageEstimate(advantages: returns - values, discountedReturns: { () in returns })
   }
 }
 
@@ -158,30 +156,27 @@ public struct GeneralizedAdvantageEstimation: AdvantageFunction {
   ) -> AdvantageEstimate<Scalar> {
     let discountWeight = Scalar(self.discountWeight)
     let discountFactor = Scalar(self.discountFactor)
-    let isLast = stepKinds.isLast()
+    let isNotLast = 1 - Tensor<Scalar>(stepKinds.isLast())
     let T = stepKinds.rawValue.shape[0]
-    var advantages = [Tensor<Scalar>]()
-    // Compute advantages.
-    for t in 0..<T {
-      let nextValue = T - t < T ? values[T - t] : finalValue
+
+    // Compute advantages in reverse order.
+    let last = rewards[T - 1] + discountFactor * finalValue * isNotLast[T - 1] - values[T - 1]
+    var advantages = [last]
+    for t in 1..<T {
+      let nextValue = values[T - t] * isNotLast[T - t - 1]
       let delta = rewards[T - t - 1] + discountFactor * nextValue - values[T - t - 1]
-      if T - t < T {
-        let nextAdvantage = advantages[t - 1].replacing(
-          with: Tensor<Scalar>(zerosLike: advantages[t - 1]),
-          where: isLast[T - t - 1])
-        advantages.append(delta + discountWeight * discountFactor * nextAdvantage)
-      } else {
-        advantages.append(delta)
-      }
+      let nextAdvantage = advantages[t - 1] * isNotLast[T - t - 1]
+      advantages.append(delta + discountWeight * discountFactor * nextAdvantage)
     }
-    // Compute discounted returns.
-    let returns = discountedReturns(
-      discountFactor: Scalar(discountFactor),
-      stepKinds: stepKinds,
-      rewards: rewards,
-      finalValue: finalValue)
+
     return AdvantageEstimate(
       advantages: Tensor(advantages.reversed()),
-      discountedReturns: returns)
+      discountedReturns: { () in
+        discountedReturns(
+          discountFactor: Scalar(discountFactor),
+          stepKinds: stepKinds,
+          rewards: rewards,
+          finalValue: finalValue)
+      })
   }
 }

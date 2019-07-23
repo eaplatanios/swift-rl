@@ -265,7 +265,7 @@ where
       if let normalizer = self.advantagesNormalizer {
         advantages = normalizer.normalize(advantages)
       }
-      let returns = advantageEstimate.discountedReturns
+      let returns = advantageEstimate.discountedReturns()
 
       // Compute the action log probabilities.
       let actionDistribution = networkOutput.actionDistribution
@@ -454,20 +454,21 @@ where
     let finalValue = networkOutput.value[sequenceLength]
 
     // Estimate the advantages for the provided trajectory.
+    let rewards = trajectory.reward[0..<sequenceLength]
     let advantageEstimate = advantageFunction(
       stepKinds: stepKinds,
-      rewards: trajectory.reward[0..<sequenceLength],
+      rewards: rewards,
       values: values,
       finalValue: finalValue)
     var advantages = advantageEstimate.advantages
+    let usingGAE = advantageFunction is GeneralizedAdvantageEstimation
+    let returns = useTDLambdaReturn && usingGAE ?
+      advantages + values :
+      advantageEstimate.discountedReturns()
     advantagesNormalizer?.update(using: advantages)
     if let normalizer = advantagesNormalizer {
       advantages = normalizer.normalize(advantages)
     }
-    let usingGAE = advantageFunction is GeneralizedAdvantageEstimation
-    let returns = useTDLambdaReturn && usingGAE ?
-      advantages + withoutDerivative(at: values) :
-      advantageEstimate.discountedReturns
 
     // Compute the action log probabilities.
     let actionDistribution = networkOutput.actionDistribution
@@ -513,7 +514,7 @@ where
 
         // Entropy regularization loss term.
         if let e = self.entropyRegularization {
-          let entropy = actionDistribution.entropy()[0..<sequenceLength]
+          let entropy = newActionDistribution.entropy()[0..<sequenceLength]
           loss = loss - e.weight * entropy.mean()
         }
 
