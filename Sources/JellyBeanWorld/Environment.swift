@@ -104,7 +104,7 @@ public final class JellyBeanWorldEnvironment<
       let reward = Tensor<Float>(configurations[i].rewardFunction(
         previousItems: previousItems,
         currentItems: states[i].agent.items))
-      return Step(kind: StepKind.transition, observation: observation, reward: reward)
+      return Step(kind: StepKind.transition(), observation: observation, reward: reward)
     })
     return step
   }

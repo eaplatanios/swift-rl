@@ -40,13 +40,15 @@ public final class MetricUpdater<Metric: ReinforcementLearning.Metric>: Environm
 
 public class AverageEpisodeLength<Environment: ReinforcementLearning.Environment>: Metric {
   public let environment: Environment
+  public let withReset: Bool
 
   @usableFromInline internal var deque: Deque<Float>
   @usableFromInline internal var episodeSteps: Tensor<Int32>
 
   @inlinable
-  public init(for environment: Environment, bufferSize: Int) {
+  public init(for environment: Environment, bufferSize: Int, withReset: Bool = true) {
     self.environment = environment
+    self.withReset = withReset
     self.deque = Deque(size: bufferSize)
     self.episodeSteps = Tensor<Int32>(repeating: 0, shape: [environment.batchSize])
   }
@@ -54,7 +56,7 @@ public class AverageEpisodeLength<Environment: ReinforcementLearning.Environment
   @inlinable
   public func update() {
     let step = environment.currentStep
-    let isLast = step.kind.isLast()
+    let isLast = step.kind.isLast(withReset: withReset)
     let isNotLast = 1 - Tensor<Int32>(isLast)
     episodeSteps += isNotLast
     for length in episodeSteps.gathering(where: isLast).scalars {
@@ -78,13 +80,15 @@ public class AverageEpisodeLength<Environment: ReinforcementLearning.Environment
 public class AverageEpisodeReward<Environment: ReinforcementLearning.Environment>: Metric
 where Environment.Reward == Tensor<Float> {
   public let environment: Environment
+  public let withReset: Bool
 
   @usableFromInline internal var deque: Deque<Float>
   @usableFromInline internal var episodeRewards: Tensor<Float>
 
   @inlinable
-  public init(for environment: Environment, bufferSize: Int) {
+  public init(for environment: Environment, bufferSize: Int, withReset: Bool = true) {
     self.environment = environment
+    self.withReset = withReset
     self.deque = Deque(size: bufferSize)
     self.episodeRewards = Tensor<Float>(repeating: 0, shape: [environment.batchSize])
   }
@@ -92,7 +96,7 @@ where Environment.Reward == Tensor<Float> {
   @inlinable
   public func update() {
     let step = environment.currentStep
-    let isLast = step.kind.isLast()
+    let isLast = step.kind.isLast(withReset: withReset)
     episodeRewards += step.reward
     for reward in episodeRewards.gathering(where: isLast).scalars {
       deque.push(reward)

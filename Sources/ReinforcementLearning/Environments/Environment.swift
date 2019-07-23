@@ -88,32 +88,41 @@ public struct StepKind: KeyPathIterable {
 
 extension StepKind {
   /// Denotes the first step in a sequence.
-  public static let first = StepKind(Tensor<Int32>(0))
+  @inlinable
+  public static func first() -> StepKind {
+    StepKind(Tensor<Int32>(0))
+  }
 
   /// Denotes an transition step in a sequence (i.e., not first or last).
-  public static let transition = StepKind(Tensor<Int32>(1))
+  @inlinable
+  public static func transition() -> StepKind {
+    StepKind(Tensor<Int32>(1))
+  }
 
   /// Denotes the last step in a sequence.
-  public static let last = StepKind(Tensor<Int32>(2))
+  @inlinable
+  public static func last(withReset: Bool = true) -> StepKind {
+    StepKind(Tensor<Int32>(withReset ? 3 : 2))
+  }
 
   /// Returns a batched `StepKind` filled with "first" step kind values.
   @inlinable
   public static func first(batchSize: Int) -> StepKind {
-    StepKind(first.rawValue.expandingShape(at: 0)
+    StepKind(first().rawValue.expandingShape(at: 0)
       .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
   }
 
   /// Returns a batched `StepKind` filled with "transition" step kind values.
   @inlinable
   public static func transition(batchSize: Int) -> StepKind {
-    StepKind(transition.rawValue.expandingShape(at: 0)
+    StepKind(transition().rawValue.expandingShape(at: 0)
       .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
   }
 
   /// Returns a batched `StepKind` filled with "last" step kind values.
   @inlinable
-  public static func last(batchSize: Int) -> StepKind {
-    StepKind(last.rawValue.expandingShape(at: 0)
+  public static func last(batchSize: Int, withReset: Bool = true) -> StepKind {
+    StepKind(last(withReset: withReset).rawValue.expandingShape(at: 0)
       .tiled(multiples: Tensor<Int32>([Int32(batchSize)])))
   }
 
@@ -128,21 +137,21 @@ extension StepKind {
   }
 
   @inlinable
-  public func isLast() -> Tensor<Bool> {
-    rawValue .== 2
+  public func isLast(withReset: Bool = false) -> Tensor<Bool> {
+    withReset ? rawValue .== 3 : (rawValue .== 2).elementsLogicalOr(rawValue .== 3)
   }
 
   /// Returns a tensor containing the number of completed episodes contained in the trajectory
   /// that this step kind corresponds to.
   @inlinable
-  public func episodeCount() -> Tensor<Float> {
-    Tensor<Float>(isLast()).sum()
+  public func episodeCount(withReset: Bool = false) -> Tensor<Float> {
+    Tensor<Float>(isLast(withReset: withReset)).sum()
   }
 
   /// Returns a boolean tensor whose `false`-valued elements correspond to steps of episodes that
   /// did not complete by the end of the trajectory that this step kind corresponds to.
   @inlinable
-  public func completeEpisodeMask() -> Tensor<Bool> {
-    Tensor<Float>(isLast()).cumulativeSum(alongAxis: 0, reverse: true) .> 0
+  public func completeEpisodeMask(withReset: Bool = false) -> Tensor<Bool> {
+    Tensor<Float>(isLast(withReset: withReset)).cumulativeSum(alongAxis: 0, reverse: true) .> 0
   }
 }

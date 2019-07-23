@@ -203,7 +203,7 @@ public final class RetroEnvironment<ActionsType: Retro.ActionsType>: Environment
     // TODO: What about the 'info' dict?
     let numPlayers = self.numPlayers(batchIndex: batchIndex)
     return Step(
-      kind: finished ? .last : .transition,
+      kind: finished ? .last() : .transition(),
       observation: observation,
       reward: Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) }))
   }
@@ -235,7 +235,7 @@ public final class RetroEnvironment<ActionsType: Retro.ActionsType>: Environment
     let numPlayers = emulators[batchIndex].numPlayers
     let reward = Tensor<Float>((0..<numPlayers).map { emulators[batchIndex].reward(for: $0) })
     needsReset[batchIndex] = false
-    return Step(kind: .first, observation: observation, reward: reward)
+    return Step(kind: .first(), observation: observation, reward: reward)
   }
 
   @inlinable

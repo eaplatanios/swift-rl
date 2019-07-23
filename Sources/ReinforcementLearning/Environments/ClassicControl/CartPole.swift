@@ -87,8 +87,9 @@ public final class CartPoleEnvironment: RenderableEnvironment {
       .elementsLogicalOr(step.observation.position .> positionThreshold)
       .elementsLogicalOr(step.observation.angle .< -angleThreshold)
       .elementsLogicalOr(step.observation.angle .> angleThreshold)
-    step.kind.rawValue = (Tensor<Int32>(newNeedsReset) + 1)
+    step.kind.rawValue = Tensor(onesLike: step.kind.rawValue)
       .replacing(with: Tensor<Int32>(zeros: newNeedsReset.shape), where: needsReset)
+      .replacing(with: 3 * Tensor<Int32>(ones: newNeedsReset.shape), where: newNeedsReset)
     // Rewards need not be updated because they are always equal to one.
     needsReset = newNeedsReset
     return step
