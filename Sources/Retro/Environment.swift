@@ -18,7 +18,7 @@ import Gzip
 import ReinforcementLearning
 import TensorFlow
 
-public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
+public final class RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   public let batchSize: Int
   public let emulators: [RetroEmulator]
   public let actionsType: ActionsType
@@ -37,7 +37,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   @usableFromInline internal var renderer: ImageRenderer? = nil
 
   @inlinable
-  public init(
+  public convenience init(
     using emulator: RetroEmulator,
     actionsType: ActionsType,
     observationsType: ObservationsType = .screen(height: 84, width: 84, grayscale: true),
@@ -137,7 +137,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @inlinable
-  public mutating func currentStep() -> Step<Tensor<Float>, Tensor<Float>> {
+  public func currentStep() -> Step<Tensor<Float>, Tensor<Float>> {
     if step == nil { step = reset() }
     return step!
   }
@@ -164,9 +164,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 
   @inlinable
   @discardableResult
-  public mutating func step(
-    taking action: ActionsType.Space.Value
-  ) -> Step<Tensor<Float>, Tensor<Float>> {
+  public func step(taking action: ActionsType.Space.Value) -> Step<Tensor<Float>, Tensor<Float>> {
     let actions = action.unstacked()
     step = Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map {
       step(taking: actions[$0], batchIndex: $0)
@@ -176,7 +174,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 
   @inlinable
   @discardableResult
-  public mutating func step(
+  public func step(
     taking action: ActionsType.Space.Value,
     batchIndex: Int
   ) -> Step<Tensor<Float>, Tensor<Float>> {
@@ -212,14 +210,14 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
 
   @inlinable
   @discardableResult
-  public mutating func reset() -> Step<Tensor<Float>, Tensor<Float>> {
+  public func reset() -> Step<Tensor<Float>, Tensor<Float>> {
     step = Step<Tensor<Float>, Tensor<Float>>.stack((0..<batchSize).map { reset(batchIndex: $0) })
     return step!
   }
 
   @inlinable
   @discardableResult
-  public mutating func reset(batchIndex: Int) -> Step<Tensor<Float>, Tensor<Float>> {
+  public func reset(batchIndex: Int) -> Step<Tensor<Float>, Tensor<Float>> {
     emulators[batchIndex].reset()
 
     // Reset the recording.
@@ -253,7 +251,7 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @inlinable
-  public mutating func render() throws {
+  public func render() throws {
     if renderer == nil { renderer = ImageRenderer() }
     let observation = currentStep().observation
     switch observationsType {
@@ -275,14 +273,14 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @inlinable
-  public mutating func startRecordings(at urls: [URL]) {
+  public func startRecordings(at urls: [URL]) {
     for batchIndex in 0..<batchSize {
       startRecording(at: urls[batchIndex], batchIndex: batchIndex)
     }
   }
 
   @inlinable
-  public mutating func startRecording(at url: URL, batchIndex: Int) {
+  public func startRecording(at url: URL, batchIndex: Int) {
     let numPlayers = emulators[batchIndex].numPlayers
     movies[batchIndex] = Movie(at: url, recording: true, numPlayers: numPlayers)
     movies[batchIndex]!.configure(for: self, batchIndex: batchIndex)
@@ -292,24 +290,24 @@ public struct RetroEnvironment<ActionsType: Retro.ActionsType>: Environment {
   }
 
   @inlinable
-  public mutating func enableRecordings(at urls: [URL]) {
+  public func enableRecordings(at urls: [URL]) {
     movieURLs = urls
   }
 
   @inlinable
-  public mutating func enableRecording(at url: URL, batchIndex: Int) {
+  public func enableRecording(at url: URL, batchIndex: Int) {
     movieURLs[batchIndex] = url
   }
 
   @inlinable
-  public mutating func disableRecordings() {
+  public func disableRecordings() {
     for batchIndex in 0..<batchSize {
       disableRecording(batchIndex: batchIndex)
     }
   }
 
   @inlinable
-  public mutating func disableRecording(batchIndex: Int) {
+  public func disableRecording(batchIndex: Int) {
     movieIDs[batchIndex] = 0
     movieURLs[batchIndex] = nil
     movies[batchIndex]?.close()

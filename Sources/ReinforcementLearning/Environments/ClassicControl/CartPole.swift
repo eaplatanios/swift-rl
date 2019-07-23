@@ -25,7 +25,7 @@ import TensorFlow
 @usableFromInline internal let totalMass: Float = cartMass + poleMass
 @usableFromInline internal let poleMassLength: Float = poleMass * length
 
-public struct CartPoleEnvironment: Environment {
+public final class CartPoleEnvironment: Environment {
   public let batchSize: Int
   public let actionSpace: Discrete
   public var observationSpace: ObservationSpace
@@ -55,7 +55,7 @@ public struct CartPoleEnvironment: Environment {
   /// Updates the environment according to the provided action.
   @inlinable
   @discardableResult
-  public mutating func step(taking action: Tensor<Int32>) -> Step<Observation, Tensor<Float>> {
+  public func step(taking action: Tensor<Int32>) -> Step<Observation, Tensor<Float>> {
     precondition(actionSpace.contains(action), "Invalid action provided.")
     var position = step.observation.position
     var positionDerivative = step.observation.positionDerivative
@@ -100,7 +100,7 @@ public struct CartPoleEnvironment: Environment {
   /// Resets the environment.
   @inlinable
   @discardableResult
-  public mutating func reset() -> Step<Observation, Tensor<Float>> {
+  public func reset() -> Step<Observation, Tensor<Float>> {
     step.kind = StepKind.first(batchSize: batchSize)
     step.observation = observationSpace.sample()
     needsReset = Tensor<Bool>(repeating: false, shape: [batchSize])
@@ -114,7 +114,7 @@ public struct CartPoleEnvironment: Environment {
   }
 
   @inlinable
-  public mutating func render() {
+  public func render() {
     if renderer == nil { renderer = CartPoleRenderer() }
     renderer!.render(observation: step.observation)
   }

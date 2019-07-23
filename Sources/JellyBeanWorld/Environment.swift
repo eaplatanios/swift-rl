@@ -39,7 +39,7 @@ public struct JellyBeanWorldObservation: Differentiable, KeyPathIterable {
   @noDerivative public var moved: Tensor<Bool>
 }
 
-public struct JellyBeanWorldEnvironment<
+public final class JellyBeanWorldEnvironment<
   RewardFunction: JellyBeanWorldRewardFunction
 >: Environment {
   public let batchSize: Int
@@ -80,7 +80,7 @@ public struct JellyBeanWorldEnvironment<
 
   /// Updates the environment according to the provided action.
   @discardableResult
-  public mutating func step(
+  public func step(
     taking action: Tensor<Int32>
   ) -> Step<JellyBeanWorldObservation, Tensor<Float>> {
     let actions = action.unstacked()
@@ -103,7 +103,7 @@ public struct JellyBeanWorldEnvironment<
 
   /// Resets the environment.
   @discardableResult
-  public mutating func reset() -> Step<JellyBeanWorldObservation, Tensor<Float>> {
+  public func reset() -> Step<JellyBeanWorldObservation, Tensor<Float>> {
     states = configurations.map { configuration -> State in
       let simulator = Simulator(using: configuration.simulatorConfig)
       let agentDelegate = AgentDelegate()
@@ -148,8 +148,8 @@ extension JellyBeanWorldEnvironment {
       }
     }
 
-    func save(_ agent: Agent, to file: URL) throws { }
-    func load(_ agent: Agent, from file: URL) throws { }
+    func save(_ agent: Agent, to file: URL) throws {}
+    func load(_ agent: Agent, from file: URL) throws {}
   }
 }
 
