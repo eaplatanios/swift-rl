@@ -182,7 +182,8 @@ public func runCartPole(
     var agent = PPOAgent(
       for: environment,
       network: network,
-      optimizer: AMSGrad(for: network, learningRate: 1e-3),
+      optimizer: AMSGrad(for: network),
+      learningRateSchedule: ConstantLearningRate(1e-3),
       advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
       clip: PPOClip(),
       entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight))

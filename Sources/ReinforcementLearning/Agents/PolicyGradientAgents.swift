@@ -378,12 +378,14 @@ where
   public let actionSpace: Environment.ActionSpace
   public var network: Network
   public var optimizer: Optimizer
+  public var trainingStep: Int = 0
 
   public var state: State {
     get { network.state }
     set { network.state = newValue }
   }
 
+  public let learningRateSchedule: LearningRateSchedule
   public let maxGradientNorm: Float?
   public let advantageFunction: AdvantageFunction
   public let useTDLambdaReturn: Bool
@@ -400,6 +402,7 @@ where
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
+    learningRateSchedule: LearningRateSchedule,
     maxGradientNorm: Float? = 0.5,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
@@ -415,6 +418,7 @@ where
     self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
+    self.learningRateSchedule = learningRateSchedule
     self.maxGradientNorm = maxGradientNorm
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = normalizeAdvantages ?
@@ -438,6 +442,9 @@ where
   public mutating func update(
     using trajectory: Trajectory<Observation, Action, Reward, State>
   ) -> Float {
+    optimizer.learningRate = learningRateSchedule.learningRate(step: trainingStep)
+    trainingStep += 1
+
     network.state = trajectory.state
     let networkOutput = network(trajectory.observation)
 

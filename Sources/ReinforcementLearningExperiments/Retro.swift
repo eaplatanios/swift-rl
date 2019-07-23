@@ -168,7 +168,8 @@ public func runRetro(
     var agent = PPOAgent(
       for: environment,
       network: network,
-      optimizer: AMSGrad(for: network, learningRate: 1e-3),
+      optimizer: AMSGrad(for: network),
+      learningRateSchedule: LinearLearningRateSchedule(initialValue: 2.5e-4, slope: -1.0 / 7812.0),
       advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
       clip: PPOClip(),
       entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight))
