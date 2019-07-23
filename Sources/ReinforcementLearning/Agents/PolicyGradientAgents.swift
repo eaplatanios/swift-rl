@@ -297,6 +297,8 @@ where
   }
 }
 
+// TODO: !! Allow the learning rate to change while training.
+// TODO: !! Allow `epsilon` to change while training.
 public struct PPOClip {
   public let epsilon: Float
 
@@ -331,6 +333,18 @@ public struct PPOPenalty {
     self.adaptiveKLToleranceFactor = adaptiveKLToleranceFactor
     self.adaptiveKLBetaScalingFactor = adaptiveKLBetaScalingFactor
     self.adaptiveKLBeta = adaptiveKLBeta
+  }
+}
+
+// TODO: !! Allow `clipThreshold` to change while training.
+public struct PPOValueEstimationLoss {
+  public let weight: Float
+  public let clipThreshold: Float?
+
+  @inlinable
+  public init(weight: Float = 0.5, clipThreshold: Float? = 0.2) {
+    self.weight = weight
+    self.clipThreshold = clipThreshold
   }
 }
 
@@ -370,12 +384,13 @@ where
     set { network.state = newValue }
   }
 
+  public let maxGradientNorm: Float?
   public let advantageFunction: AdvantageFunction
   public let useTDLambdaReturn: Bool
   public let clip: PPOClip?
   public let penalty: PPOPenalty?
+  public let valueEstimationLoss: PPOValueEstimationLoss
   public let entropyRegularization: PPOEntropyRegularization?
-  public let valueEstimationLossWeight: Float
   public let iterationCountPerUpdate: Int
 
   @usableFromInline internal var advantagesNormalizer: StreamingTensorNormalizer<Float>?
@@ -385,20 +400,22 @@ where
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
+    maxGradientNorm: Float? = 0.5,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
       discountWeight: 0.95),
     normalizeAdvantages: Bool = true,
-    useTDLambdaReturn: Bool = false,
+    useTDLambdaReturn: Bool = true,
     clip: PPOClip? = PPOClip(),
     penalty: PPOPenalty? = nil,
+    valueEstimationLoss: PPOValueEstimationLoss = PPOValueEstimationLoss(),
     entropyRegularization: PPOEntropyRegularization? = nil,
-    valueEstimationLossWeight: Float = 0.2,
-    iterationCountPerUpdate: Int = 10
+    iterationCountPerUpdate: Int = 4
   ) {
     self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
+    self.maxGradientNorm = maxGradientNorm
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = normalizeAdvantages ?
       StreamingTensorNormalizer(alongAxes: 0, 1) :
@@ -406,8 +423,8 @@ where
     self.useTDLambdaReturn = useTDLambdaReturn
     self.clip = clip
     self.penalty = penalty
+    self.valueEstimationLoss = valueEstimationLoss
     self.entropyRegularization = entropyRegularization
-    self.valueEstimationLossWeight = valueEstimationLossWeight
     self.iterationCountPerUpdate = iterationCountPerUpdate
   }
 
@@ -457,7 +474,7 @@ where
     for _ in 0..<iterationCountPerUpdate {
       // Restore the network state before computing the loss function.
       network.state = trajectory.state
-      let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
+      var (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
         let newNetworkOutput = network(trajectory.observation)
 
         // Compute the new action log probabilities.
@@ -496,9 +513,18 @@ where
         }
 
         // Value estimation loss term.
-        let values = newNetworkOutput.value[0..<sequenceLength]
-        let valueMSE = (values - returns).squared().mean()
-        return loss + self.valueEstimationLossWeight * valueMSE
+        let newValues = newNetworkOutput.value[0..<sequenceLength]
+        var valueEstimationLoss = (newValues - returns).squared()
+        if let c = self.valueEstimationLoss.clipThreshold {
+          let ε = Tensor<Float>(c)
+          let clippedValues = values + (newValues - values).clipped(min: -ε, max: ε)
+          let clippedValueEstimationLoss = (clippedValues - returns).squared()
+          valueEstimationLoss = max(valueEstimationLoss, clippedValueEstimationLoss)
+        }
+        return loss + self.valueEstimationLoss.weight * valueEstimationLoss.mean()
+      }
+      if let clipNorm = maxGradientNorm {
+        gradient.clipByGlobalNorm(clipNorm: clipNorm)
       }
       optimizer.update(&network, along: gradient)
       lastEpochLoss = loss.scalarized()

@@ -367,3 +367,17 @@ where Self: Differentiable, Self.TangentVector: KeyPathIterable {
     })
   }
 }
+
+extension KeyPathIterable {
+  public mutating func clipByGlobalNorm<Scalar: TensorFlowFloatingPoint>(clipNorm: Scalar) {
+    let clipNorm = Tensor<Scalar>(clipNorm)
+    var globalNorm = Tensor<Scalar>(zeros: [])
+    for kp in self.recursivelyAllWritableKeyPaths(to: Tensor<Scalar>.self) {
+      globalNorm += self[keyPath: kp].squared().sum()
+    }
+    globalNorm = sqrt(globalNorm)
+    for kp in self.recursivelyAllWritableKeyPaths(to: Tensor<Scalar>.self) {
+      self[keyPath: kp] *= clipNorm / max(globalNorm, clipNorm)
+    }
+  }
+}
