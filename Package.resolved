@@ -11,15 +11,6 @@
         }
       },
       {
-        "package": "NELFramework",
-        "repositoryURL": "https://github.com/eaplatanios/nel_framework.git",
-        "state": {
-          "branch": "master",
-          "revision": "5f86d14ba58bb750f3ef5bba5b89d3c0292f985a",
-          "version": null
-        }
-      },
-      {
         "package": "swift-log",
         "repositoryURL": "https://github.com/apple/swift-log.git",
         "state": {

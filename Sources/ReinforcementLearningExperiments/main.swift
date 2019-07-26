@@ -21,4 +21,4 @@ public enum AgentType {
 
 runCartPole(using: .ppo, maxReplayedSequenceLength: 2000)
 // runRetro(using: .ppo, maxReplayedSequenceLength: 2000)
-// runJellyBeanWorld(using: .ppo)
+// runJellyBeanWorld()
