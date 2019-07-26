@@ -65,8 +65,7 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
     let multinomial: Tensor<Scalar> = Raw.statelessMultinomial(
       logits: logProbabilities,
       numSamples: Tensor<Int32>(1),
-      seed: Int64(seed.graph),
-      seed2: Int64(seed.op))
+      seed: Tensor([seed.graph, seed.op]))
     let flattenedSamples = multinomial.gathering(atIndices: Tensor<Int32>(0), alongAxis: 1)
     return flattenedSamples.unflattenedBatch(
       outerDims: [Int](self.logProbabilities.shape.dimensions[0..<outerDimCount]))
