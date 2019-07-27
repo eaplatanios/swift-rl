@@ -1,13 +1,11 @@
+**WARNING:** This is currently work-in-progress.
+
 # Reinforcement Learning in Swift
 
-**WARNING:** This is currently work-in-progress and is 
-changing rapidly. I expect it to be more stable within 
-about a week or two.
-
-This repository contains a Swift API for Gym Retro, but it
-also contains a reinforcement learning library built using
-Swift for TensorFlow, that also encompasses the
-functionality of Gym. Currently supported features are:
+This repository contains a reinforcement learning library
+built using Swift for TensorFlow, that also encompasses the
+functionality of OpenAI Gym. The following is a list of
+currently supported features.
 
 - All algorithms and interfaces are designed and 
   implemented with batching in mind to support efficient
@@ -15,7 +13,8 @@ functionality of Gym. Currently supported features are:
   inputs.
 - [Environments](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Environments/Environment.swift):
   - [Cart-Pole (classic control example)](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Environments/ClassicControl/CartPole.swift)
-  - [Retro Games (atari/sega/... games)](https://github.com/eaplatanios/retro-swift/tree/master/Sources/Retro)
+  - [Atari Games (using the Arcade Learning Environment)](https://github.com/eaplatanios/swift-ale)
+  - [Retro Games (atari, sega, etc., using Gym Retro)](https://github.com/eaplatanios/swift-retro)
 - [Agents](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/Agent.swift):
   - [Policy Gradient Algorithms](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Agents/PolicyGradientAgents.swift):
     - REINFORCE
@@ -40,43 +39,9 @@ functionality of Gym. Currently supported features are:
 
 ### Prerequisites
 
-#### Retro
-
-If `libretro.so` or `libretro.dylib` is not in your 
-`LD_LIBRARY_PATH`, you need to provide the following 
-extra flags when using `swift build` or any other SwiftPM 
-command: `-Xlinker -L<path>`, where `<path>` represents the 
-path to the dynamic library. For MacOS, you also need to 
-use the following flags: `-Xlinker -rpath -Xlinker <path>`.
-The simplest way to start is to execute the following 
-commands from within your code directory:
-
-```bash
-git clone git@github.com:eaplatanios/retro.git
-cd retro
-git checkout c-api
-cmake . -G 'Unix Makefiles' -DBUILD_PYTHON=OFF -DBUILD_C=ON
-make -j4 retro-c
-
-# The following is also necessary when you are on MacOS:
-install_name_tool -id "$(pwd)/libretro.dylib" libretro.dylib
-```
-
-This will result in a `libretro.so` or `libretro.dylib` 
-file in the `retro` subdirectory and in compiled core files 
-for multiple gaming platforms in the `retro/cores`
-subdirectory. Then you can set `<path>` to 
-`<repository>/retro`, where `<repository>` is the path 
-where you cloned the Swift Retro repository.
-
 #### GLFW
 
-**NOTE:** The GLFW flag is not currently working and so the 
-GLFW library needs to be installed in order to use 
-`retro-swift`.
-
-In order to use the image renderer you need to first 
-install GLFW. You can do so, as follows:
+GLFW is used for rendering. You can install it using:
 
 ```bash
 # For MacOS:
@@ -86,79 +51,16 @@ brew install --HEAD git glfw3
 sudo apt install libglfw3-dev libglfw3
 ```
 
-Then, in order to use it you need to provide the following
-extra flags when using `swift build` or any other SwiftPM 
-command: `-Xcc -DGLFW -Xswiftc -DGLFW`. Furthermore, if 
-`libglfw.so` or `libglfw.dylib` is not in your 
-`LD_LIBRARY_PATH`, you also need to provide the following 
-flags: `-Xlinker -lglfw -Xlinker -L<path>`, where `<path>` 
-represents the path to the dynamic library. For example:
+**NOTE:** The Swift Package Manager uses `pkg-config` to 
+locate the installed libraries and so you need to make sure
+that `pkg-config` is configured correctly. That may require
+you to set the `PKG_CONFIG_PATH` environment variable
+correctly.
 
-```bash
-swift test \
-  -Xcc -DGLFW -Xswiftc -DGLFW \
-  -Xlinker -lglfw -Xlinker -L/usr/local/lib
-```
-
-**Note:** If the rendered image does not update according 
+**NOTE:** If the rendered image does not update according 
 to the specified frames per second value and you are using 
 MacOS 10.14, you should update to 10.14.4 because there is 
 a bug in previous releases of 10.14 which breaks VSync.
-
-### Example
-
-This is how I can get things set up on my MacBook:
-
-```bash
-cd /Users/eaplatanios/Development/GitHub
-git clone git@github.com:eaplatanios/retro-swift.git
-cd retro-swift
-git clone git@github.com:eaplatanios/retro.git
-cd retro
-git checkout c-api
-cmake . -G 'Unix Makefiles' -DBUILD_PYTHON=OFF -DBUILD_C=ON
-make -j4 retro-c
-cd ..
-swift test
-```
-
-## Example
-
-**WARNING:** The below is not relevant anymore. I have been
-working on a new simpler and more powerful interface and
-plan to update the examples shown in this file soon.
-
-The following code runs a random policy on the 
-`Airstriker-Genesis` game for which a ROM is provided by 
-Gym Retro.
-
-```swift
-let retroURL = URL(fileURLWithPath: "/Users/eaplatanios/Development/GitHub/retro-swift/retro")
-let config = try! Emulator.Config(
-  coreInformationLookupPath: retroURL.appendingPathComponent("cores"),
-  coreLookupPathHint: retroURL.appendingPathComponent("retro/cores"),
-  gameDataLookupPathHint: retroURL.appendingPathComponent("retro/data"))
-
-// We only use the OpenGL-based renderer if the GLFW flag is enabled.
-#if GLFW
-var renderer = try! SingleImageRenderer(initialMaxWidth: 800)
-#else
-var renderer = ShapedArrayPrinter<UInt8>(maxEntries: 10)
-#endif
-
-let game = emulatorConfig.game(called: "Airstriker-Genesis")!
-let emulator = try! Emulator(for: game, configuredAs: emulatorConfig)
-var environment = try! Environment(using: emulator, actionsType: FilteredActions())
-try! environment.render(using: &renderer)
-for _ in 0..<1000000 {
-  let action = environment.sampleAction()
-  let result = environment.step(taking: action)
-  try! environment.render(using: &renderer)
-  if result.finished {
-    environment.reset()
-  }
-}
-```
 
 ## Reinforcement Learning Library Design Notes
 

@@ -4,7 +4,7 @@ import Foundation
 import PackageDescription
 
 let package = Package(
-    name: "Retro",
+    name: "ReinforcementLearning",
     platforms: [.macOS(.v10_12)],
     products: [
         .library(
@@ -12,15 +12,10 @@ let package = Package(
             targets: ["ReinforcementLearning"]),
         .executable(
             name: "ReinforcementLearningExperiments",
-            targets: ["ReinforcementLearningExperiments"]),
-        .library(
-            name: "Retro",
-            targets: ["Retro"])
+            targets: ["ReinforcementLearningExperiments"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
-        .package(url: "https://github.com/1024jp/GzipSwift.git", from: "4.1.0"),
-        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .branch("master"))
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0")
     ],
     targets: [
         .systemLibrary(
@@ -37,21 +32,6 @@ let package = Package(
             path: "Sources/ReinforcementLearning"),
         .target(
             name: "ReinforcementLearningExperiments",
-            dependencies: ["Logging", "ReinforcementLearning", "Retro"]),
-        .target(
-            name: "CRetro",
-            path: ".",
-            sources: ["Sources/CRetro"],
-            publicHeadersPath: "Sources/CRetro/include",
-            linkerSettings: [
-                .linkedLibrary("retro"),
-                .unsafeFlags(["-L./retro"])]),
-        .target(
-            name: "Retro",
-            dependencies: ["CRetro", "ReinforcementLearning", "Gzip", "ZIPFoundation"],
-            path: "Sources/Retro"),
-        .testTarget(
-            name: "RetroTests",
-            dependencies: ["Retro"])
+            dependencies: ["Logging", "ReinforcementLearning"])
     ]
 )

@@ -115,10 +115,10 @@ fileprivate struct CartPoleQNetwork: Network {
 public func runCartPole(
   using agentType: AgentType,
   batchSize: Int = 32,
-  maxEpisodes: Int = 1,
+  maxEpisodes: Int = 32,
   maxReplayedSequenceLength: Int = 1000,
   discountFactor: Float = 0.9,
-  entropyRegularizationWeight: Float = 0.0
+  entropyRegularizationWeight: Float = 0.01
 ) {
   let logger = Logger(label: "Cart-Pole Experiment")
   let baseEnvironment = CartPoleEnvironment(batchSize: batchSize)
@@ -175,15 +175,15 @@ public func runCartPole(
       for: environment,
       network: network,
       optimizer: AMSGrad(for: network),
-      learningRateSchedule: ConstantLearningRate(1e-3),
-      advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
-      clip: PPOClip(),
-      entropyRegularization: PPOEntropyRegularization(weight: entropyRegularizationWeight))
+      learningRateSchedule: LinearLearningRateSchedule(initialValue: 1e-3, slope: -1e-3 / 100.0),
+      advantageFunction: GeneralizedAdvantageEstimation(
+        discountFactor: 0.99,
+        discountWeight: 0.95))
     for step in 0..<10000 {
       let loss = agent.update(
         using: environment,
         maxSteps: 1000 * batchSize,
-        maxEpisodes: maxEpisodes * batchSize,
+        maxEpisodes: maxEpisodes,
         stepCallbacks: [{ (environment, trajectory) in
           if step > 0 { try! environment.render() }
         }])

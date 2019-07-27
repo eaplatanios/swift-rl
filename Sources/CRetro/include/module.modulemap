@@ -1,5 +1,0 @@
-module CRetro {
-  header "retro.h"
-  link "retro"
-  export *
-}

@@ -302,7 +302,7 @@ public struct PPOClip {
   public let epsilon: Float
 
   @inlinable
-  public init(epsilon: Float = 0.2) {
+  public init(epsilon: Float = 0.1) {
     self.epsilon = epsilon
   }
 }
@@ -340,7 +340,7 @@ public struct PPOValueEstimationLoss {
   public let clipThreshold: Float?
 
   @inlinable
-  public init(weight: Float = 0.5, clipThreshold: Float? = 0.2) {
+  public init(weight: Float = 0.5, clipThreshold: Float? = 0.1) {
     self.weight = weight
     self.clipThreshold = clipThreshold
   }
@@ -408,9 +408,9 @@ where
     normalizeAdvantages: Bool = true,
     useTDLambdaReturn: Bool = true,
     clip: PPOClip? = PPOClip(),
-    penalty: PPOPenalty? = nil,
+    penalty: PPOPenalty? = PPOPenalty(),
     valueEstimationLoss: PPOValueEstimationLoss = PPOValueEstimationLoss(),
-    entropyRegularization: PPOEntropyRegularization? = nil,
+    entropyRegularization: PPOEntropyRegularization? = PPOEntropyRegularization(weight: 0.01),
     iterationCountPerUpdate: Int = 4
   ) {
     self.actionSpace = environment.actionSpace
