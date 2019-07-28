@@ -5,7 +5,6 @@ import PackageDescription
 
 let package = Package(
     name: "ReinforcementLearning",
-    platforms: [.macOS(.v10_12)],
     products: [
         .library(
             name: "ReinforcementLearning",
@@ -28,7 +27,7 @@ let package = Package(
             ]),
         .target(
             name: "ReinforcementLearning",
-            dependencies: ["GLFW"],
+            dependencies: ["CGLFW", "CVulkan"],
             path: "Sources/ReinforcementLearning"),
         .target(
             name: "ReinforcementLearningExperiments",
