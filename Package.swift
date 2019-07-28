@@ -27,7 +27,7 @@ let package = Package(
             ]),
         .target(
             name: "ReinforcementLearning",
-            dependencies: ["CGLFW", "CVulkan"],
+            dependencies: ["GLFW"],
             path: "Sources/ReinforcementLearning"),
         .target(
             name: "ReinforcementLearningExperiments",
