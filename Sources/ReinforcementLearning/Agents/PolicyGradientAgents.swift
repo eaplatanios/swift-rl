@@ -25,10 +25,7 @@ public protocol PolicyGradientAgent: ProbabilisticAgent {
     using environment: Environment,
     maxSteps: Int,
     maxEpisodes: Int,
-    stepCallbacks: [(
-      Environment,
-      inout Trajectory<Observation, Action, Reward, State>
-    ) -> Void]
+    stepCallbacks: [(Environment, inout Trajectory<Observation, Action, Reward>) -> Void]
   ) -> Float
 }
 
@@ -39,12 +36,9 @@ extension PolicyGradientAgent {
     using environment: Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(
-      Environment,
-      inout Trajectory<Observation, Action, Reward, State>
-    ) -> Void] = []
+    stepCallbacks: [(Environment, inout Trajectory<Observation, Action, Reward>) -> Void] = []
   ) -> Float {
-    var trajectories = [Trajectory<Observation, Action, Reward, State>]()
+    var trajectories = [Trajectory<Observation, Action, Reward>]()
     var currentStep = environment.currentStep
     var numSteps = 0
     var numEpisodes = 0
@@ -55,15 +49,14 @@ extension PolicyGradientAgent {
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
-        reward: nextStep.reward,
-        state: state)
+        reward: nextStep.reward)
       trajectories.append(trajectory)
       stepCallbacks.forEach { $0(environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
     }
-    return update(using: Trajectory<Observation, Action, Reward, State>.stack(trajectories))
+    return update(using: Trajectory<Observation, Action, Reward>.stack(trajectories))
   }
 }
 
@@ -83,16 +76,10 @@ where
   public typealias Action = ActionDistribution.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
-  public typealias State = Network.State
 
   public let actionSpace: Environment.ActionSpace
   public var network: Network
   public var optimizer: Optimizer
-
-  public var state: State {
-    get { network.state }
-    set { network.state = newValue }
-  }
 
   public let discountFactor: Float
   public let entropyRegularizationWeight: Float
@@ -123,14 +110,11 @@ where
 
   @inlinable
   @discardableResult
-  public mutating func update(
-    using trajectory: Trajectory<Observation, Action, Reward, State>
-  ) -> Float {
+  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
     var returns = discountedReturns(
       discountFactor: discountFactor,
       stepKinds: trajectory.stepKind,
       rewards: trajectory.reward)
-    network.state = trajectory.state
     let (loss, gradient) = network.valueWithGradient { [
       // TODO: !!!!
       // inout returnsNormalizer,
@@ -199,16 +183,10 @@ where
   public typealias Action = ActionDistribution.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
-  public typealias State = Network.State
 
   public let actionSpace: Environment.ActionSpace
   public var network: Network
   public var optimizer: Optimizer
-
-  public var state: State {
-    get { network.state }
-    set { network.state = newValue }
-  }
 
   public let advantageFunction: AdvantageFunction
   public let valueEstimationLossWeight: Float
@@ -244,10 +222,7 @@ where
 
   @inlinable
   @discardableResult
-  public mutating func update(
-    using trajectory: Trajectory<Observation, Action, Reward, State>
-  ) -> Float {
-    network.state = trajectory.state
+  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
     let (loss, gradient) = network.valueWithGradient { [
       advantageFunction, // TODO: !!!! inout advantagesNormalizer,
       valueEstimationLossWeight, entropyRegularizationWeight
@@ -378,17 +353,11 @@ where
   public typealias Action = ActionDistribution.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
-  public typealias State = Network.State
 
   public let actionSpace: Environment.ActionSpace
   public var network: Network
   public var optimizer: Optimizer
   public var trainingStep: Int = 0
-
-  public var state: State {
-    get { network.state }
-    set { network.state = newValue }
-  }
 
   public let learningRateSchedule: LearningRateSchedule
   public let maxGradientNorm: Float?
@@ -444,17 +413,13 @@ where
 
   @inlinable
   @discardableResult
-  public mutating func update(
-    using trajectory: Trajectory<Observation, Action, Reward, State>
-  ) -> Float {
+  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
     optimizer.learningRate = learningRateSchedule.learningRate(step: trainingStep)
     trainingStep += 1
 
-    network.state = trajectory.state
-    let networkOutput = network(trajectory.observation)
-
     // Split the trajectory such that the last step is only used to provide the final value
     // estimate used for advantage estimation.
+    let networkOutput = network(trajectory.observation)
     let sequenceLength = networkOutput.value.shape[0] - 1
     let stepKinds = StepKind(trajectory.stepKind.rawValue[0..<sequenceLength])
     let values = networkOutput.value[0..<sequenceLength]
@@ -485,8 +450,6 @@ where
     
     var lastEpochLoss: Float = 0.0
     for _ in 0..<iterationCountPerUpdate {
-      // Restore the network state before computing the loss function.
-      network.state = trajectory.state
       var (loss, gradient) = network.valueWithGradient { [
         clip, penalty, entropyRegularization, valueEstimationLoss
       ] network -> Tensor<Float> in

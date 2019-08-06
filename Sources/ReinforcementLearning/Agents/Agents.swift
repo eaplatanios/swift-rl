@@ -14,18 +14,17 @@
 
 public protocol Agent {
   associatedtype Environment: ReinforcementLearning.Environment
-  associatedtype State
 
   var actionSpace: Environment.ActionSpace { get }
-  var state: State { get set }
 
   mutating func action(for step: Step<Observation, Reward>) -> Action
 
-  /// Updates this agent using the provided experience, effectively performing a single
-  /// training step.
+  /// Updates this agent, effectively performing a single training step.
+  ///
+  /// - Parameter trajectory: Trajectory to use for the update.
   /// - Returns: Loss function value.
   @discardableResult
-  mutating func update(using trajectory: Trajectory<Observation, Action, Reward, State>) -> Float
+  mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float
 }
 
 extension Agent {
@@ -38,7 +37,7 @@ extension Agent {
     in environment: Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void] = []
+    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void] = []
   ) {
     var currentStep = environment.currentStep
     var numSteps = 0
@@ -50,8 +49,7 @@ extension Agent {
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
-        reward: nextStep.reward,
-        state: state)
+        reward: nextStep.reward)
       stepCallbacks.forEach { $0(trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
@@ -73,30 +71,20 @@ extension Agent {
 ///   - `action`: Action the agent took in each time step.
 ///   - `reward`: Reward that the agent received from the environment after each action. The reward
 ///     received after taking `action[t]` is `reward[t]`.
-///   - `state`: The state of the agent after taking each action. The state the agent is in after
-///     taking `action[t]` is `state[t]`.
-public struct Trajectory<Observation, Action, Reward, State>: KeyPathIterable {
+public struct Trajectory<Observation, Action, Reward>: KeyPathIterable {
   // These need to be mutable because we use `KeyPathIterable.recursivelyAllWritableKeyPaths` to
   // automatically derive conformance to `Replayable`.
   public var stepKind: StepKind
   public var observation: Observation
   public var action: Action
   public var reward: Reward
-  public var state: State
 
   @inlinable
-  public init(
-    stepKind: StepKind,
-    observation: Observation,
-    action: Action,
-    reward: Reward,
-    state: State
-  ) {
+  public init(stepKind: StepKind, observation: Observation, action: Action, reward: Reward) {
     self.stepKind = stepKind
     self.observation = observation
     self.action = action
     self.reward = reward
-    self.state = state
   }
 }
 
@@ -148,7 +136,7 @@ extension ProbabilisticAgent {
     mode: ProbabilisticAgentMode = .greedy,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void] = []
+    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void] = []
   ) {
     var currentStep = environment.currentStep
     var numSteps = 0
@@ -160,8 +148,7 @@ extension ProbabilisticAgent {
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
-        reward: nextStep.reward,
-        state: state)
+        reward: nextStep.reward)
       stepCallbacks.forEach { $0(trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
@@ -175,10 +162,8 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
   public typealias Action = Environment.ActionSpace.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Environment.Reward
-  public typealias State = None
 
   public let actionSpace: Environment.ActionSpace
-  public var state: None = None()
 
   @inlinable
   public init(for environment: Environment) {
@@ -192,9 +177,7 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
 
   @inlinable
   @discardableResult
-  public mutating func update(
-    using trajectory: Trajectory<Observation, Action, Reward, State>
-  ) -> Float {
+  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
     0.0
   }
 
@@ -204,7 +187,7 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
     using environment: Environment,
     maxSteps: Int,
     maxEpisodes: Int,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
+    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void]
   ) -> Float {
     0.0
   }

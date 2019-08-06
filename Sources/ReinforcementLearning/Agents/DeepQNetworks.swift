@@ -36,17 +36,11 @@ where
   public typealias Action = Environment.ActionSpace.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
-  public typealias State = QNetwork.State
 
   public let actionSpace: Environment.ActionSpace
   public var qNetwork: QNetwork
   public var targetQNetwork: QNetwork
   public var optimizer: Optimizer
-
-  public var state: State {
-    get { qNetwork.state }
-    set { qNetwork.state = newValue }
-  }
 
   public let trainSequenceLength: Int
   public let maxReplayedSequenceLength: Int
@@ -57,7 +51,7 @@ where
   public let trainStepsPerIteration: Int
 
   @usableFromInline internal var replayBuffer: UniformReplayBuffer<
-    Trajectory<Observation, Action, Reward, State>>?
+    Trajectory<Observation, Action, Reward>>?
   @usableFromInline internal var trainingStep: Int = 0
 
   @inlinable
@@ -103,10 +97,7 @@ where
 
   @inlinable
   @discardableResult
-  public mutating func update(
-    using trajectory: Trajectory<Observation, Action, Reward, State>
-  ) -> Float {
-    qNetwork.state = trajectory.state
+  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
     let (loss, gradient) = qNetwork.valueWithGradient { qNetwork -> Tensor<Float> in
       let qValues = qNetwork(trajectory.observation)
       let qValue = qValues.batchGatheringV2(
@@ -157,7 +148,7 @@ where
     using environment: Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward, State>) -> Void]
+    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void]
   ) -> Float {
     if replayBuffer == nil {
       replayBuffer = UniformReplayBuffer(
@@ -174,8 +165,7 @@ where
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
-        reward: nextStep.reward,
-        state: state)
+        reward: nextStep.reward)
       replayBuffer!.record(trajectory)
       stepCallbacks.forEach { $0(trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
