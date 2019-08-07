@@ -100,7 +100,7 @@ where
   public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
     let (loss, gradient) = qNetwork.valueWithGradient { qNetwork -> Tensor<Float> in
       let qValues = qNetwork(trajectory.observation)
-      let qValue = qValues.batchGatheringV2(
+      let qValue = qValues.batchGathering(
         atIndices: trajectory.action,
         alongAxis: 2,
         batchDimensionCount: 2)

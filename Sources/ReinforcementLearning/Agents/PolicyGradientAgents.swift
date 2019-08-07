@@ -487,7 +487,8 @@ where
         let newValues = newNetworkOutput.value[0..<sequenceLength]
         var valueLoss = (newValues - returns).squared()
         if let c = self.valueEstimationLoss.clipThreshold {
-          let ε = Tensor<Float>(c)
+          // TODO: !!!! let ε = Tensor<Float>(c)
+          let ε = Tensor<Float>(repeating: c, shape: newValues.shape)
           let clippedValues = values + (newValues - values).clipped(min: -ε, max: ε)
           let clippedValueLoss = (clippedValues - returns).squared()
           valueLoss = max(valueLoss, clippedValueLoss)

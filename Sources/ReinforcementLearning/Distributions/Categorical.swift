@@ -39,7 +39,7 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
   @inlinable
   @differentiable(wrt: self)
   public func logProbability(of value: Tensor<Scalar>) -> Tensor<Float> {
-    logProbabilities.batchGatheringV2(
+    logProbabilities.batchGathering(
       atIndices: value.expandingShape(at: -1),
       alongAxis: 2,
       batchDimensionCount: 2
