@@ -62,7 +62,7 @@ extension PolicyGradientAgent {
 
 public struct ReinforceAgent<
   Environment: ReinforcementLearning.Environment,
-  Network: ReinforcementLearning.Network,
+  Network: Layer,
   Optimizer: TensorFlow.Optimizer
 >: PolicyGradientAgent
 where
@@ -170,7 +170,7 @@ public struct ActorCriticOutput<ActionDistribution: DifferentiableDistribution>:
 
 public struct A2CAgent<
   Environment: ReinforcementLearning.Environment,
-  Network: ReinforcementLearning.Network,
+  Network: Layer,
   Optimizer: TensorFlow.Optimizer
 >: PolicyGradientAgent
 where
@@ -339,7 +339,7 @@ public struct PPOEntropyRegularization {
 
 public struct PPOAgent<
   Environment: ReinforcementLearning.Environment,
-  Network: ReinforcementLearning.Network,
+  Network: Layer,
   Optimizer: TensorFlow.Optimizer
 >: PolicyGradientAgent
 where

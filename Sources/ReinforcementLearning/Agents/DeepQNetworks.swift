@@ -22,7 +22,7 @@ import TensorFlow
 // and continuous action spaces.
 public struct DQNAgent<
   Environment: ReinforcementLearning.Environment,
-  QNetwork: ReinforcementLearning.Network,
+  QNetwork: Layer & Copyable,
   Optimizer: TensorFlow.Optimizer
 >: ProbabilisticAgent
 where

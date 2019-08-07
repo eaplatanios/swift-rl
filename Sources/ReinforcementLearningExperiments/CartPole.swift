@@ -15,9 +15,7 @@
 import Logging
 import ReinforcementLearning
 
-fileprivate struct CartPoleActor: Network {
-  @noDerivative public var state: None = None()
-
+fileprivate struct CartPoleActor: Layer {
   public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
 
@@ -45,9 +43,7 @@ fileprivate struct CartPoleActor: Network {
   }
 }
 
-fileprivate struct CartPoleActorCritic: Network {
-  @noDerivative public var state: None = None()
-
+fileprivate struct CartPoleActorCritic: Layer {
   public var dense1Action: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
   public var dense2Action: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
   public var dense1Value: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
@@ -83,9 +79,7 @@ fileprivate struct CartPoleActorCritic: Network {
   }
 }
 
-fileprivate struct CartPoleQNetwork: Network {
-  @noDerivative public var state: None = None()
-
+fileprivate struct CartPoleQNetwork: Layer & Copyable {
   public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
 
