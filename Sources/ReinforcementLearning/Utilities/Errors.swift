@@ -15,5 +15,5 @@
 import Foundation
 
 public enum RLError: Error {
-  case RenderingError(String)
+  case renderingError(String)
 }
