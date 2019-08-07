@@ -18,8 +18,8 @@ let package = Package(
     ],
     targets: [
         .systemLibrary(
-            name: "GLFW",
-            path: "Sources/GLFW",
+            name: "CGLFW",
+            path: "Sources/CGLFW",
             pkgConfig: "glfw3",
             providers: [
                 .brew(["--HEAD git glfw3"]),
@@ -27,7 +27,7 @@ let package = Package(
             ]),
         .target(
             name: "ReinforcementLearning",
-            dependencies: ["GLFW"],
+            dependencies: ["CGLFW"],
             path: "Sources/ReinforcementLearning"),
         .target(
             name: "ReinforcementLearningExperiments",
