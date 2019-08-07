@@ -17,6 +17,10 @@ import Foundation
 
 public typealias TensorFlowSeed = (graph: Int32, op: Int32)
 
+public enum ReinforcementLearningError: Error {
+  case renderingError(String)
+}
+
 public protocol Copyable {
   func copy() -> Self
 }

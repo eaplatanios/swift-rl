@@ -82,13 +82,13 @@ public class ImageRenderer {
   public func createWindow(width: Int32, height: Int32) throws {
     // Initialize GLFW.
     if glfwInit() == 0 {
-      throw RLError.renderingError("Failed to initialize GLFW.")
+      throw ReinforcementLearningError.renderingError("Failed to initialize GLFW.")
     }
 
     // Open a new window.
     guard let window = glfwCreateWindow(width, height, "Gym Retro", nil, nil) else {
       glfwTerminate()
-      throw RLError.renderingError("Failed to open a GLFW window.")
+      throw ReinforcementLearningError.renderingError("Failed to open a GLFW window.")
     }
 
     self.window = window
@@ -178,12 +178,14 @@ public class GLFWWindow {
     self.framesPerSecond = framesPerSecond
 
     // Initialize GLFW.
-    if glfwInit() == 0 { throw RLError.renderingError("Failed to initialize GLFW.") }
+    if glfwInit() == 0 {
+      throw ReinforcementLearningError.renderingError("Failed to initialize GLFW.")
+    }
 
     // Open a new window.
     guard let window = glfwCreateWindow(Int32(width), Int32(height), name, nil, nil) else {
       glfwTerminate()
-      throw RLError.renderingError("Failed to open a GLFW window.")
+      throw ReinforcementLearningError.renderingError("Failed to open a GLFW window.")
     }
 
     self.window = window
