@@ -17,30 +17,8 @@ import Foundation
 
 public typealias TensorFlowSeed = (graph: Int32, op: Int32)
 
-public struct None: Differentiable, KeyPathIterable {
-  public init() { }
-}
-
-extension None: Stackable {
-  public typealias Stacked = None
-
-  public static func stack(_ values: [None]) -> None {
-    None()
-  }
-
-  public func unstacked() -> [None] {
-    [None]()
-  }
-}
-
 public protocol Copyable {
-  init(copying other: Self)
-}
-
-extension Copyable {
-  public func copy() -> Self {
-    Self(copying: self)
-  }
+  func copy() -> Self
 }
 
 public extension Encodable {
@@ -87,10 +65,12 @@ struct Zip3Generator<
 }
 
 func zip<A: Sequence, B: Sequence, C: Sequence>(
-  _ first: A, _ second: B, _ third: C
+  _ first: A,
+  _ second: B,
+  _ third: C
 ) -> IteratorSequence<Zip3Generator<A.Iterator, B.Iterator, C.Iterator>> {
-    return IteratorSequence(Zip3Generator(
-      first.makeIterator(), second.makeIterator(), third.makeIterator()))
+  IteratorSequence(Zip3Generator(
+    first.makeIterator(), second.makeIterator(), third.makeIterator()))
 }
 
 /// Downloads the file at `url` to `path`, if `path` does not exist.
