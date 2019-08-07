@@ -84,7 +84,7 @@ where
   public let discountFactor: Float
   public let entropyRegularizationWeight: Float
 
-  @usableFromInline internal var returnsNormalizer: StreamingTensorNormalizer<Float>?
+  @usableFromInline internal var returnsNormalizer: TensorNormalizer<Float>?
 
   @inlinable
   public init(
@@ -99,7 +99,9 @@ where
     self.network = network
     self.optimizer = optimizer
     self.discountFactor = discountFactor
-    self.returnsNormalizer = normalizeReturns ? StreamingTensorNormalizer(alongAxes: 0, 1) : nil
+    self.returnsNormalizer = normalizeReturns ?
+      TensorNormalizer(streaming: true, alongAxes: 0, 1) :
+      nil
     self.entropyRegularizationWeight = entropyRegularizationWeight
   }
 
@@ -192,7 +194,7 @@ where
   public let valueEstimationLossWeight: Float
   public let entropyRegularizationWeight: Float
 
-  @usableFromInline internal var advantagesNormalizer: StreamingTensorNormalizer<Float>?
+  @usableFromInline internal var advantagesNormalizer: TensorNormalizer<Float>?
 
   @inlinable
   public init(
@@ -209,7 +211,7 @@ where
     self.optimizer = optimizer
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = normalizeAdvantages ?
-      StreamingTensorNormalizer(alongAxes: 0, 1) :
+      TensorNormalizer(streaming: true, alongAxes: 0, 1) :
       nil
     self.valueEstimationLossWeight = valueEstimationLossWeight
     self.entropyRegularizationWeight = entropyRegularizationWeight
@@ -369,7 +371,7 @@ where
   public let entropyRegularization: PPOEntropyRegularization?
   public let iterationCountPerUpdate: Int
 
-  @usableFromInline internal var advantagesNormalizer: StreamingTensorNormalizer<Float>?
+  @usableFromInline internal var advantagesNormalizer: TensorNormalizer<Float>?
 
   @inlinable
   public init(
@@ -381,7 +383,9 @@ where
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
       discountWeight: 0.95),
-    normalizeAdvantages: Bool = true,
+    advantagesNormalizer: TensorNormalizer<Float> = TensorNormalizer<Float>(
+      streaming: false,
+      alongAxes: 0, 1),
     useTDLambdaReturn: Bool = true,
     clip: PPOClip? = PPOClip(),
     penalty: PPOPenalty? = PPOPenalty(),
@@ -395,9 +399,7 @@ where
     self.learningRateSchedule = learningRateSchedule
     self.maxGradientNorm = maxGradientNorm
     self.advantageFunction = advantageFunction
-    self.advantagesNormalizer = normalizeAdvantages ?
-      StreamingTensorNormalizer(alongAxes: 0, 1) :
-      nil
+    self.advantagesNormalizer = advantagesNormalizer
     self.useTDLambdaReturn = useTDLambdaReturn
     self.clip = clip
     self.penalty = penalty
