@@ -24,14 +24,30 @@ public protocol Normalizer {
 
 public protocol TensorNormalizer: Normalizer where Value == Tensor<Scalar> {
   associatedtype Scalar: TensorFlowFloatingPoint
-  func momentsEstimate() -> Moments<Scalar>
 }
 
-extension TensorNormalizer {
+public struct BatchTensorNormalizer<Scalar: TensorFlowFloatingPoint>: TensorNormalizer {
+  public let axes: Tensor<Int32>
+
+  public init(alongAxes axes: Tensor<Int32>) {
+    self.axes = axes
+  }
+
+  public init(alongAxes axes: [Int]) {
+    self.init(alongAxes: Tensor<Int32>(axes.map(Int32.init)))
+  }
+
+  public init(alongAxes axes: Int...) {
+    self.init(alongAxes: Tensor<Int32>(axes.map(Int32.init)))
+  }
+
   public func normalize(_ value: Tensor<Scalar>) -> Tensor<Scalar> {
-    let moments = momentsEstimate()
+    let moments = value.moments(alongAxes: axes)
     return (value - moments.mean) / (sqrt(moments.variance) + Scalar(Float.ulpOfOne))
   }
+
+  public mutating func update(using value: Tensor<Scalar>) {}
+  public mutating func reset() {}
 }
 
 public struct StreamingTensorNormalizer<Scalar: TensorFlowFloatingPoint>: TensorNormalizer {
@@ -54,6 +70,11 @@ public struct StreamingTensorNormalizer<Scalar: TensorFlowFloatingPoint>: Tensor
 
   public init(alongAxes axes: Int...) {
     self.init(alongAxes: Tensor<Int32>(axes.map(Int32.init)))
+  }
+
+  public func normalize(_ value: Tensor<Scalar>) -> Tensor<Scalar> {
+    let moments = momentsEstimate()
+    return (value - moments.mean) / (sqrt(moments.variance) + Scalar(Float.ulpOfOne))
   }
 
   public func momentsEstimate() -> Moments<Scalar> {
