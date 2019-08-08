@@ -87,16 +87,16 @@ public struct LinearLearningRateDecay<Scalar: FloatingPoint>: LearningRateSchedu
 ///
 /// The decayed learning rate is computed as follows:
 /// ```
-/// decay = decayRate ^ (step / decaySteps)
+/// decay = decayRate ^ (step / decayStepCount)
 /// decayedLearningRate = learningRate * ((1 - lowerBound) * decay + lowerBound)
 /// ```
-/// where if `staircase = true`, then `step / decaySteps` uses integer division and the decayed
+/// where if `staircase = true`, then `step / decayStepCount` uses integer division and the decayed
 /// learning rate follows a staircase function.
 public struct ExponentialLearningRateDecay<
   Scalar: FloatingPoint & ElementaryFunctions
 >: LearningRateSchedule {
   public let decayRate: Scalar
-  public let decaySteps: UInt64
+  public let decayStepCount: UInt64
   public let staircase: Bool
   public let lowerBound: Scalar
   public let startStep: UInt64
@@ -105,7 +105,7 @@ public struct ExponentialLearningRateDecay<
   ///
   /// - Parameters:
   ///   - decayRate: Decay rate.
-  ///   - decaySteps: Decay steps.
+  ///   - decayStepCount: Decay step count.
   ///   - staircase: If `true`, the decay will occur at discrete intervals.
   ///   - lowerBound: Minimum decayed learning rate value as a fraction of the original learning
   ///     rate value.
@@ -113,13 +113,13 @@ public struct ExponentialLearningRateDecay<
   @inlinable
   public init(
     decayRate: Scalar,
-    decaySteps: UInt64,
+    decayStepCount: UInt64,
     staircase: Bool = false,
     lowerBound: Scalar = Scalar(0),
     startStep: UInt64 = 0
   ) {
     self.decayRate = decayRate
-    self.decaySteps = decaySteps
+    self.decayStepCount = decayStepCount
     self.staircase = staircase
     self.lowerBound = lowerBound
     self.startStep = startStep
@@ -129,7 +129,7 @@ public struct ExponentialLearningRateDecay<
   public func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar {
     if step < startStep { return learningRate }
     let step = step - startStep
-    let power = Scalar(step) / Scalar(decaySteps)
+    let power = Scalar(step) / Scalar(decayStepCount)
     let decay = Scalar.pow(decayRate, staircase ? power.rounded(.down) : power)
     return learningRate * ((1 - lowerBound) * decay + lowerBound)
   }
