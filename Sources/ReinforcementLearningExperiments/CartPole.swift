@@ -147,15 +147,15 @@ public func runCartPole(
     var agent = PPOAgent(
       for: environment,
       network: network,
-      optimizer: AMSGrad(for: network),
-      learningRateSchedule: LinearLearningRateSchedule(initialValue: 1e-3, slope: -1e-3 / 100.0),
+      optimizer: AMSGrad(for: network, learningRate: 1e-3),
+      learningRateSchedule: LinearLearningRateDecay(slope: -1e-3 / 100.0, lowerBound: 1e-6),
       advantageFunction: GeneralizedAdvantageEstimation(
         discountFactor: 0.99,
         discountWeight: 0.95))
     for step in 0..<10000 {
       let loss = agent.update(
         using: environment,
-        maxSteps: 1000 * batchSize,
+        maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
         stepCallbacks: [{ (environment, trajectory) in
           if step > 0 { try! environment.render() }

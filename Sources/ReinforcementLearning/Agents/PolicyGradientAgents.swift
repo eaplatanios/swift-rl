@@ -335,14 +335,16 @@ public struct PPOEntropyRegularization {
 public struct PPOAgent<
   Environment: ReinforcementLearning.Environment,
   Network: Module,
-  Optimizer: TensorFlow.Optimizer
+  Optimizer: TensorFlow.Optimizer,
+  Schedule: LearningRateSchedule
 >: PolicyGradientAgent
 where
   Environment.Observation == Network.Input,
   Environment.ActionSpace.ValueDistribution: DifferentiableKLDivergence,
   Environment.Reward == Tensor<Float>,
   Network.Output == ActorCriticOutput<Environment.ActionSpace.ValueDistribution>,
-  Optimizer.Model == Network
+  Optimizer.Model == Network,
+  Schedule.Scalar == Optimizer.Scalar
 {
   public typealias Observation = Network.Input
   public typealias Action = ActionDistribution.Value
@@ -352,9 +354,10 @@ where
   public let actionSpace: Environment.ActionSpace
   public var network: Network
   public var optimizer: Optimizer
-  public var trainingStep: Int = 0
+  public var trainingStep: UInt64 = 0
 
-  public let learningRateSchedule: LearningRateSchedule
+  public let learningRateSchedule: Schedule
+  public let initialLearningRate: Optimizer.Scalar
   public let maxGradientNorm: Float?
   public let advantageFunction: AdvantageFunction
   public let useTDLambdaReturn: Bool
@@ -371,7 +374,7 @@ where
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
-    learningRateSchedule: LearningRateSchedule,
+    learningRateSchedule: Schedule,
     maxGradientNorm: Float? = 0.5,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
@@ -390,6 +393,7 @@ where
     self.network = network
     self.optimizer = optimizer
     self.learningRateSchedule = learningRateSchedule
+    self.initialLearningRate = optimizer.learningRate
     self.maxGradientNorm = maxGradientNorm
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = advantagesNormalizer
@@ -409,7 +413,9 @@ where
   @inlinable
   @discardableResult
   public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
-    optimizer.learningRate = learningRateSchedule.learningRate(step: trainingStep)
+    optimizer.learningRate = learningRateSchedule(
+      step: trainingStep,
+      learningRate: initialLearningRate)
     trainingStep += 1
 
     // Split the trajectory such that the last step is only used to provide the final value
@@ -487,8 +493,7 @@ where
         let newValues = newNetworkOutput.value[0..<sequenceLength]
         var valueLoss = (newValues - returns).squared()
         if let c = self.valueEstimationLoss.clipThreshold {
-          // TODO: !!!! let ε = Tensor<Float>(c)
-          let ε = Tensor<Float>(repeating: c, shape: newValues.shape)
+          let ε = Tensor<Float>(c)
           let clippedValues = values + (newValues - values).clipped(min: -ε, max: ε)
           let clippedValueLoss = (clippedValues - returns).squared()
           valueLoss = max(valueLoss, clippedValueLoss)
