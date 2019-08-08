@@ -53,7 +53,7 @@ public struct FixedLearningRate<Scalar: FloatingPoint>: LearningRateSchedule {
 /// The decayed learning rate is computed as follows:
 /// ```
 /// decayed = learningRate + step * slope
-/// decayedLearningRate = learningRate * ((1 - lowerBound) * decayed + lowerBound)
+/// decayedLearningRate = max(lowerBound * learningRate, decayed)
 /// ```
 public struct LinearLearningRateDecay<Scalar: FloatingPoint>: LearningRateSchedule {
   public let slope: Scalar
@@ -78,7 +78,8 @@ public struct LinearLearningRateDecay<Scalar: FloatingPoint>: LearningRateSchedu
   public func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar {
     if step < startStep { return learningRate }
     let step = step - startStep
-    return (1 - lowerBound) * (learningRate + Scalar(step) * slope) + lowerBound
+    let decayed = learningRate + Scalar(step) * slope
+    return max(lowerBound * learningRate, decayed)
   }
 }
 
@@ -86,7 +87,8 @@ public struct LinearLearningRateDecay<Scalar: FloatingPoint>: LearningRateSchedu
 ///
 /// The decayed learning rate is computed as follows:
 /// ```
-/// decayedLearningRate = learningRate * decayRate ^ (step / decaySteps)
+/// decay = decayRate ^ (step / decaySteps)
+/// decayedLearningRate = learningRate * ((1 - lowerBound) * decay + lowerBound)
 /// ```
 /// where if `staircase = true`, then `step / decaySteps` uses integer division and the decayed
 /// learning rate follows a staircase function.
@@ -96,6 +98,7 @@ public struct ExponentialLearningRateDecay<
   public let decayRate: Scalar
   public let decaySteps: UInt64
   public let staircase: Bool
+  public let lowerBound: Scalar
   public let startStep: UInt64
 
   /// Creates a new exponential learning rate decay schedule.
@@ -104,17 +107,21 @@ public struct ExponentialLearningRateDecay<
   ///   - decayRate: Decay rate.
   ///   - decaySteps: Decay steps.
   ///   - staircase: If `true`, the decay will occur at discrete intervals.
+  ///   - lowerBound: Minimum decayed learning rate value as a fraction of the original learning
+  ///     rate value.
   ///   - startStep: Step after which to start decaying the learning rate.
   @inlinable
   public init(
     decayRate: Scalar,
     decaySteps: UInt64,
     staircase: Bool = false,
+    lowerBound: Scalar = Scalar(0),
     startStep: UInt64 = 0
   ) {
     self.decayRate = decayRate
     self.decaySteps = decaySteps
     self.staircase = staircase
+    self.lowerBound = lowerBound
     self.startStep = startStep
   }
 
@@ -124,7 +131,7 @@ public struct ExponentialLearningRateDecay<
     let step = step - startStep
     let power = Scalar(step) / Scalar(decaySteps)
     let decay = Scalar.pow(decayRate, staircase ? power.rounded(.down) : power)
-    return learningRate * decay
+    return learningRate * ((1 - lowerBound) * decay + lowerBound)
   }
 }
 
@@ -132,13 +139,15 @@ public struct ExponentialLearningRateDecay<
 ///
 /// The decayed learning rate is computed as follows:
 /// ```
-/// decayedLearningRate = learningRate * decayFactor / sqrt(max(step, decayThreshold))
+/// decay = decayFactor / sqrt(max(step, decayThreshold))
+/// decayedLearningRate = learningRate * ((1 - lowerBound) * decay + lowerBound)
 /// ```
 public struct RSqrtLearningRateDecay<
   Scalar: FloatingPoint & ElementaryFunctions
 >: LearningRateSchedule {
   public let decayFactor: Scalar
   public let decayThreshold: Scalar
+  public let lowerBound: Scalar
   public let startStep: UInt64
 
   /// Creates a new reciprocal square root learning rate decay schedule.
@@ -146,11 +155,19 @@ public struct RSqrtLearningRateDecay<
   /// - Parameters:
   ///   - decayFactor: Decay factor.
   ///   - decayThreshold: Decay threshold.
+  ///   - lowerBound: Minimum decayed learning rate value as a fraction of the original learning
+  ///     rate value.
   ///   - startStep: Step after which to start decaying the learning rate.
   @inlinable
-  public init(decayFactor: Scalar, decayThreshold: Scalar, startStep: UInt64 = 0) {
+  public init(
+    decayFactor: Scalar,
+    decayThreshold: Scalar,
+    lowerBound: Scalar = Scalar(0),
+    startStep: UInt64 = 0
+  ) {
     self.decayFactor = decayFactor
     self.decayThreshold = decayThreshold
+    self.lowerBound = lowerBound
     self.startStep = startStep
   }
 
@@ -158,7 +175,8 @@ public struct RSqrtLearningRateDecay<
   public func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar {
     if step < startStep { return learningRate }
     let step = step - startStep
-    return decayFactor / Scalar.sqrt(max(Scalar(step), decayThreshold))
+    let decay = decayFactor / Scalar.sqrt(max(Scalar(step), decayThreshold))
+    return learningRate * ((1 - lowerBound) * decay + lowerBound)
   }
 }
 
@@ -166,8 +184,8 @@ public struct RSqrtLearningRateDecay<
 ///
 /// The decayed learning rate is computed as follows:
 /// ```
-/// cosineDecay = 0.5 * (1 + cos(pi * min(step, cycleStepCount) / cycleStepCount))
-/// decayedLearningRate = learningRate * ((1 - lowerBound) * cosineDecay + lowerBound)
+/// decay = 0.5 * (1 + cos(pi * min(step, cycleStepCount) / cycleStepCount))
+/// decayedLearningRate = learningRate * ((1 - lowerBound) * decay + lowerBound)
 /// ```
 public struct CosineLearningRateDecay<
   Scalar: FloatingPoint & ElementaryFunctions
@@ -199,7 +217,7 @@ public struct CosineLearningRateDecay<
     if step < startStep { return learningRate }
     let step = step - startStep
     let cosine = Scalar.cos(Scalar(min(step, cycleStepCount)))
-    let cosineDecay = (1 + cosine) * Scalar.pi / Scalar(2 * cycleStepCount)
-    return (1 - lowerBound) * cosineDecay + lowerBound
+    let decay = (1 + cosine) * Scalar.pi / Scalar(2 * cycleStepCount)
+    return learningRate * ((1 - lowerBound) * decay + lowerBound)
   }
 }
