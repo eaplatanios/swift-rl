@@ -230,9 +230,7 @@ public struct CosineLearningRateDecay<
 /// decay = (0.1 + cyclePosition) * 3
 /// decayedLearningRate = learningRate * ((1 - lowerBound) * decay + lowerBound)
 /// ```
-public struct CycleLinear10xLearningRateDecay<
-  Scalar: FloatingPoint & ElementaryFunctions
->: LearningRateSchedule {
+public struct CycleLinear10xLearningRateDecay<Scalar: FloatingPoint>: LearningRateSchedule {
   public let cycleStepCount: UInt64
   public let lowerBound: Scalar
   public let startStep: UInt64
@@ -263,5 +261,36 @@ public struct CycleLinear10xLearningRateDecay<
     let cyclePosition = 1 - abs(ratio)
     let decay = (1 / Scalar(10) + cyclePosition) * 3 // 10x difference in each cycle (0.3 - 3).
     return learningRate * ((1 - lowerBound) * decay + lowerBound)
+  }
+}
+
+/// Linear learning rate warm-up schedule.
+///
+/// For the first `warmUpStepCount` steps the learning rate is multiplied with:
+/// ```
+/// warmUpOffset + ((1 - warmUpOffset) / warmUpStepCount) * step
+/// ```
+///
+/// - Source: [Attention is All You Need (Section 5.3)](https://arxiv.org/pdf/1706.03762.pdf).
+public struct LinearLearningRateWarmUp<Scalar: FloatingPoint>: LearningRateSchedule {
+  public let warmUpStepCount: UInt64
+  public let warmUpOffset: Scalar
+
+  /// Creates a new linear learning rate warm-up schedule.
+  ///
+  /// - Parameters:
+  ///   - warmUpStepCount: Number of warm-up steps.
+  ///   - warmUpOffset: Linear schedule offset.
+  @inlinable
+  public init(warmUpStepCount: UInt64, warmUpOffset: Scalar) {
+    self.warmUpStepCount = warmUpStepCount
+    self.warmUpOffset = warmUpOffset
+  }
+
+  @inlinable
+  public func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar {
+    if step >= warmUpStepCount { return learningRate }
+    let factor = warmUpOffset + ((1 - warmUpOffset) / Scalar(warmUpStepCount)) * Scalar(step)
+    return learningRate * factor
   }
 }
