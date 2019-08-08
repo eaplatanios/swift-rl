@@ -126,36 +126,3 @@ internal class DataDownloadDelegate: NSObject, URLSessionDownloadDelegate {
     semaphore.signal()
   }
 }
-
-// TODO: !!!! Remove the following once TF-742 is fixed.
-public extension Tensor where Scalar: TensorFlowNumeric {
-    /// Returns `max(min(self, max), min)`.
-    @inlinable
-    @differentiable(vjp: _vjpClipped where Scalar: TensorFlowFloatingPoint)
-    func clipped(min: Tensor, max: Tensor) -> Tensor {
-        Raw.clipByValue(t: self, clipValueMin: min, clipValueMax: max)
-    }
-}
-
-internal extension Tensor where Scalar: TensorFlowFloatingPoint {
-    @inlinable
-    func _vjpClipped(min: Tensor, max: Tensor) -> (Tensor, (Tensor) -> (Tensor, Tensor, Tensor)) {
-        (clipped(min: min, max: max), { v in
-            let selfShape = self.shapeTensor
-            let minShape = min.shapeTensor
-            let maxShape = max.shapeTensor
-            let zeros = Tensor(zerosLike: v)
-            let minMask = self .< min
-            let maxMask = self .> max
-            let selfGradient = v.replacing(with: zeros, where: minMask.elementsLogicalOr(maxMask))
-            let minGradient = zeros.replacing(with: v, where: minMask)
-            let maxGradient = zeros.replacing(with: v, where: maxMask)
-            let (selfAxes, minAxes) = Raw.broadcastGradientArgs(s0: selfShape, s1: minShape)
-            let (_, maxAxes) = Raw.broadcastGradientArgs(s0: selfShape, s1: maxShape)
-            return (
-                    minGradient.sum(squeezingAxes: minAxes).reshaped(toShape: minShape),
-                    selfGradient.sum(squeezingAxes: selfAxes).reshaped(toShape: selfShape),
-                    maxGradient.sum(squeezingAxes: maxAxes).reshaped(toShape: maxShape))
-        })
-    }
-}
