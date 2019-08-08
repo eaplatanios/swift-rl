@@ -125,3 +125,37 @@ public struct ExponentialLearningRateDecay<
     return learningRate * decay
   }
 }
+
+/// Reciprocal square root learning rate decay schedule.
+///
+/// The decayed learning rate is computed as follows:
+/// ```
+/// decayedLearningRate = learningRate * decayFactor / sqrt(max(step, decayThreshold))
+/// ```
+public struct RSqrtLearningRateDecay<
+  Scalar: FloatingPoint & ElementaryFunctions
+>: LearningRateSchedule {
+  public let decayFactor: Scalar
+  public let decayThreshold: Scalar
+  public let startStep: UInt64
+
+  /// Creates a new reciprocal square root learning rate decay schedule.
+  ///
+  /// - Parameters:
+  ///   - decayFactor: Decay factor.
+  ///   - decayThreshold: Decay threshold.
+  ///   - startStep: Step after which to start decaying the learning rate.
+  @inlinable
+  public init(decayFactor: Scalar, decayThreshold: Scalar, startStep: UInt64 = 0) {
+    self.decayFactor = decayFactor
+    self.decayThreshold = decayThreshold
+    self.startStep = startStep
+  }
+
+  @inlinable
+  public func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar {
+    if step < startStep { return learningRate }
+    let step = step - startStep
+    return decayFactor / Scalar.sqrt(max(Scalar(step), decayThreshold))
+  }
+}
