@@ -13,7 +13,7 @@
 // the License.
 
 import Foundation
-@_exported import TensorFlow
+import TensorFlow
 
 public typealias TensorFlowSeed = (graph: Int32, op: Int32)
 
@@ -41,40 +41,6 @@ public extension Decodable {
     let jsonDecoder = JSONDecoder()
     self = try jsonDecoder.decode(Self.self, from: json.data(using: .utf8)!)
   }
-}
-
-struct Zip3Generator<
-  A: IteratorProtocol,
-  B: IteratorProtocol,
-  C: IteratorProtocol
->: IteratorProtocol {
-  private var first: A
-  private var second: B
-  private var third: C
-
-  private var index = 0
-
-  init(_ first: A, _ second: B, _ third: C) {
-    self.first = first
-    self.second = second
-    self.third = third
-  }
-
-  mutating func next() -> (A.Element, B.Element, C.Element)? {
-    if let first = first.next(), let second = second.next(), let third = third.next() {
-      return (first, second, third)
-    }
-    return nil
-  }
-}
-
-func zip<A: Sequence, B: Sequence, C: Sequence>(
-  _ first: A,
-  _ second: B,
-  _ third: C
-) -> IteratorSequence<Zip3Generator<A.Iterator, B.Iterator, C.Iterator>> {
-  IteratorSequence(Zip3Generator(
-    first.makeIterator(), second.makeIterator(), third.makeIterator()))
 }
 
 /// Downloads the file at `url` to `path`, if `path` does not exist.
