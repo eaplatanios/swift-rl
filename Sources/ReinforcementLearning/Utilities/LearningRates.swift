@@ -221,3 +221,47 @@ public struct CosineLearningRateDecay<
     return learningRate * ((1 - lowerBound) * decay + lowerBound)
   }
 }
+
+/// Cycle-linear 10x learning rate decay schedule.
+///
+/// The decayed learning rate is computed as follows:
+/// ```
+/// cyclePosition = 1 - abs((step % (2 * cycleStepCount) - cycleStepCount) / cycleStepCount)
+/// decay = (0.1 + cyclePosition) * 3
+/// decayedLearningRate = learningRate * ((1 - lowerBound) * decay + lowerBound)
+/// ```
+public struct CycleLinear10xLearningRateDecay<
+  Scalar: FloatingPoint & ElementaryFunctions
+>: LearningRateSchedule {
+  public let cycleStepCount: UInt64
+  public let lowerBound: Scalar
+  public let startStep: UInt64
+
+  /// Creates a new cycle-linear 10x learning rate decay schedule.
+  ///
+  /// - Parameters:
+  ///   - cycleStepCount: Cycle-linear 10x decay cycle in terms of number of steps.
+  ///   - lowerBound: Minimum decayed learning rate value as a fraction of the original learning
+  ///     rate value.
+  ///   - startStep: Step after which to start decaying the learning rate.
+  @inlinable
+  public init(
+    cycleStepCount: UInt64,
+    lowerBound: Scalar = Scalar(0),
+    startStep: UInt64 = 0
+  ) {
+    self.cycleStepCount = cycleStepCount
+    self.lowerBound = lowerBound
+    self.startStep = startStep
+  }
+
+  @inlinable
+  public func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar {
+    if step < startStep { return learningRate }
+    let step = step - startStep
+    let ratio = Scalar((step % (2 * cycleStepCount) - cycleStepCount)) / Scalar(cycleStepCount)
+    let cyclePosition = 1 - abs(ratio)
+    let decay = (1 / Scalar(10) + cyclePosition) * 3 // 10x difference in each cycle (0.3 - 3).
+    return learningRate * ((1 - lowerBound) * decay + lowerBound)
+  }
+}
