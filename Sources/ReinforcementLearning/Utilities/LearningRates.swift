@@ -294,3 +294,37 @@ public struct LinearLearningRateWarmUp<Scalar: FloatingPoint>: LearningRateSched
     return learningRate * factor
   }
 }
+
+/// Exponential learning rate warm-up schedule.
+///
+/// For the first `warmUpStepCount` steps the learning rate is multiplied with:
+/// ```
+/// exp(log(warmUpFactor) / step) ^ (warmUpStepCount - step)
+/// ```
+///
+/// - Source: [Attention is All You Need (Section 5.3)](https://arxiv.org/pdf/1706.03762.pdf).
+public struct ExponentialLearningRateWarmUp<
+  Scalar: FloatingPoint & ElementaryFunctions
+>: LearningRateSchedule {
+  public let warmUpStepCount: UInt64
+  public let warmUpFactor: Scalar
+
+  /// Creates a new linear learning rate warm-up schedule.
+  ///
+  /// - Parameters:
+  ///   - warmUpStepCount: Number of warm-up steps.
+  ///   - warmUpFactor: Warm-up learning rate scaling factor.
+  @inlinable
+  public init(warmUpStepCount: UInt64, warmUpFactor: Scalar) {
+    self.warmUpStepCount = warmUpStepCount
+    self.warmUpFactor = warmUpFactor
+  }
+
+  @inlinable
+  public func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar {
+    if step >= warmUpStepCount { return learningRate }
+    let base = Scalar.exp(Scalar.log(warmUpFactor) / Scalar(warmUpStepCount))
+    let factor = Scalar.pow(base, Scalar(warmUpStepCount - step))
+    return learningRate * factor
+  }
+}
