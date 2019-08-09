@@ -12,8 +12,15 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+/// Learning rate schedule.
 public protocol LearningRateSchedule {
   associatedtype Scalar: FloatingPoint
+
+  /// Returns the transformed value of `learningRate` for the specified training step.
+  ///
+  /// - Parameters:
+  ///   - step: Training step.
+  ///   - learningRate: Learning rate value to transform according to this schedule.
   func callAsFunction(step: UInt64, learningRate: Scalar) -> Scalar
 }
 
