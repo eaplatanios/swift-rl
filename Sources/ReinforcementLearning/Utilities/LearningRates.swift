@@ -12,7 +12,8 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-/// Learning rate schedule.
+/// Learning rate schedule that takes a learning rate as input, along with the current training
+/// step and returns a modified learning rate (e.g., decayed).
 public protocol LearningRateSchedule {
   associatedtype Scalar: FloatingPoint
 
@@ -25,6 +26,10 @@ public protocol LearningRateSchedule {
 }
 
 extension LearningRateSchedule {
+  /// Returns a new learning rate schedule which is defined as the composition of this schedule
+  /// with the provided one. More specifically, the new schedule will transform the provided
+  /// learning rates as follows:
+  /// `self(step: step, learningRate: other(step: step, learningRate: learningRate))`.
   public func composed<Schedule: LearningRateSchedule>(
     with other: Schedule
   ) -> ComposedLearningRateSchedule<Self, Schedule> {
@@ -32,6 +37,12 @@ extension LearningRateSchedule {
   }
 }
 
+/// Composed learning rate schedule.
+///
+/// This schedule transforms the provided learning rates as follows:
+/// ```
+/// schedule1(step: step, learningRate: schedule2(step: step, learningRate: learningRate))
+/// ```
 public struct ComposedLearningRateSchedule<
   Schedule1: LearningRateSchedule,
   Schedule2: LearningRateSchedule
