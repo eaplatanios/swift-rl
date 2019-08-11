@@ -380,7 +380,7 @@ where
       discountFactor: 0.99,
       discountWeight: 0.95),
     advantagesNormalizer: TensorNormalizer<Float> = TensorNormalizer<Float>(
-      streaming: false,
+      streaming: true,
       alongAxes: 0, 1),
     useTDLambdaReturn: Bool = true,
     clip: PPOClip? = PPOClip(),
