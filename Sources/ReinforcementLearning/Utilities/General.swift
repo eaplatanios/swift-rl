@@ -13,8 +13,11 @@
 // the License.
 
 import Foundation
-import FoundationNetworking
 import TensorFlow
+
+#if os(Linux)
+import FoundationNetworking
+#endif
 
 public typealias TensorFlowSeed = (graph: Int32, op: Int32)
 

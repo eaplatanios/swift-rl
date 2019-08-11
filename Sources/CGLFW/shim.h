@@ -1,6 +1,8 @@
 #include <sys/types.h>
 
+#ifndef __APPLE__
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
-#include <GLFW/glfw3.h>
+#endif
 
+#include <GLFW/glfw3.h>
