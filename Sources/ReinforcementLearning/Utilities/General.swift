@@ -13,6 +13,7 @@
 // the License.
 
 import Foundation
+import FoundationNetworking
 import TensorFlow
 
 public typealias TensorFlowSeed = (graph: Int32, op: Int32)

@@ -14,6 +14,7 @@
 
 import Logging
 import ReinforcementLearning
+import TensorFlow
 
 fileprivate struct CartPoleActor: Layer {
   public var dense1: Dense<Float> = Dense<Float>(inputSize: 4, outputSize: 100)
