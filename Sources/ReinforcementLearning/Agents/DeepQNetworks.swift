@@ -149,7 +149,7 @@ where
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void]
-  ) -> Float {
+  ) throws -> Float {
     if replayBuffer == nil {
       replayBuffer = UniformReplayBuffer(
         batchSize: environment.batchSize,
@@ -160,7 +160,7 @@ where
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep, mode: .epsilonGreedy(epsilonGreedy))
-      let nextStep = environment.step(taking: action)
+      let nextStep = try environment.step(taking: action)
       let trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,

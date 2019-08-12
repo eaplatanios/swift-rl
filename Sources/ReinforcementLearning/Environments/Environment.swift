@@ -29,7 +29,7 @@ public protocol Environment: AnyObject {
 
   /// Updates the environment according to the provided action.
   @discardableResult
-  func step(taking action: Action) -> Step<Observation, Reward>
+  func step(taking action: Action) throws -> Step<Observation, Reward>
 
   /// Resets the environment.
   @discardableResult

@@ -38,8 +38,8 @@ where
   @inlinable public var currentStep: Step<Observation, Reward> { wrappedEnvironment.currentStep }
 
   @inlinable
-  public func step(taking action: Action) -> Step<Observation, Reward> {
-    wrappedEnvironment.step(taking: action)
+  public func step(taking action: Action) throws -> Step<Observation, Reward> {
+    try wrappedEnvironment.step(taking: action)
   }
 
   @inlinable
@@ -82,8 +82,8 @@ public final class EnvironmentCallbackWrapper<
 
   @inlinable
   @discardableResult
-  public func step(taking action: Action) -> Step<Observation, Reward> {
-    let step = wrappedEnvironment.step(taking: action)
+  public func step(taking action: Action) throws -> Step<Observation, Reward> {
+    let step = try wrappedEnvironment.step(taking: action)
     callbacks.forEach { $0.updateOnStep() }
     return step
   }

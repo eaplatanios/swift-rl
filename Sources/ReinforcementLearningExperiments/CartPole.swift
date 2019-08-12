@@ -93,7 +93,7 @@ public func runCartPole(
   maxReplayedSequenceLength: Int = 1000,
   discountFactor: Float = 0.9,
   entropyRegularizationWeight: Float = 0.01
-) {
+) throws {
   let logger = Logger(label: "Cart-Pole Experiment")
   let baseEnvironment = CartPoleEnvironment(batchSize: batchSize)
   let averageEpisodeLength = AverageEpisodeLength(for: baseEnvironment, bufferSize: 10)
@@ -112,7 +112,7 @@ public func runCartPole(
       discountFactor: discountFactor,
       entropyRegularizationWeight: entropyRegularizationWeight)
     for step in 0..<10000 {
-      let loss = agent.update(
+      let loss = try agent.update(
         using: environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
@@ -132,7 +132,7 @@ public func runCartPole(
       advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
       entropyRegularizationWeight: entropyRegularizationWeight)
     for step in 0..<10000 {
-      let loss = agent.update(
+      let loss = try agent.update(
         using: environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
@@ -154,7 +154,7 @@ public func runCartPole(
         discountFactor: 0.99,
         discountWeight: 0.95))
     for step in 0..<10000 {
-      let loss = agent.update(
+      let loss = try agent.update(
         using: environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
@@ -179,7 +179,7 @@ public func runCartPole(
       discountFactor: 0.99,
       trainStepsPerIteration: 1)
     for step in 0..<10000 {
-      let loss = agent.update(
+      let loss = try agent.update(
         using: environment,
         maxSteps: 32 * 10,
         maxEpisodes: 32,

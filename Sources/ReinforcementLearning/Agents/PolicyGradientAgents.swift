@@ -26,7 +26,7 @@ public protocol PolicyGradientAgent: ProbabilisticAgent {
     maxSteps: Int,
     maxEpisodes: Int,
     stepCallbacks: [(Environment, inout Trajectory<Observation, Action, Reward>) -> Void]
-  ) -> Float
+  ) throws -> Float
 }
 
 extension PolicyGradientAgent {
@@ -37,14 +37,14 @@ extension PolicyGradientAgent {
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Environment, inout Trajectory<Observation, Action, Reward>) -> Void] = []
-  ) -> Float {
+  ) throws -> Float {
     var trajectories = [Trajectory<Observation, Action, Reward>]()
     var currentStep = environment.currentStep
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep, mode: .probabilistic)
-      let nextStep = environment.step(taking: action)
+      let nextStep = try environment.step(taking: action)
       var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
@@ -498,7 +498,7 @@ where
           let clippedValueLoss = (clippedValues - returns).squared()
           valueLoss = max(valueLoss, clippedValueLoss)
         }
-        return loss + self.valueEstimationLoss.weight * valueLoss.mean()
+        return loss + self.valueEstimationLoss.weight * valueLoss.mean() / 2
       }
       if let clipNorm = maxGradientNorm {
         gradient.clipByGlobalNorm(clipNorm: clipNorm)

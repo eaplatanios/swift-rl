@@ -19,5 +19,4 @@ public enum AgentType {
   case dqn
 }
 
-runCartPole(using: .ppo, maxReplayedSequenceLength: 2000)
-// runJellyBeanWorld()
+try! runCartPole(using: .ppo, maxReplayedSequenceLength: 2000)

@@ -40,13 +40,13 @@ extension Agent {
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void] = []
-  ) {
+  ) throws {
     var currentStep = environment.currentStep
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep)
-      let nextStep = environment.step(taking: action)
+      let nextStep = try environment.step(taking: action)
       let trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
@@ -139,13 +139,13 @@ extension ProbabilisticAgent {
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void] = []
-  ) {
+  ) throws {
     var currentStep = environment.currentStep
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep, mode: mode)
-      let nextStep = environment.step(taking: action)
+      let nextStep = try environment.step(taking: action)
       let trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
