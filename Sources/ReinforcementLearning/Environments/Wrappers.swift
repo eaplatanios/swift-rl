@@ -43,8 +43,8 @@ where
   }
 
   @inlinable
-  public func reset() -> Step<Observation, Reward> {
-    wrappedEnvironment.reset()
+  public func reset() throws -> Step<Observation, Reward> {
+    try wrappedEnvironment.reset()
   }
 }
 
@@ -90,14 +90,14 @@ public final class EnvironmentCallbackWrapper<
 
   @inlinable
   @discardableResult
-  public func reset() -> Step<Observation, Reward> {
+  public func reset() throws -> Step<Observation, Reward> {
     callbacks.forEach { $0.updateOnReset() }
-    return wrappedEnvironment.reset()
+    return try wrappedEnvironment.reset()
   }
 
   @inlinable
-  public func copy() -> EnvironmentCallbackWrapper<Environment> {
-    EnvironmentCallbackWrapper(wrappedEnvironment.copy(), callbacks: callbacks)
+  public func copy() throws -> EnvironmentCallbackWrapper<Environment> {
+    EnvironmentCallbackWrapper(try wrappedEnvironment.copy(), callbacks: callbacks)
   }
 }
 

@@ -33,10 +33,10 @@ public protocol Environment: AnyObject {
 
   /// Resets the environment.
   @discardableResult
-  func reset() -> Step<Observation, Reward>
+  func reset() throws -> Step<Observation, Reward>
 
   /// Returns a copy of this environment that is reset before being returned.
-  func copy() -> Self
+  func copy() throws -> Self
 }
 
 public extension Environment {
