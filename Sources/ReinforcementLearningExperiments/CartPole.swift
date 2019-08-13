@@ -120,8 +120,11 @@ public func runCartPole(
       return AnyAgent(PPOAgent(
         for: environment,
         network: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
-        learningRateSchedule: LinearLearningRateDecay(slope: -1e-3 / 100.0, lowerBound: 1e-6),
+        optimizer: AMSGrad(for: network),
+        learningRate: LinearlyDecayedLearningRate(
+          baseLearningRate: FixedLearningRate(1e-3),
+          slope: -1e-3 / 100.0,
+          lowerBound: 1e-6),
         advantageFunction: GeneralizedAdvantageEstimation(
           discountFactor: 0.99,
           discountWeight: 0.95)))

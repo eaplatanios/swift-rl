@@ -336,7 +336,7 @@ public struct PPOAgent<
   Environment: ReinforcementLearning.Environment,
   Network: Module,
   Optimizer: TensorFlow.Optimizer,
-  Schedule: LearningRateSchedule
+  LearningRate: ReinforcementLearning.LearningRate
 >: PolicyGradientAgent
 where
   Environment.Observation == Network.Input,
@@ -344,7 +344,7 @@ where
   Environment.Reward == Tensor<Float>,
   Network.Output == ActorCriticOutput<Environment.ActionSpace.ValueDistribution>,
   Optimizer.Model == Network,
-  Schedule.Scalar == Optimizer.Scalar
+  LearningRate.Scalar == Optimizer.Scalar
 {
   public typealias Observation = Network.Input
   public typealias Action = ActionDistribution.Value
@@ -356,8 +356,7 @@ where
   public var optimizer: Optimizer
   public var trainingStep: UInt64 = 0
 
-  public let learningRateSchedule: Schedule
-  public let initialLearningRate: Optimizer.Scalar
+  public let learningRate: LearningRate
   public let maxGradientNorm: Float?
   public let advantageFunction: AdvantageFunction
   public let useTDLambdaReturn: Bool
@@ -374,7 +373,7 @@ where
     for environment: Environment,
     network: Network,
     optimizer: Optimizer,
-    learningRateSchedule: Schedule,
+    learningRate: LearningRate,
     maxGradientNorm: Float? = 0.5,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
@@ -392,8 +391,7 @@ where
     self.actionSpace = environment.actionSpace
     self.network = network
     self.optimizer = optimizer
-    self.learningRateSchedule = learningRateSchedule
-    self.initialLearningRate = optimizer.learningRate
+    self.learningRate = learningRate
     self.maxGradientNorm = maxGradientNorm
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = advantagesNormalizer
@@ -413,9 +411,7 @@ where
   @inlinable
   @discardableResult
   public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
-    optimizer.learningRate = learningRateSchedule(
-      step: trainingStep,
-      learningRate: initialLearningRate)
+    optimizer.learningRate = learningRate(forStep: trainingStep)
     trainingStep += 1
 
     // Split the trajectory such that the last step is only used to provide the final value
