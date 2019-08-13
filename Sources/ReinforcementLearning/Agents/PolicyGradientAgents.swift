@@ -378,7 +378,7 @@ where
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
       discountWeight: 0.95),
-    advantagesNormalizer: TensorNormalizer<Float> = TensorNormalizer<Float>(
+    advantagesNormalizer: TensorNormalizer<Float>? = TensorNormalizer<Float>(
       streaming: true,
       alongAxes: 0, 1),
     useTDLambdaReturn: Bool = true,
