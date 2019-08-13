@@ -149,9 +149,9 @@ public struct AnyAgent<Environment: ReinforcementLearning.Environment>: Agent {
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
-    maxSteps: Int,
-    maxEpisodes: Int,
-    callbacks: [StepCallback<Environment>]
+    maxSteps: Int = Int.max,
+    maxEpisodes: Int = Int.max,
+    callbacks: [StepCallback<Environment>] = []
   ) throws -> Float {
     try _updateUsingEnvironment(&environment, maxSteps, maxEpisodes, callbacks)
   }
@@ -293,9 +293,9 @@ public struct AnyProbabilisticAgent<
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
-    maxSteps: Int,
-    maxEpisodes: Int,
-    callbacks: [StepCallback<Environment>]
+    maxSteps: Int = Int.max,
+    maxEpisodes: Int = Int.max,
+    callbacks: [StepCallback<Environment>] = []
   ) throws -> Float {
     try _updateUsingEnvironment(&environment, maxSteps, maxEpisodes, callbacks)
   }
