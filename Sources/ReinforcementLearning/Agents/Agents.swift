@@ -27,6 +27,14 @@ public protocol Agent {
   /// - Returns: Loss function value.
   @discardableResult
   mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float
+
+  @discardableResult
+  mutating func update(
+    using environment: inout Environment,
+    maxSteps: Int,
+    maxEpisodes: Int,
+    callbacks: [StepCallback<Environment>]
+  ) throws -> Float
 }
 
 extension Agent {
@@ -87,6 +95,65 @@ public struct Trajectory<Observation, Action, Reward>: KeyPathIterable {
     self.observation = observation
     self.action = action
     self.reward = reward
+  }
+}
+
+public struct AnyAgent<Environment: ReinforcementLearning.Environment>: Agent {
+  public typealias Observation = Environment.Observation
+  public typealias Action = Environment.Action
+  public typealias Reward = Environment.Reward
+
+  @usableFromInline internal let _actionSpace: () -> Environment.ActionSpace
+
+  @usableFromInline internal let _action: (Step<Observation, Reward>) -> Action
+
+  @usableFromInline internal let _updateUsingTrajectory: (
+    Trajectory<Observation, Action, Reward>
+  ) -> Float
+
+  @usableFromInline internal let _updateUsingEnvironment: (
+    inout Environment,
+    Int,
+    Int,
+    [StepCallback<Environment>]
+  ) throws -> Float
+
+  public var actionSpace: Environment.ActionSpace { _actionSpace() }
+
+  @inlinable
+  public init<A: Agent>(_ agent: A) where A.Environment == Environment {
+    var agent = agent
+    _actionSpace = { () in agent.actionSpace }
+    _action = { agent.action(for: $0) }
+    _updateUsingTrajectory = { agent.update(using: $0) }
+    _updateUsingEnvironment = { try agent.update(
+      using: &$0,
+      maxSteps: $1,
+      maxEpisodes: $2,
+      callbacks: $3)
+    }
+  }
+
+  @inlinable
+  public mutating func action(for step: Step<Observation, Reward>) -> Action {
+    _action(step)
+  }
+
+  @inlinable
+  @discardableResult
+  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
+    _updateUsingTrajectory(trajectory)
+  }
+
+  @inlinable
+  @discardableResult
+  public mutating func update(
+    using environment: inout Environment,
+    maxSteps: Int,
+    maxEpisodes: Int,
+    callbacks: [StepCallback<Environment>]
+  ) throws -> Float {
+    try _updateUsingEnvironment(&environment, maxSteps, maxEpisodes, callbacks)
   }
 }
 
@@ -156,6 +223,81 @@ extension ProbabilisticAgent {
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
     }
+  }
+}
+
+public struct AnyProbabilisticAgent<
+  Environment: ReinforcementLearning.Environment,
+  ActionDistribution: Distribution
+>: ProbabilisticAgent where ActionDistribution.Value == Environment.Action {
+  public typealias Observation = Environment.Observation
+  public typealias Action = Environment.Action
+  public typealias Reward = Environment.Reward
+
+  @usableFromInline internal let _actionSpace: () -> Environment.ActionSpace
+
+  @usableFromInline internal let _action: (Step<Observation, Reward>) -> Action
+
+  @usableFromInline internal let _actionDistribution: (
+    Step<Observation, Reward>
+  ) -> ActionDistribution
+
+  @usableFromInline internal let _updateUsingTrajectory: (
+    Trajectory<Observation, Action, Reward>
+  ) -> Float
+
+  @usableFromInline internal let _updateUsingEnvironment: (
+    inout Environment,
+    Int,
+    Int,
+    [StepCallback<Environment>]
+  ) throws -> Float
+
+  public var actionSpace: Environment.ActionSpace { _actionSpace() }
+
+  public init<A: ProbabilisticAgent>(
+    _ agent: A
+  ) where A.Environment == Environment, A.ActionDistribution == ActionDistribution {
+    var agent = agent
+    _actionSpace = { () in agent.actionSpace }
+    _action = { agent.action(for: $0) }
+    _actionDistribution = { agent.actionDistribution(for: $0) }
+    _updateUsingTrajectory = { agent.update(using: $0) }
+    _updateUsingEnvironment = { try agent.update(
+      using: &$0,
+      maxSteps: $1,
+      maxEpisodes: $2,
+      callbacks: $3)
+    }
+  }
+
+  @inlinable
+  public mutating func action(for step: Step<Observation, Reward>) -> Action {
+    _action(step)
+  }
+
+  @inlinable
+  public mutating func actionDistribution(
+    for step: Step<Observation, Reward>
+  ) -> ActionDistribution {
+    _actionDistribution(step)
+  }
+
+  @inlinable
+  @discardableResult
+  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
+    _updateUsingTrajectory(trajectory)
+  }
+
+  @inlinable
+  @discardableResult
+  public mutating func update(
+    using environment: inout Environment,
+    maxSteps: Int,
+    maxEpisodes: Int,
+    callbacks: [StepCallback<Environment>]
+  ) throws -> Float {
+    try _updateUsingEnvironment(&environment, maxSteps, maxEpisodes, callbacks)
   }
 }
 

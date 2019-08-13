@@ -148,7 +148,7 @@ where
     using environment: inout Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    callbacks: [StepCallback<Environment>]
+    callbacks: [StepCallback<Environment>] = []
   ) throws -> Float {
     if replayBuffer == nil {
       replayBuffer = UniformReplayBuffer(
