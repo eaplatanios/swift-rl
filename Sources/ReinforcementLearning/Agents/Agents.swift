@@ -36,10 +36,10 @@ extension Agent {
 
   @inlinable
   public mutating func run(
-    in environment: Environment,
+    in environment: inout Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void] = []
+    callbacks: [StepCallback<Environment>] = []
   ) throws {
     var currentStep = environment.currentStep
     var numSteps = 0
@@ -47,12 +47,12 @@ extension Agent {
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep)
       let nextStep = try environment.step(taking: action)
-      let trajectory = Trajectory(
+      var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
         reward: nextStep.reward)
-      stepCallbacks.forEach { $0(trajectory) }
+      callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
@@ -134,11 +134,11 @@ extension ProbabilisticAgent {
 
   @inlinable
   public mutating func run(
-    in environment: Environment,
+    in environment: inout Environment,
     mode: ProbabilisticAgentMode = .greedy,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void] = []
+    callbacks: [StepCallback<Environment>] = []
   ) throws {
     var currentStep = environment.currentStep
     var numSteps = 0
@@ -146,12 +146,12 @@ extension ProbabilisticAgent {
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep, mode: mode)
       let nextStep = try environment.step(taking: action)
-      let trajectory = Trajectory(
+      var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
         reward: nextStep.reward)
-      stepCallbacks.forEach { $0(trajectory) }
+      callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
@@ -186,10 +186,10 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
   @inlinable
   @discardableResult
   public mutating func update(
-    using environment: Environment,
+    using environment: inout Environment,
     maxSteps: Int,
     maxEpisodes: Int,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void]
+    callbacks: [StepCallback<Environment>]
   ) -> Float {
     0.0
   }

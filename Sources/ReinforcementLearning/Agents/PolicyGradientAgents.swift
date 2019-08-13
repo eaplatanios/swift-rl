@@ -22,10 +22,10 @@ import TensorFlow
 public protocol PolicyGradientAgent: ProbabilisticAgent {
   @discardableResult
   mutating func update(
-    using environment: Environment,
+    using environment: inout Environment,
     maxSteps: Int,
     maxEpisodes: Int,
-    stepCallbacks: [(Environment, inout Trajectory<Observation, Action, Reward>) -> Void]
+    callbacks: [StepCallback<Environment>]
   ) throws -> Float
 }
 
@@ -33,10 +33,10 @@ extension PolicyGradientAgent {
   @inlinable
   @discardableResult
   public mutating func update(
-    using environment: Environment,
+    using environment: inout Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Environment, inout Trajectory<Observation, Action, Reward>) -> Void] = []
+    callbacks: [StepCallback<Environment>] = []
   ) throws -> Float {
     var trajectories = [Trajectory<Observation, Action, Reward>]()
     var currentStep = environment.currentStep
@@ -51,7 +51,7 @@ extension PolicyGradientAgent {
         action: action,
         reward: nextStep.reward)
       trajectories.append(trajectory)
-      stepCallbacks.forEach { $0(environment, &trajectory) }
+      callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep

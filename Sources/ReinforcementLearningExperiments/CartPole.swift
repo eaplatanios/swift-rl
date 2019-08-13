@@ -95,11 +95,8 @@ public func runCartPole(
   entropyRegularizationWeight: Float = 0.01
 ) throws {
   let logger = Logger(label: "Cart-Pole Experiment")
-  let baseEnvironment = CartPoleEnvironment(batchSize: batchSize)
-  let averageEpisodeLength = AverageEpisodeLength(for: baseEnvironment, bufferSize: 10)
-  let environment = EnvironmentCallbackWrapper(
-    baseEnvironment,
-    callbacks: averageEpisodeLength.updater())
+  var environment = CartPoleEnvironment(batchSize: batchSize)
+  var averageEpisodeLength = AverageEpisodeLength(for: environment, bufferSize: 10)
 
   // Agent Type:
   switch agentType {
@@ -113,11 +110,12 @@ public func runCartPole(
       entropyRegularizationWeight: entropyRegularizationWeight)
     for step in 0..<10000 {
       let loss = try agent.update(
-        using: environment,
+        using: &environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ (environment, trajectory) in
-          if step > 100 { try! environment.render() }
+        callbacks: [{ (environment, trajectory) in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 100 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
@@ -133,11 +131,12 @@ public func runCartPole(
       entropyRegularizationWeight: entropyRegularizationWeight)
     for step in 0..<10000 {
       let loss = try agent.update(
-        using: environment,
+        using: &environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ (environment, trajectory) in
-          if step > 100 { try! environment.render() }
+        callbacks: [{ (environment, trajectory) in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 100 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
@@ -155,11 +154,12 @@ public func runCartPole(
         discountWeight: 0.95))
     for step in 0..<10000 {
       let loss = try agent.update(
-        using: environment,
+        using: &environment,
         maxSteps: maxReplayedSequenceLength * batchSize,
         maxEpisodes: maxEpisodes,
-        stepCallbacks: [{ (environment, trajectory) in
-          if step > 0 { try! environment.render() }
+        callbacks: [{ (environment, trajectory) in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 0 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")
@@ -180,11 +180,12 @@ public func runCartPole(
       trainStepsPerIteration: 1)
     for step in 0..<10000 {
       let loss = try agent.update(
-        using: environment,
+        using: &environment,
         maxSteps: 32 * 10,
         maxEpisodes: 32,
-        stepCallbacks: [{ trajectory in
-          if step > 100 { try! environment.render() }
+        callbacks: [{ (environment, trajectory) in
+          averageEpisodeLength.update(using: trajectory)
+          if step > 100 { environment.render() }
         }])
       if step % 1 == 0 {
         logger.info("Step \(step) | Loss: \(loss) | Average Episode Length: \(averageEpisodeLength.value())")

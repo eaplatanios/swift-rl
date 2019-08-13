@@ -15,7 +15,7 @@
 import Foundation
 import TensorFlow
 
-public protocol Environment: AnyObject {
+public protocol Environment {
   associatedtype ObservationSpace: Space
   associatedtype ActionSpace: Space
   associatedtype Reward
@@ -29,11 +29,11 @@ public protocol Environment: AnyObject {
 
   /// Updates the environment according to the provided action.
   @discardableResult
-  func step(taking action: Action) throws -> Step<Observation, Reward>
+  mutating func step(taking action: Action) throws -> Step<Observation, Reward>
 
   /// Resets the environment.
   @discardableResult
-  func reset() throws -> Step<Observation, Reward>
+  mutating func reset() throws -> Step<Observation, Reward>
 
   /// Returns a copy of this environment that is reset before being returned.
   func copy() throws -> Self
@@ -45,7 +45,7 @@ public extension Environment {
 }
 
 public protocol RenderableEnvironment: Environment {
-  func render() throws
+  mutating func render() throws
 }
 
 /// Contains the data emitted by an environment at a single step of interaction.
@@ -155,3 +155,6 @@ extension StepKind {
     Tensor<Float>(isLast(withReset: withReset)).cumulativeSum(alongAxis: 0, reverse: true) .> 0
   }
 }
+
+public typealias StepCallback<E: Environment> =
+  (inout E, inout Trajectory<E.Observation, E.Action, E.Reward>) -> Void

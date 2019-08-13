@@ -145,10 +145,10 @@ where
   @inlinable
   @discardableResult
   public mutating func update(
-    using environment: Environment,
+    using environment: inout Environment,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    stepCallbacks: [(Trajectory<Observation, Action, Reward>) -> Void]
+    callbacks: [StepCallback<Environment>]
   ) throws -> Float {
     if replayBuffer == nil {
       replayBuffer = UniformReplayBuffer(
@@ -161,13 +161,13 @@ where
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
       let action = self.action(for: currentStep, mode: .epsilonGreedy(epsilonGreedy))
       let nextStep = try environment.step(taking: action)
-      let trajectory = Trajectory(
+      var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         action: action,
         reward: nextStep.reward)
       replayBuffer!.record(trajectory)
-      stepCallbacks.forEach { $0(trajectory) }
+      callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
