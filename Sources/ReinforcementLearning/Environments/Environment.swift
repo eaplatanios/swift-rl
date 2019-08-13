@@ -25,7 +25,7 @@ public protocol Environment {
   var actionSpace: ActionSpace { get }
 
   /// Result of the last step taken in this environment (i.e., its current state).
-  var currentStep: Step<Observation, Reward> { get }
+  var currentStep: Step<Observation, Reward> { mutating get }
 
   /// Updates the environment according to the provided action.
   @discardableResult
