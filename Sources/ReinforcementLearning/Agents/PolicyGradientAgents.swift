@@ -59,7 +59,7 @@ public struct AgentInput<Observation, State: Differentiable>: Differentiable {
   public var state: State
 
   @inlinable
-  @differentiable
+  @differentiable(wrt: state)
   public init(observation: Observation, state: State) {
     self.observation = observation
     self.state = state
