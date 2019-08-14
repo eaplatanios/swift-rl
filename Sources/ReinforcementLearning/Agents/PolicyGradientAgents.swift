@@ -54,7 +54,7 @@ extension PolicyGradientAgent {
   }
 }
 
-public struct AgentInput<Observation, State: Differentiable>: Differentiable {
+public struct AgentInput<Observation, State: Differentiable>: Differentiable, KeyPathIterable {
   @noDerivative public let observation: Observation
   public var state: State
 
@@ -67,9 +67,9 @@ public struct AgentInput<Observation, State: Differentiable>: Differentiable {
 }
 
 public struct ActorOutput<
-  ActionDistribution: DifferentiableDistribution,
-  State: Differentiable
->: Differentiable {
+  ActionDistribution: DifferentiableDistribution & KeyPathIterable,
+  State: Differentiable & KeyPathIterable
+>: Differentiable, KeyPathIterable {
   public var actionDistribution: ActionDistribution
   public var state: State
 
@@ -210,9 +210,9 @@ extension ReinforceAgent where State == Empty {
 }
 
 public struct ActorCriticOutput<
-  ActionDistribution: DifferentiableDistribution,
-  State: Differentiable
->: Differentiable {
+  ActionDistribution: DifferentiableDistribution & KeyPathIterable,
+  State: Differentiable & KeyPathIterable
+>: Differentiable, KeyPathIterable {
   public var actionDistribution: ActionDistribution
   public var value: Tensor<Float>
   public var state: State
