@@ -25,6 +25,26 @@ public enum ReinforcementLearningError: Error {
   case renderingError(String)
 }
 
+public struct Empty: Differentiable, KeyPathIterable {
+  public init() {}
+}
+
+extension Empty: DifferentiableStackable {
+  @differentiable
+  public static func stack(_ values: [Empty]) -> Empty { Empty() }
+
+  @differentiable
+  public func unstacked() -> [Empty] { [Empty]() }
+}
+
+extension Empty: DifferentiableBatchable {
+  @differentiable(wrt: self)
+  public func flattenedBatch(outerDimCount: Int) -> Empty { Empty() }
+
+  @differentiable(wrt: self)
+  public func unflattenedBatch(outerDims: [Int]) -> Empty { Empty() }
+}
+
 public protocol Copyable {
   func copy() -> Self
 }

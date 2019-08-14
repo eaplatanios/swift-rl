@@ -21,7 +21,10 @@ fileprivate struct CartPoleActor: Layer {
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
 
   @differentiable
-  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> Categorical<Int32> {
+  public func callAsFunction(
+    _ input: AgentInput<CartPoleEnvironment.Observation, Empty>
+  ) -> ActorOutput<Categorical<Int32>, Empty> {
+    let input = input.observation
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -33,7 +36,9 @@ fileprivate struct CartPoleActor: Layer {
     let hidden = leakyRelu(dense1(flattenedBatchStackedInput))
     let actionLogits = dense2(hidden)
     let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
-    return flattenedActionDistribution.unflattenedBatch(outerDims: outerDims)
+    return ActorOutput(
+      actionDistribution: flattenedActionDistribution.unflattenedBatch(outerDims: outerDims),
+      state: Empty())
   }
 }
 
@@ -45,8 +50,9 @@ fileprivate struct CartPoleActorCritic: Layer {
 
   @differentiable
   public func callAsFunction(
-    _ input: CartPoleEnvironment.Observation
-  ) -> ActorCriticOutput<Categorical<Int32>> {
+    _ input: AgentInput<CartPoleEnvironment.Observation, Empty>
+  ) -> ActorCriticOutput<Categorical<Int32>, Empty> {
+    let input = input.observation
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -60,7 +66,8 @@ fileprivate struct CartPoleActorCritic: Layer {
     let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
     return ActorCriticOutput(
       actionDistribution: flattenedActionDistribution.unflattenedBatch(outerDims: outerDims),
-      value: flattenedValue.unflattenedBatch(outerDims: outerDims).squeezingShape(at: -1))
+      value: flattenedValue.unflattenedBatch(outerDims: outerDims).squeezingShape(at: -1),
+      state: Empty())
   }
 }
 
@@ -69,7 +76,10 @@ fileprivate struct CartPoleQNetwork: Layer & Copyable {
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
 
   @differentiable
-  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> Tensor<Float> {
+  public func callAsFunction(
+    _ input: AgentInput<CartPoleEnvironment.Observation, Empty>
+  ) -> QNetworkOutput<Empty> {
+    let input = input.observation
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -80,7 +90,9 @@ fileprivate struct CartPoleQNetwork: Layer & Copyable {
     let flattenedBatchStackedInput = stackedInput.flattenedBatch(outerDimCount: outerDimCount)
     let hidden = leakyRelu(dense1(flattenedBatchStackedInput))
     let flattenedQValues = dense2(hidden)
-    return flattenedQValues.unflattenedBatch(outerDims: outerDims)
+    return QNetworkOutput(
+      qValues: flattenedQValues.unflattenedBatch(outerDims: outerDims),
+      state: Empty())
   }
 
   public func copy() -> CartPoleQNetwork { self }
@@ -96,8 +108,10 @@ public func runCartPole(
 ) throws {
   let logger = Logger(label: "Cart-Pole Experiment")
   var environment = CartPoleEnvironment(batchSize: batchSize)
-  var averageEpisodeLength = AverageEpisodeLength(for: environment, bufferSize: 10)
-  var agent: AnyAgent<CartPoleEnvironment> = {
+  var averageEpisodeLength = AverageEpisodeLength<CartPoleEnvironment, Empty>(
+    for: environment,
+    bufferSize: 10)
+  var agent: AnyAgent<CartPoleEnvironment, Empty> = {
     switch agentType {
     case .reinforce:
       let network = CartPoleActor()

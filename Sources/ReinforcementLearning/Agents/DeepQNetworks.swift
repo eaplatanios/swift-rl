@@ -18,28 +18,41 @@ import TensorFlow
 // TODO: Reward scaling / reward shaping.
 // TODO: Exploration schedules (i.e., how to vary ε while training).
 
+public struct QNetworkOutput<State: Differentiable>: Differentiable {
+  public var qValues: Tensor<Float>
+  public var state: State
+
+  @inlinable
+  @differentiable
+  public init(qValues: Tensor<Float>,  state: State) {
+    self.qValues = qValues
+    self.state = state
+  }
+}
+
 // We let Q-networks output distributions over actions, making them able to handle both discrete
 // and continuous action spaces.
 public struct DQNAgent<
   Environment: ReinforcementLearning.Environment,
-  QNetwork: Module & Copyable,
+  State: Differentiable,
+  Network: Module & Copyable,
   Optimizer: TensorFlow.Optimizer
 >: ProbabilisticAgent
 where
-  Environment.Observation == QNetwork.Input,
   Environment.ActionSpace.ValueDistribution == Categorical<Int32>,
   Environment.Reward == Tensor<Float>,
-  QNetwork.Output == Tensor<Float>,
-  Optimizer.Model == QNetwork
+  Network.Input == AgentInput<Environment.Observation, State>,
+  Network.Output == QNetworkOutput<State>,
+  Optimizer.Model == Network
 {
-  public typealias Observation = QNetwork.Input
+  public typealias Observation = Environment.Observation
   public typealias Action = Environment.ActionSpace.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
 
   public let actionSpace: Environment.ActionSpace
-  public var qNetwork: QNetwork
-  public var targetQNetwork: QNetwork
+  public var qNetwork: Network
+  public var targetQNetwork: Network
   public var optimizer: Optimizer
 
   public let trainSequenceLength: Int
@@ -51,13 +64,13 @@ where
   public let trainStepsPerIteration: Int
 
   @usableFromInline internal var replayBuffer: UniformReplayBuffer<
-    Trajectory<Observation, Action, Reward>>?
+    Trajectory<Observation, State, Action, Reward>>?
   @usableFromInline internal var trainingStep: Int = 0
 
   @inlinable
   public init(
     for environment: Environment,
-    qNetwork: QNetwork,
+    qNetwork: Network,
     optimizer: Optimizer,
     trainSequenceLength: Int,
     maxReplayedSequenceLength: Int,
@@ -91,16 +104,26 @@ where
   }
 
   @inlinable
-  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    Categorical<Int32>(logits: qNetwork(step.observation))
+  public func actionDistribution(
+    for step: Step<Observation, Reward>,
+    in state: State
+  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+    let qNetworkOutput = qNetwork(AgentInput(observation: step.observation, state: state))
+    return ActionDistributionStatePair(
+      actionDistribution: Categorical<Int32>(logits: qNetworkOutput.qValues),
+      state: qNetworkOutput.state)
   }
 
   @inlinable
   @discardableResult
-  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
+  public mutating func update(
+    using trajectory: Trajectory<Observation, State, Action, Reward>
+   ) -> Float {
     let (loss, gradient) = qNetwork.valueWithGradient { qNetwork -> Tensor<Float> in
-      let qValues = qNetwork(trajectory.observation)
-      let qValue = qValues.batchGathering(
+      let qNetworkOutput = qNetwork(AgentInput(
+        observation: trajectory.observation,
+        state: trajectory.state))
+      let qValue = qNetworkOutput.qValues.batchGathering(
         atIndices: trajectory.action,
         alongAxis: 2,
         batchDimensionCount: 2)
@@ -110,7 +133,8 @@ where
       let currentStepKind = StepKind(trajectory.stepKind.rawValue[0..<sequenceLength])
       let nextQValue = self.computeNextQValue(
         stepKind: trajectory.stepKind,
-        observation: trajectory.observation
+        observation: trajectory.observation,
+        state: trajectory.state
       )[1...]
       let currentReward = trajectory.reward[0..<sequenceLength]
       let targetQValue = currentReward + self.discountFactor * nextQValue
@@ -146,9 +170,10 @@ where
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
+    initialState: State,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    callbacks: [StepCallback<Environment>] = []
+    callbacks: [StepCallback<Environment, State>] = []
   ) throws -> Float {
     if replayBuffer == nil {
       replayBuffer = UniformReplayBuffer(
@@ -156,21 +181,27 @@ where
         maxLength: maxReplayedSequenceLength)
     }
     var currentStep = environment.currentStep
+    var state = initialState
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
-      let action = self.action(for: currentStep, mode: .epsilonGreedy(epsilonGreedy))
-      let nextStep = try environment.step(taking: action)
+      let actionStatePair = action(
+        for: currentStep,
+        in: state,
+        mode: .epsilonGreedy(epsilonGreedy))
+      let nextStep = try environment.step(taking: actionStatePair.action)
       var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
-        action: action,
+        state: state,
+        action: actionStatePair.action,
         reward: nextStep.reward)
       replayBuffer!.record(trajectory)
       callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
+      state = actionStatePair.state
     }
     var loss: Float = 0.0
     for _ in 0..<trainStepsPerIteration {
@@ -196,7 +227,14 @@ where
   }
 
   @inlinable
-  internal func computeNextQValue(stepKind: StepKind, observation: Observation) -> Tensor<Float> {
-    targetQNetwork(observation).max(squeezingAxes: -1)
+  internal func computeNextQValue(
+    stepKind: StepKind,
+    observation: Observation,
+    state: State
+  ) -> Tensor<Float> {
+    targetQNetwork(AgentInput(
+      observation: observation,
+      state: state
+    )).qValues.max(squeezingAxes: -1)
   }
 }

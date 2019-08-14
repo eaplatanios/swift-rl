@@ -16,16 +16,17 @@ import TensorFlow
 
 public protocol Metric {
   associatedtype Observation
+  associatedtype State
   associatedtype Action
   associatedtype Reward
   associatedtype Value
 
-  mutating func update(using trajectory: Trajectory<Observation, Action, Reward>)
+  mutating func update(using trajectory: Trajectory<Observation, State, Action, Reward>)
   mutating func reset()
   func value() -> Value
 }
 
-public struct AverageEpisodeLength<Environment: ReinforcementLearning.Environment>: Metric {
+public struct AverageEpisodeLength<Environment: ReinforcementLearning.Environment, State>: Metric {
   public typealias Observation = Environment.Observation
   public typealias Action = Environment.Action
   public typealias Reward = Environment.Reward
@@ -43,7 +44,7 @@ public struct AverageEpisodeLength<Environment: ReinforcementLearning.Environmen
   }
 
   @inlinable
-  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) {
+  public mutating func update(using trajectory: Trajectory<Observation, State, Action, Reward>) {
     let isLast = trajectory.stepKind.isLast(withReset: withReset)
     let isNotLast = 1 - Tensor<Int32>(isLast)
     episodeSteps += isNotLast
@@ -65,7 +66,7 @@ public struct AverageEpisodeLength<Environment: ReinforcementLearning.Environmen
   }
 }
 
-public struct AverageEpisodeReward<Environment: ReinforcementLearning.Environment>: Metric
+public struct AverageEpisodeReward<Environment: ReinforcementLearning.Environment, State>: Metric
 where Environment.Reward == Tensor<Float> {
   public typealias Observation = Environment.Observation
   public typealias Action = Environment.Action
@@ -84,7 +85,7 @@ where Environment.Reward == Tensor<Float> {
   }
 
   @inlinable
-  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) {
+  public mutating func update(using trajectory: Trajectory<Observation, State, Action, Reward>) {
     let isLast = trajectory.stepKind.isLast(withReset: withReset)
     episodeRewards += trajectory.reward
     for reward in episodeRewards.gathering(where: isLast).scalars {
@@ -105,7 +106,7 @@ where Environment.Reward == Tensor<Float> {
   }
 }
 
-public struct TotalCumulativeReward<Environment: ReinforcementLearning.Environment>: Metric
+public struct TotalCumulativeReward<Environment: ReinforcementLearning.Environment, State>: Metric
 where Environment.Reward == Tensor<Float> {
   public typealias Observation = Environment.Observation
   public typealias Action = Environment.Action
@@ -119,7 +120,7 @@ where Environment.Reward == Tensor<Float> {
   }
 
   @inlinable
-  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) {
+  public mutating func update(using trajectory: Trajectory<Observation, State, Action, Reward>) {
     rewards += trajectory.reward
   }
 

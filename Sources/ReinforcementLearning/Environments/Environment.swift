@@ -155,6 +155,3 @@ extension StepKind {
     Tensor<Float>(isLast(withReset: withReset)).cumulativeSum(alongAxis: 0, reverse: true) .> 0
   }
 }
-
-public typealias StepCallback<E: Environment> =
-  (inout E, inout Trajectory<E.Observation, E.Action, E.Reward>) -> Void

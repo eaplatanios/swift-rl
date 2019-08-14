@@ -19,60 +19,84 @@ import TensorFlow
 // TODO: Reward normalizer.
 // TODO: Reward norm clipping.
 
-public protocol PolicyGradientAgent: ProbabilisticAgent {
-  @discardableResult
-  mutating func update(
-    using environment: inout Environment,
-    maxSteps: Int,
-    maxEpisodes: Int,
-    callbacks: [StepCallback<Environment>]
-  ) throws -> Float
-}
+public protocol PolicyGradientAgent: ProbabilisticAgent {}
 
 extension PolicyGradientAgent {
   @inlinable
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
+    initialState: State,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
-    callbacks: [StepCallback<Environment>] = []
+    callbacks: [StepCallback<Environment, State>] = []
   ) throws -> Float {
-    var trajectories = [Trajectory<Observation, Action, Reward>]()
+    var trajectories = [Trajectory<Observation, State, Action, Reward>]()
     var currentStep = environment.currentStep
+    var state = initialState
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
-      let action = self.action(for: currentStep, mode: .probabilistic)
-      let nextStep = try environment.step(taking: action)
+      let actionStatePair = self.action(for: currentStep, in: state, mode: .probabilistic)
+      let nextStep = try environment.step(taking: actionStatePair.action)
       var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
-        action: action,
+        state: state,
+        action: actionStatePair.action,
         reward: nextStep.reward)
       trajectories.append(trajectory)
       callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
+      state = actionStatePair.state
     }
-    return update(using: Trajectory<Observation, Action, Reward>.stack(trajectories))
+    return update(using: Trajectory<Observation, State, Action, Reward>.stack(trajectories))
+  }
+}
+
+public struct AgentInput<Observation, State: Differentiable>: Differentiable {
+  @noDerivative public let observation: Observation
+  public var state: State
+
+  @inlinable
+  @differentiable
+  public init(observation: Observation, state: State) {
+    self.observation = observation
+    self.state = state
+  }
+}
+
+public struct ActorOutput<
+  ActionDistribution: DifferentiableDistribution,
+  State: Differentiable
+>: Differentiable {
+  public var actionDistribution: ActionDistribution
+  public var state: State
+
+  @inlinable
+  @differentiable
+  public init(actionDistribution: ActionDistribution,  state: State) {
+    self.actionDistribution = actionDistribution
+    self.state = state
   }
 }
 
 public struct ReinforceAgent<
   Environment: ReinforcementLearning.Environment,
+  State: Differentiable,
   Network: Module,
   Optimizer: TensorFlow.Optimizer
 >: PolicyGradientAgent
 where
-  Environment.Observation == Network.Input,
   Environment.ActionSpace.ValueDistribution: DifferentiableDistribution,
   Environment.Reward == Tensor<Float>,
-  Network.Output == Environment.ActionSpace.ValueDistribution,
+  Network.Input == AgentInput<Environment.Observation, State>,
+  Network.Output == ActorOutput<Environment.ActionSpace.ValueDistribution, State>,
   Optimizer.Model == Network
 {
-  public typealias Observation = Network.Input
+  public typealias Observation = Environment.Observation
   public typealias Action = ActionDistribution.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
@@ -106,19 +130,30 @@ where
   }
 
   @inlinable
-  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    network(step.observation)
+  public func actionDistribution(
+    for step: Step<Observation, Reward>,
+    in state: State
+  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+    let networkOutput = network(AgentInput(observation: step.observation, state: state))
+    return ActionDistributionStatePair(
+      actionDistribution: networkOutput.actionDistribution,
+      state: networkOutput.state)
   }
 
   @inlinable
   @discardableResult
-  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
+  public mutating func update(
+    using trajectory: Trajectory<Observation, State, Action, Reward>
+  ) -> Float {
     var returns = discountedReturns(
       discountFactor: discountFactor,
       stepKinds: trajectory.stepKind,
       rewards: trajectory.reward)
     let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
-      let actionDistribution = network(trajectory.observation)
+      let networkOutput = network(AgentInput(
+        observation: trajectory.observation,
+        state: trajectory.state))
+      let actionDistribution = networkOutput.actionDistribution
       self.returnsNormalizer?.update(using: returns)
       if let normalizer = self.returnsNormalizer {
         returns = normalizer.normalize(returns)
@@ -154,30 +189,36 @@ where
   }
 }
 
-public struct ActorCriticOutput<ActionDistribution: DifferentiableDistribution>: Differentiable {
+public struct ActorCriticOutput<
+  ActionDistribution: DifferentiableDistribution,
+  State: Differentiable
+>: Differentiable {
   public var actionDistribution: ActionDistribution
   public var value: Tensor<Float>
+  public var state: State
 
   @inlinable
   @differentiable
-  public init(actionDistribution: ActionDistribution, value: Tensor<Float>) {
+  public init(actionDistribution: ActionDistribution, value: Tensor<Float>, state: State) {
     self.actionDistribution = actionDistribution
     self.value = value
+    self.state = state
   }
 }
 
 public struct A2CAgent<
   Environment: ReinforcementLearning.Environment,
+  State: Differentiable,
   Network: Module,
   Optimizer: TensorFlow.Optimizer
 >: PolicyGradientAgent
 where
-  Environment.Observation == Network.Input,
   Environment.Reward == Tensor<Float>,
-  Network.Output == ActorCriticOutput<Environment.ActionSpace.ValueDistribution>,
+  Network.Input == AgentInput<Environment.Observation, State>,
+  Network.Output == ActorCriticOutput<Environment.ActionSpace.ValueDistribution, State>,
   Optimizer.Model == Network
 {
-  public typealias Observation = Network.Input
+  public typealias Observation = Environment.Observation
   public typealias Action = ActionDistribution.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
@@ -214,15 +255,25 @@ where
   }
 
   @inlinable
-  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    network(step.observation).actionDistribution
+  public func actionDistribution(
+    for step: Step<Observation, Reward>,
+    in state: State
+  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+    let networkOutput = network(AgentInput(observation: step.observation, state: state))
+    return ActionDistributionStatePair(
+      actionDistribution: networkOutput.actionDistribution,
+      state: networkOutput.state)
   }
 
   @inlinable
   @discardableResult
-  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
+  public mutating func update(
+    using trajectory: Trajectory<Observation, State, Action, Reward>
+  ) -> Float {
     let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
-      let networkOutput = network(trajectory.observation)
+      let networkOutput = network(AgentInput(
+        observation: trajectory.observation,
+        state: trajectory.state))
 
       // Split the trajectory such that the last step is only used to provide the final value
       // estimate used for advantage estimation.
@@ -334,19 +385,20 @@ public struct PPOEntropyRegularization {
 
 public struct PPOAgent<
   Environment: ReinforcementLearning.Environment,
+  State: Differentiable,
   Network: Module,
   Optimizer: TensorFlow.Optimizer,
   LearningRate: ReinforcementLearning.LearningRate
 >: PolicyGradientAgent
 where
-  Environment.Observation == Network.Input,
   Environment.ActionSpace.ValueDistribution: DifferentiableKLDivergence,
   Environment.Reward == Tensor<Float>,
-  Network.Output == ActorCriticOutput<Environment.ActionSpace.ValueDistribution>,
+  Network.Input == AgentInput<Environment.Observation, State>,
+  Network.Output == ActorCriticOutput<Environment.ActionSpace.ValueDistribution, State>,
   Optimizer.Model == Network,
   LearningRate.Scalar == Optimizer.Scalar
 {
-  public typealias Observation = Network.Input
+  public typealias Observation = Environment.Observation
   public typealias Action = ActionDistribution.Value
   public typealias ActionDistribution = Environment.ActionSpace.ValueDistribution
   public typealias Reward = Tensor<Float>
@@ -404,19 +456,29 @@ where
   }
 
   @inlinable
-  public func actionDistribution(for step: Step<Observation, Reward>) -> ActionDistribution {
-    network(step.observation).actionDistribution
+  public func actionDistribution(
+    for step: Step<Observation, Reward>,
+    in state: State
+  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+    let networkOutput = network(AgentInput(observation: step.observation, state: state))
+    return ActionDistributionStatePair(
+      actionDistribution: networkOutput.actionDistribution,
+      state: networkOutput.state)
   }
 
   @inlinable
   @discardableResult
-  public mutating func update(using trajectory: Trajectory<Observation, Action, Reward>) -> Float {
+  public mutating func update(
+    using trajectory: Trajectory<Observation, State, Action, Reward>
+  ) -> Float {
     optimizer.learningRate = learningRate(forStep: trainingStep)
     trainingStep += 1
 
     // Split the trajectory such that the last step is only used to provide the final value
     // estimate used for advantage estimation.
-    let networkOutput = network(trajectory.observation)
+    let networkOutput = network(AgentInput(
+      observation: trajectory.observation,
+      state: trajectory.state))
     let sequenceLength = networkOutput.value.shape[0] - 1
     let stepKinds = StepKind(trajectory.stepKind.rawValue[0..<sequenceLength])
     let values = networkOutput.value[0..<sequenceLength]
@@ -448,7 +510,10 @@ where
     var lastEpochLoss: Float = 0.0
     for _ in 0..<iterationCountPerUpdate {
       var (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
-        let newNetworkOutput = network(trajectory.observation)
+        // TODO: Should we be updating the state here?
+        let newNetworkOutput = network(AgentInput(
+          observation: trajectory.observation,
+          state: trajectory.state))
 
         // Compute the new action log probabilities.
         let newActionDistribution = newNetworkOutput.actionDistribution
@@ -505,8 +570,10 @@ where
 
     // After the network is updated, we may need to update the adaptive KL beta.
     if var p = penalty, let beta = p.adaptiveKLBeta {
-      let klDivergence = network(trajectory.observation).actionDistribution.klDivergence(
-        to: actionDistribution)
+      let klDivergence = network(AgentInput(
+        observation: trajectory.observation,
+        state: trajectory.state)
+      ).actionDistribution.klDivergence(to: actionDistribution)
       let klMean = klDivergence.mean().scalarized()
       if klMean < p.adaptiveKLTarget / p.adaptiveKLToleranceFactor {
         p.adaptiveKLBeta = max(beta / p.adaptiveKLBetaScalingFactor, 1e-16)
