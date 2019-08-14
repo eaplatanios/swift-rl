@@ -48,7 +48,9 @@ public protocol Agent {
   /// - Parameter trajectory: Trajectory to use for the update.
   /// - Returns: Loss function value.
   @discardableResult
-  mutating func update(using trajectory: Trajectory<Observation, State, Action, Reward>) -> Float
+  mutating func update(
+    using trajectory: Trajectory<Observation, State, Action, Reward>
+  ) -> Float
 
   @discardableResult
   mutating func update(
@@ -57,13 +59,13 @@ public protocol Agent {
     maxSteps: Int,
     maxEpisodes: Int,
     callbacks: [StepCallback<Environment, State>]
-  ) throws -> Float
+  ) throws -> (loss: Float, state: State)
 }
 
 extension Agent where State == Empty {
   @inlinable
-  public func action(for step: Step<Observation, Reward>) -> ActionStatePair<Action, State> {
-    action(for: step, in: Empty())
+  public func action(for step: Step<Observation, Reward>) -> Action {
+    action(for: step, in: Empty()).action
   }
 
   @discardableResult
@@ -78,46 +80,9 @@ extension Agent where State == Empty {
       initialState: Empty(),
       maxSteps: maxSteps,
       maxEpisodes: maxEpisodes,
-      callbacks: callbacks)
+      callbacks: callbacks).loss
   }
 }
-
-// public protocol StatelessAgent: Agent where State == Empty {
-//   func action(for step: Step<Observation, Reward>) -> Action
-  
-//   @discardableResult
-//   mutating func update(
-//     using environment: inout Environment,
-//     maxSteps: Int,
-//     maxEpisodes: Int,
-//     callbacks: [StepCallback<Environment, State>]
-//   ) throws -> Float
-// }
-
-// extension StatelessAgent {
-//   @inlinable
-//   public func action(
-//     for step: Step<Observation, Reward>,
-//     in state: State
-//   ) -> ActionStatePair<Action, State> {
-//     ActionStatePair(action: action(for: step), state: Empty())
-//   }
-
-//   @discardableResult
-//   public mutating func update(
-//     using environment: inout Environment,
-//     initialState: State,
-//     maxSteps: Int,
-//     maxEpisodes: Int,
-//     callbacks: [StepCallback<Environment, State>]
-//   ) throws -> Float {
-//     try update(
-//       using: &environment,
-//       maxSteps: maxSteps,
-//       maxEpisodes: maxEpisodes,
-//       callbacks: callbacks)
-//   }
-// }
 
 extension Agent {
   public typealias Observation = Environment.Observation
@@ -125,13 +90,14 @@ extension Agent {
   public typealias Reward = Environment.Reward
 
   @inlinable
+  @discardableResult
   public func run(
     in environment: inout Environment,
     initialState: State,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws {
+  ) throws -> State {
     var currentStep = environment.currentStep
     var state = initialState
     var numSteps = 0
@@ -151,6 +117,7 @@ extension Agent {
       currentStep = nextStep
       state = actionStatePair.state
     }
+    return state
   }
 }
 
@@ -232,7 +199,7 @@ public struct AnyAgent<Environment: ReinforcementLearning.Environment, State>: A
     Int,
     Int,
     [StepCallback<Environment, State>]
-  ) throws -> Float
+  ) throws -> (loss: Float, state: State)
 
   public var actionSpace: Environment.ActionSpace { _actionSpace() }
 
@@ -275,7 +242,7 @@ public struct AnyAgent<Environment: ReinforcementLearning.Environment, State>: A
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws -> Float {
+  ) throws -> (loss: Float, state: State) {
     try _updateUsingEnvironment(&environment, initialState, maxSteps, maxEpisodes, callbacks)
   }
 }
@@ -344,6 +311,7 @@ extension ProbabilisticAgent {
   }
 
   @inlinable
+  @discardableResult
   public func run(
     in environment: inout Environment,
     initialState: State,
@@ -351,7 +319,7 @@ extension ProbabilisticAgent {
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws {
+  ) throws -> State {
     var currentStep = environment.currentStep
     var state = initialState
     var numSteps = 0
@@ -371,6 +339,7 @@ extension ProbabilisticAgent {
       currentStep = nextStep
       state = actionStatePair.state
     }
+    return state
   }
 }
 
@@ -465,7 +434,7 @@ public struct AnyProbabilisticAgent<
     Int,
     Int,
     [StepCallback<Environment, State>]
-  ) throws -> Float
+  ) throws -> (loss: Float, state: State)
 
   public var actionSpace: Environment.ActionSpace { _actionSpace() }
 
@@ -520,7 +489,7 @@ public struct AnyProbabilisticAgent<
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws -> Float {
+  ) throws -> (loss: Float, state: State) {
     try _updateUsingEnvironment(&environment, initialState, maxSteps, maxEpisodes, callbacks)
   }
 }
@@ -565,7 +534,7 @@ public struct RandomAgent<Environment: ReinforcementLearning.Environment>: Proba
     maxSteps: Int,
     maxEpisodes: Int,
     callbacks: [StepCallback<Environment, State>]
-  ) -> Float {
-    0.0
+  ) -> (loss: Float, state: State) {
+    (loss: 0.0, state: Empty())
   }
 }

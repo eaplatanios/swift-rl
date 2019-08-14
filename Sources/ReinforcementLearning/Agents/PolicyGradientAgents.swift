@@ -30,7 +30,7 @@ extension PolicyGradientAgent {
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws -> Float {
+  ) throws -> (loss: Float, state: State) {
     var trajectories = [Trajectory<Observation, State, Action, Reward>]()
     var currentStep = environment.currentStep
     var state = initialState
@@ -52,7 +52,8 @@ extension PolicyGradientAgent {
       currentStep = nextStep
       state = actionStatePair.state
     }
-    return update(using: Trajectory<Observation, State, Action, Reward>.stack(trajectories))
+    let loss = update(using: Trajectory<Observation, State, Action, Reward>.stack(trajectories))
+    return (loss: loss, state: state)
   }
 }
 

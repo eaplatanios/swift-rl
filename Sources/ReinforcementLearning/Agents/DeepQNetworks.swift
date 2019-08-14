@@ -174,7 +174,7 @@ where
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws -> Float {
+  ) throws -> (loss: Float, state: State) {
     if replayBuffer == nil {
       replayBuffer = UniformReplayBuffer(
         batchSize: environment.batchSize,
@@ -210,7 +210,7 @@ where
         stepCount: trainSequenceLength + 1)
       loss = update(using: batch.batch)
     }
-    return loss
+    return (loss: loss, state: state)
   }
 
   /// Updates the target Q-network using the current Q-network. The update is only performed every
