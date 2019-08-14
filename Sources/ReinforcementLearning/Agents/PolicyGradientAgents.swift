@@ -26,34 +26,31 @@ extension PolicyGradientAgent {
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
-    initialState: State,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws -> (loss: Float, state: State) {
+  ) throws -> Float {
     var trajectories = [Trajectory<Observation, State, Action, Reward>]()
     var currentStep = environment.currentStep
-    var state = initialState
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
-      let actionStatePair = self.action(for: currentStep, in: state, mode: .probabilistic)
-      let nextStep = try environment.step(taking: actionStatePair.action)
+      let state = self.state
+      let action = self.action(for: currentStep, mode: .probabilistic)
+      let nextStep = try environment.step(taking: action)
       var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         state: state,
-        action: actionStatePair.action,
+        action: action,
         reward: nextStep.reward)
       trajectories.append(trajectory)
       callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
-      state = actionStatePair.state
     }
-    let loss = update(using: Trajectory<Observation, State, Action, Reward>.stack(trajectories))
-    return (loss: loss, state: state)
+    return update(using: Trajectory<Observation, State, Action, Reward>.stack(trajectories))
   }
 }
 
@@ -103,6 +100,7 @@ where
   public typealias Reward = Tensor<Float>
 
   public let actionSpace: Environment.ActionSpace
+  public var state: State
   public var network: Network
   public var optimizer: Optimizer
 
@@ -115,12 +113,14 @@ where
   public init(
     for environment: Environment,
     network: Network,
+    initialState: State,
     optimizer: Optimizer,
     discountFactor: Float,
     normalizeReturns: Bool = true,
     entropyRegularizationWeight: Float = 0.0
   ) {
     self.actionSpace = environment.actionSpace
+    self.state = initialState
     self.network = network
     self.optimizer = optimizer
     self.discountFactor = discountFactor
@@ -131,14 +131,12 @@ where
   }
 
   @inlinable
-  public func actionDistribution(
-    for step: Step<Observation, Reward>,
-    in state: State
-  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+  public mutating func actionDistribution(
+    for step: Step<Observation, Reward>
+  ) -> ActionDistribution {
     let networkOutput = network(AgentInput(observation: step.observation, state: state))
-    return ActionDistributionStatePair(
-      actionDistribution: networkOutput.actionDistribution,
-      state: networkOutput.state)
+    state = networkOutput.state
+    return networkOutput.actionDistribution
   }
 
   @inlinable
@@ -190,6 +188,27 @@ where
   }
 }
 
+extension ReinforceAgent where State == Empty {
+  @inlinable
+  public init(
+    for environment: Environment,
+    network: Network,
+    optimizer: Optimizer,
+    discountFactor: Float,
+    normalizeReturns: Bool = true,
+    entropyRegularizationWeight: Float = 0.0
+  ) {
+    self.init(
+      for: environment,
+      network: network,
+      initialState: Empty(),
+      optimizer: optimizer,
+      discountFactor: discountFactor,
+      normalizeReturns: normalizeReturns,
+      entropyRegularizationWeight: entropyRegularizationWeight)
+  }
+}
+
 public struct ActorCriticOutput<
   ActionDistribution: DifferentiableDistribution,
   State: Differentiable
@@ -225,6 +244,7 @@ where
   public typealias Reward = Tensor<Float>
 
   public let actionSpace: Environment.ActionSpace
+  public var state: State
   public var network: Network
   public var optimizer: Optimizer
 
@@ -238,6 +258,7 @@ where
   public init(
     for environment: Environment,
     network: Network,
+    initialState: State,
     optimizer: Optimizer,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(discountFactor: 0.9),
     normalizeAdvantages: Bool = true,
@@ -245,6 +266,7 @@ where
     entropyRegularizationWeight: Float = 0.0
   ) {
     self.actionSpace = environment.actionSpace
+    self.state = initialState
     self.network = network
     self.optimizer = optimizer
     self.advantageFunction = advantageFunction
@@ -256,14 +278,12 @@ where
   }
 
   @inlinable
-  public func actionDistribution(
-    for step: Step<Observation, Reward>,
-    in state: State
-  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+  public mutating func actionDistribution(
+    for step: Step<Observation, Reward>
+  ) -> ActionDistribution {
     let networkOutput = network(AgentInput(observation: step.observation, state: state))
-    return ActionDistributionStatePair(
-      actionDistribution: networkOutput.actionDistribution,
-      state: networkOutput.state)
+    state = networkOutput.state
+    return networkOutput.actionDistribution
   }
 
   @inlinable
@@ -323,6 +343,29 @@ where
     }
     optimizer.update(&network, along: gradient)
     return loss.scalarized()
+  }
+}
+
+extension A2CAgent where State == Empty {
+  @inlinable
+  public init(
+    for environment: Environment,
+    network: Network,
+    optimizer: Optimizer,
+    advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(discountFactor: 0.9),
+    normalizeAdvantages: Bool = true,
+    valueEstimationLossWeight: Float = 0.2,
+    entropyRegularizationWeight: Float = 0.0
+  ) {
+    self.init(
+      for: environment,
+      network: network,
+      initialState: Empty(),
+      optimizer: optimizer,
+      advantageFunction: advantageFunction,
+      normalizeAdvantages: normalizeAdvantages,
+      valueEstimationLossWeight: valueEstimationLossWeight,
+      entropyRegularizationWeight: entropyRegularizationWeight)
   }
 }
 
@@ -405,6 +448,7 @@ where
   public typealias Reward = Tensor<Float>
 
   public let actionSpace: Environment.ActionSpace
+  public var state: State
   public var network: Network
   public var optimizer: Optimizer
   public var trainingStep: UInt64 = 0
@@ -425,6 +469,7 @@ where
   public init(
     for environment: Environment,
     network: Network,
+    initialState: State,
     optimizer: Optimizer,
     learningRate: LearningRate,
     maxGradientNorm: Float? = 0.5,
@@ -442,6 +487,7 @@ where
     iterationCountPerUpdate: Int = 4
   ) {
     self.actionSpace = environment.actionSpace
+    self.state = initialState
     self.network = network
     self.optimizer = optimizer
     self.learningRate = learningRate
@@ -457,14 +503,12 @@ where
   }
 
   @inlinable
-  public func actionDistribution(
-    for step: Step<Observation, Reward>,
-    in state: State
-  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+  public mutating func actionDistribution(
+    for step: Step<Observation, Reward>
+  ) -> ActionDistribution {
     let networkOutput = network(AgentInput(observation: step.observation, state: state))
-    return ActionDistributionStatePair(
-      actionDistribution: networkOutput.actionDistribution,
-      state: networkOutput.state)
+    state = networkOutput.state
+    return networkOutput.actionDistribution
   }
 
   @inlinable
@@ -584,5 +628,44 @@ where
     }
 
     return lastEpochLoss
+  }
+}
+
+extension PPOAgent where State == Empty {
+  @inlinable
+  public init(
+    for environment: Environment,
+    network: Network,
+    optimizer: Optimizer,
+    learningRate: LearningRate,
+    maxGradientNorm: Float? = 0.5,
+    advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
+      discountFactor: 0.99,
+      discountWeight: 0.95),
+    advantagesNormalizer: TensorNormalizer<Float>? = TensorNormalizer<Float>(
+      streaming: true,
+      alongAxes: 0, 1),
+    useTDLambdaReturn: Bool = true,
+    clip: PPOClip? = PPOClip(),
+    penalty: PPOPenalty? = PPOPenalty(),
+    valueEstimationLoss: PPOValueEstimationLoss = PPOValueEstimationLoss(),
+    entropyRegularization: PPOEntropyRegularization? = PPOEntropyRegularization(weight: 0.01),
+    iterationCountPerUpdate: Int = 4
+  ) {
+    self.init(
+      for: environment,
+      network: network,
+      initialState: Empty(),
+      optimizer: optimizer,
+      learningRate: learningRate,
+      maxGradientNorm: maxGradientNorm,
+      advantageFunction: advantageFunction,
+      advantagesNormalizer: advantagesNormalizer,
+      useTDLambdaReturn: useTDLambdaReturn,
+      clip: clip,
+      penalty: penalty,
+      valueEstimationLoss: valueEstimationLoss,
+      entropyRegularization: entropyRegularization,
+      iterationCountPerUpdate: iterationCountPerUpdate)
   }
 }

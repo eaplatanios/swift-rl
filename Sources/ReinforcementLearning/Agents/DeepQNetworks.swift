@@ -51,6 +51,7 @@ where
   public typealias Reward = Tensor<Float>
 
   public let actionSpace: Environment.ActionSpace
+  public var state: State
   public var qNetwork: Network
   public var targetQNetwork: Network
   public var optimizer: Optimizer
@@ -71,6 +72,7 @@ where
   public init(
     for environment: Environment,
     qNetwork: Network,
+    initialState: State,
     optimizer: Optimizer,
     trainSequenceLength: Int,
     maxReplayedSequenceLength: Int,
@@ -90,6 +92,7 @@ where
       targetUpdateForgetFactor > 0.0 && targetUpdateForgetFactor <= 1.0,
       "The target update forget factor must be in the interval (0, 1].")
     self.actionSpace = environment.actionSpace
+    self.state = initialState
     self.qNetwork = qNetwork
     self.targetQNetwork = qNetwork.copy()
     self.optimizer = optimizer
@@ -104,21 +107,19 @@ where
   }
 
   @inlinable
-  public func actionDistribution(
-    for step: Step<Observation, Reward>,
-    in state: State
-  ) -> ActionDistributionStatePair<ActionDistribution, State> {
+  public mutating func actionDistribution(
+    for step: Step<Observation, Reward>
+  ) -> ActionDistribution {
     let qNetworkOutput = qNetwork(AgentInput(observation: step.observation, state: state))
-    return ActionDistributionStatePair(
-      actionDistribution: Categorical<Int32>(logits: qNetworkOutput.qValues),
-      state: qNetworkOutput.state)
+    state = qNetworkOutput.state
+    return Categorical<Int32>(logits: qNetworkOutput.qValues)
   }
 
   @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, State, Action, Reward>
-   ) -> Float {
+  ) -> Float {
     let (loss, gradient) = qNetwork.valueWithGradient { qNetwork -> Tensor<Float> in
       let qNetworkOutput = qNetwork(AgentInput(
         observation: trajectory.observation,
@@ -170,38 +171,33 @@ where
   @discardableResult
   public mutating func update(
     using environment: inout Environment,
-    initialState: State,
     maxSteps: Int = Int.max,
     maxEpisodes: Int = Int.max,
     callbacks: [StepCallback<Environment, State>] = []
-  ) throws -> (loss: Float, state: State) {
+  ) throws -> Float {
     if replayBuffer == nil {
       replayBuffer = UniformReplayBuffer(
         batchSize: environment.batchSize,
         maxLength: maxReplayedSequenceLength)
     }
     var currentStep = environment.currentStep
-    var state = initialState
     var numSteps = 0
     var numEpisodes = 0
     while numSteps < maxSteps && numEpisodes < maxEpisodes {
-      let actionStatePair = action(
-        for: currentStep,
-        in: state,
-        mode: .epsilonGreedy(epsilonGreedy))
-      let nextStep = try environment.step(taking: actionStatePair.action)
+      let state = self.state
+      let action = self.action(for: currentStep, mode: .epsilonGreedy(epsilonGreedy))
+      let nextStep = try environment.step(taking: action)
       var trajectory = Trajectory(
         stepKind: nextStep.kind,
         observation: currentStep.observation,
         state: state,
-        action: actionStatePair.action,
+        action: action,
         reward: nextStep.reward)
       replayBuffer!.record(trajectory)
       callbacks.forEach { $0(&environment, &trajectory) }
       numSteps += Int((1 - Tensor<Int32>(nextStep.kind.isLast())).sum().scalarized())
       numEpisodes += Int(Tensor<Int32>(nextStep.kind.isLast()).sum().scalarized())
       currentStep = nextStep
-      state = actionStatePair.state
     }
     var loss: Float = 0.0
     for _ in 0..<trainStepsPerIteration {
@@ -210,7 +206,7 @@ where
         stepCount: trainSequenceLength + 1)
       loss = update(using: batch.batch)
     }
-    return (loss: loss, state: state)
+    return loss
   }
 
   /// Updates the target Q-network using the current Q-network. The update is only performed every
@@ -236,5 +232,34 @@ where
       observation: observation,
       state: state
     )).qValues.max(squeezingAxes: -1)
+  }
+}
+
+extension DQNAgent where State == Empty {
+  @inlinable
+  public init(
+    for environment: Environment,
+    qNetwork: Network,
+    optimizer: Optimizer,
+    trainSequenceLength: Int,
+    maxReplayedSequenceLength: Int,
+    epsilonGreedy: Float = 0.1,
+    targetUpdateForgetFactor: Float = 1.0,
+    targetUpdatePeriod: Int = 1,
+    discountFactor: Float = 0.99,
+    trainStepsPerIteration: Int = 1
+  ) {
+    self.init(
+      for: environment,
+      qNetwork: qNetwork,
+      initialState: Empty(),
+      optimizer: optimizer,
+      trainSequenceLength: trainSequenceLength,
+      maxReplayedSequenceLength: maxReplayedSequenceLength,
+      epsilonGreedy: epsilonGreedy,
+      targetUpdateForgetFactor: targetUpdateForgetFactor,
+      targetUpdatePeriod: targetUpdatePeriod,
+      discountFactor: discountFactor,
+      trainStepsPerIteration: trainStepsPerIteration)
   }
 }
