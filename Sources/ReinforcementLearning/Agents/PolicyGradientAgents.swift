@@ -608,6 +608,7 @@ extension PPOAgent where State == Empty {
     optimizer: (StatelessActorCriticNetwork<Environment, StatelessNetwork>) -> Optimizer,
     learningRate: LearningRate,
     maxGradientNorm: Float? = 0.5,
+    rewardsPreprocessor: @escaping (Tensor<Float>) -> Tensor<Float> = { $0 },
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
       discountWeight: 0.95),
@@ -633,6 +634,7 @@ extension PPOAgent where State == Empty {
       optimizer: optimizer,
       learningRate: learningRate,
       maxGradientNorm: maxGradientNorm,
+      rewardsPreprocessor: rewardsPreprocessor,
       advantageFunction: advantageFunction,
       advantagesNormalizer: advantagesNormalizer,
       useTDLambdaReturn: useTDLambdaReturn,
