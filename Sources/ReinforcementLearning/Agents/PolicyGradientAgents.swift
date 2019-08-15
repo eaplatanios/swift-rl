@@ -421,6 +421,7 @@ where
 
   public let learningRate: LearningRate
   public let maxGradientNorm: Float?
+  public let rewardsPreprocessor: (Tensor<Float>) -> Tensor<Float>
   public let advantageFunction: AdvantageFunction
   public let useTDLambdaReturn: Bool
   public let clip: PPOClip?
@@ -439,6 +440,7 @@ where
     optimizer: (Network) -> Optimizer,
     learningRate: LearningRate,
     maxGradientNorm: Float? = 0.5,
+    rewardsPreprocessor: @escaping (Tensor<Float>) -> Tensor<Float> = { $0 },
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
       discountFactor: 0.99,
       discountWeight: 0.95),
@@ -458,6 +460,7 @@ where
     self.optimizer = optimizer(network)
     self.learningRate = learningRate
     self.maxGradientNorm = maxGradientNorm
+    self.rewardsPreprocessor = rewardsPreprocessor
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = advantagesNormalizer
     self.useTDLambdaReturn = useTDLambdaReturn
@@ -496,7 +499,7 @@ where
     let finalValue = networkOutput.value[sequenceLength]
 
     // Estimate the advantages for the provided trajectory.
-    let rewards = trajectory.reward[0..<sequenceLength]
+    let rewards = rewardsPreprocessor(trajectory.reward[0..<sequenceLength])
     let advantageEstimate = advantageFunction(
       stepKinds: stepKinds,
       rewards: rewards,
