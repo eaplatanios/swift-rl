@@ -54,33 +54,6 @@ extension PolicyGradientAgent {
   }
 }
 
-public struct AgentInput<Observation, State: Differentiable>: Differentiable, KeyPathIterable {
-  @noDerivative public let observation: Observation
-  public var state: State
-
-  @inlinable
-  @differentiable(wrt: state)
-  public init(observation: Observation, state: State) {
-    self.observation = observation
-    self.state = state
-  }
-}
-
-public struct ActorOutput<
-  ActionDistribution: DifferentiableDistribution & KeyPathIterable,
-  State: Differentiable & KeyPathIterable
->: Differentiable, KeyPathIterable {
-  public var actionDistribution: ActionDistribution
-  public var state: State
-
-  @inlinable
-  @differentiable
-  public init(actionDistribution: ActionDistribution,  state: State) {
-    self.actionDistribution = actionDistribution
-    self.state = state
-  }
-}
-
 public struct ReinforceAgent<
   Environment: ReinforcementLearning.Environment,
   State: Differentiable,
@@ -114,7 +87,7 @@ where
     for environment: Environment,
     network: Network,
     initialState: State,
-    optimizer: Optimizer,
+    optimizer: (Network) -> Optimizer,
     discountFactor: Float,
     normalizeReturns: Bool = true,
     entropyRegularizationWeight: Float = 0.0
@@ -122,7 +95,7 @@ where
     self.actionSpace = environment.actionSpace
     self.state = initialState
     self.network = network
-    self.optimizer = optimizer
+    self.optimizer = optimizer(network)
     self.discountFactor = discountFactor
     self.returnsNormalizer = normalizeReturns ?
       TensorNormalizer(streaming: true, alongAxes: 0, 1) :
@@ -190,14 +163,19 @@ where
 
 extension ReinforceAgent where State == Empty {
   @inlinable
-  public init(
+  public init<StatelessNetwork: Module>(
     for environment: Environment,
-    network: Network,
-    optimizer: Optimizer,
+    network: StatelessNetwork,
+    optimizer: (StatelessActorNetwork<Environment, StatelessNetwork>) -> Optimizer,
     discountFactor: Float,
     normalizeReturns: Bool = true,
     entropyRegularizationWeight: Float = 0.0
-  ) {
+  ) where
+    Network == StatelessActorNetwork<Environment, StatelessNetwork>,
+    StatelessNetwork.Input == Observation,
+    StatelessNetwork.Output == ActionDistribution
+  {
+    let network = StatelessActorNetwork<Environment, StatelessNetwork>(network)
     self.init(
       for: environment,
       network: network,
@@ -206,23 +184,6 @@ extension ReinforceAgent where State == Empty {
       discountFactor: discountFactor,
       normalizeReturns: normalizeReturns,
       entropyRegularizationWeight: entropyRegularizationWeight)
-  }
-}
-
-public struct ActorCriticOutput<
-  ActionDistribution: DifferentiableDistribution & KeyPathIterable,
-  State: Differentiable & KeyPathIterable
->: Differentiable, KeyPathIterable {
-  public var actionDistribution: ActionDistribution
-  public var value: Tensor<Float>
-  public var state: State
-
-  @inlinable
-  @differentiable
-  public init(actionDistribution: ActionDistribution, value: Tensor<Float>, state: State) {
-    self.actionDistribution = actionDistribution
-    self.value = value
-    self.state = state
   }
 }
 
@@ -259,7 +220,7 @@ where
     for environment: Environment,
     network: Network,
     initialState: State,
-    optimizer: Optimizer,
+    optimizer: (Network) -> Optimizer,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(discountFactor: 0.9),
     normalizeAdvantages: Bool = true,
     valueEstimationLossWeight: Float = 0.2,
@@ -268,7 +229,7 @@ where
     self.actionSpace = environment.actionSpace
     self.state = initialState
     self.network = network
-    self.optimizer = optimizer
+    self.optimizer = optimizer(network)
     self.advantageFunction = advantageFunction
     self.advantagesNormalizer = normalizeAdvantages ?
       TensorNormalizer(streaming: true, alongAxes: 0, 1) :
@@ -348,15 +309,20 @@ where
 
 extension A2CAgent where State == Empty {
   @inlinable
-  public init(
+  public init<StatelessNetwork: Module>(
     for environment: Environment,
-    network: Network,
-    optimizer: Optimizer,
+    network: StatelessNetwork,
+    optimizer: (StatelessActorCriticNetwork<Environment, StatelessNetwork>) -> Optimizer,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(discountFactor: 0.9),
     normalizeAdvantages: Bool = true,
     valueEstimationLossWeight: Float = 0.2,
     entropyRegularizationWeight: Float = 0.0
-  ) {
+  ) where
+    Network == StatelessActorCriticNetwork<Environment, StatelessNetwork>,
+    StatelessNetwork.Input == Observation,
+    StatelessNetwork.Output == StatelessActorCriticOutput<ActionDistribution>
+  {
+    let network = StatelessActorCriticNetwork<Environment, StatelessNetwork>(network)
     self.init(
       for: environment,
       network: network,
@@ -470,7 +436,7 @@ where
     for environment: Environment,
     network: Network,
     initialState: State,
-    optimizer: Optimizer,
+    optimizer: (Network) -> Optimizer,
     learningRate: LearningRate,
     maxGradientNorm: Float? = 0.5,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
@@ -489,7 +455,7 @@ where
     self.actionSpace = environment.actionSpace
     self.state = initialState
     self.network = network
-    self.optimizer = optimizer
+    self.optimizer = optimizer(network)
     self.learningRate = learningRate
     self.maxGradientNorm = maxGradientNorm
     self.advantageFunction = advantageFunction
@@ -633,10 +599,10 @@ where
 
 extension PPOAgent where State == Empty {
   @inlinable
-  public init(
+  public init<StatelessNetwork: Module>(
     for environment: Environment,
-    network: Network,
-    optimizer: Optimizer,
+    network: StatelessNetwork,
+    optimizer: (StatelessActorCriticNetwork<Environment, StatelessNetwork>) -> Optimizer,
     learningRate: LearningRate,
     maxGradientNorm: Float? = 0.5,
     advantageFunction: AdvantageFunction = GeneralizedAdvantageEstimation(
@@ -651,7 +617,12 @@ extension PPOAgent where State == Empty {
     valueEstimationLoss: PPOValueEstimationLoss = PPOValueEstimationLoss(),
     entropyRegularization: PPOEntropyRegularization? = PPOEntropyRegularization(weight: 0.01),
     iterationCountPerUpdate: Int = 4
-  ) {
+  ) where
+    Network == StatelessActorCriticNetwork<Environment, StatelessNetwork>,
+    StatelessNetwork.Input == Observation,
+    StatelessNetwork.Output == StatelessActorCriticOutput<ActionDistribution>
+  {
+    let network = StatelessActorCriticNetwork<Environment, StatelessNetwork>(network)
     self.init(
       for: environment,
       network: network,

@@ -18,32 +18,20 @@ import TensorFlow
 // TODO: Reward scaling / reward shaping.
 // TODO: Exploration schedules (i.e., how to vary ε while training).
 
-public struct QNetworkOutput<State: Differentiable>: Differentiable {
-  public var qValues: Tensor<Float>
-  public var state: State
-
-  @inlinable
-  @differentiable
-  public init(qValues: Tensor<Float>,  state: State) {
-    self.qValues = qValues
-    self.state = state
-  }
-}
-
 // We let Q-networks output distributions over actions, making them able to handle both discrete
 // and continuous action spaces.
 public struct DQNAgent<
   Environment: ReinforcementLearning.Environment,
   State: Differentiable,
-  Network: Module & Copyable,
+  QNetwork: Module & Copyable,
   Optimizer: TensorFlow.Optimizer
 >: ProbabilisticAgent
 where
   Environment.ActionSpace.ValueDistribution == Categorical<Int32>,
   Environment.Reward == Tensor<Float>,
-  Network.Input == AgentInput<Environment.Observation, State>,
-  Network.Output == QNetworkOutput<State>,
-  Optimizer.Model == Network
+  QNetwork.Input == AgentInput<Environment.Observation, State>,
+  QNetwork.Output == QNetworkOutput<State>,
+  Optimizer.Model == QNetwork
 {
   public typealias Observation = Environment.Observation
   public typealias Action = Environment.ActionSpace.Value
@@ -52,8 +40,8 @@ where
 
   public let actionSpace: Environment.ActionSpace
   public var state: State
-  public var qNetwork: Network
-  public var targetQNetwork: Network
+  public var qNetwork: QNetwork
+  public var targetQNetwork: QNetwork
   public var optimizer: Optimizer
 
   public let trainSequenceLength: Int
@@ -71,9 +59,9 @@ where
   @inlinable
   public init(
     for environment: Environment,
-    qNetwork: Network,
+    qNetwork: QNetwork,
     initialState: State,
-    optimizer: Optimizer,
+    optimizer: (QNetwork) -> Optimizer,
     trainSequenceLength: Int,
     maxReplayedSequenceLength: Int,
     epsilonGreedy: Float = 0.1,
@@ -95,7 +83,7 @@ where
     self.state = initialState
     self.qNetwork = qNetwork
     self.targetQNetwork = qNetwork.copy()
-    self.optimizer = optimizer
+    self.optimizer = optimizer(qNetwork)
     self.trainSequenceLength = trainSequenceLength
     self.maxReplayedSequenceLength = maxReplayedSequenceLength
     self.epsilonGreedy = epsilonGreedy
@@ -237,10 +225,10 @@ where
 
 extension DQNAgent where State == Empty {
   @inlinable
-  public init(
+  public init<StatelessNetwork: Module & Copyable>(
     for environment: Environment,
-    qNetwork: Network,
-    optimizer: Optimizer,
+    qNetwork: StatelessNetwork,
+    optimizer: (StatelessQNetwork<Environment, StatelessNetwork>) -> Optimizer,
     trainSequenceLength: Int,
     maxReplayedSequenceLength: Int,
     epsilonGreedy: Float = 0.1,
@@ -248,7 +236,12 @@ extension DQNAgent where State == Empty {
     targetUpdatePeriod: Int = 1,
     discountFactor: Float = 0.99,
     trainStepsPerIteration: Int = 1
-  ) {
+  ) where
+    QNetwork == StatelessQNetwork<Environment, StatelessNetwork>,
+    StatelessNetwork.Input == Observation,
+    StatelessNetwork.Output == Tensor<Float>
+  {
+    let qNetwork = StatelessQNetwork<Environment, StatelessNetwork>(qNetwork)
     self.init(
       for: environment,
       qNetwork: qNetwork,

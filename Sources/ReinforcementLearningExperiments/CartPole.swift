@@ -21,10 +21,7 @@ fileprivate struct CartPoleActor: Layer {
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
 
   @differentiable
-  public func callAsFunction(
-    _ input: AgentInput<CartPoleEnvironment.Observation, Empty>
-  ) -> ActorOutput<Categorical<Int32>, Empty> {
-    let input = input.observation
+  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> Categorical<Int32> {
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -36,9 +33,7 @@ fileprivate struct CartPoleActor: Layer {
     let hidden = leakyRelu(dense1(flattenedBatchStackedInput))
     let actionLogits = dense2(hidden)
     let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
-    return ActorOutput(
-      actionDistribution: flattenedActionDistribution.unflattenedBatch(outerDims: outerDims),
-      state: Empty())
+    return flattenedActionDistribution.unflattenedBatch(outerDims: outerDims)
   }
 }
 
@@ -50,9 +45,8 @@ fileprivate struct CartPoleActorCritic: Layer {
 
   @differentiable
   public func callAsFunction(
-    _ input: AgentInput<CartPoleEnvironment.Observation, Empty>
-  ) -> ActorCriticOutput<Categorical<Int32>, Empty> {
-    let input = input.observation
+    _ input: CartPoleEnvironment.Observation
+  ) -> StatelessActorCriticOutput<Categorical<Int32>> {
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -64,10 +58,9 @@ fileprivate struct CartPoleActorCritic: Layer {
     let actionLogits = dense2Action(leakyRelu(dense1Action(flattenedBatchStackedInput)))
     let flattenedValue = dense2Value(leakyRelu(dense1Value(flattenedBatchStackedInput)))
     let flattenedActionDistribution = Categorical<Int32>(logits: actionLogits)
-    return ActorCriticOutput(
+    return StatelessActorCriticOutput(
       actionDistribution: flattenedActionDistribution.unflattenedBatch(outerDims: outerDims),
-      value: flattenedValue.unflattenedBatch(outerDims: outerDims).squeezingShape(at: -1),
-      state: Empty())
+      value: flattenedValue.unflattenedBatch(outerDims: outerDims).squeezingShape(at: -1))
   }
 }
 
@@ -76,10 +69,7 @@ fileprivate struct CartPoleQNetwork: Layer & Copyable {
   public var dense2: Dense<Float> = Dense<Float>(inputSize: 100, outputSize: 2)
 
   @differentiable
-  public func callAsFunction(
-    _ input: AgentInput<CartPoleEnvironment.Observation, Empty>
-  ) -> QNetworkOutput<Empty> {
-    let input = input.observation
+  public func callAsFunction(_ input: CartPoleEnvironment.Observation) -> Tensor<Float> {
     let stackedInput = Tensor<Float>(
       stacking: [
         input.position, input.positionDerivative,
@@ -90,9 +80,7 @@ fileprivate struct CartPoleQNetwork: Layer & Copyable {
     let flattenedBatchStackedInput = stackedInput.flattenedBatch(outerDimCount: outerDimCount)
     let hidden = leakyRelu(dense1(flattenedBatchStackedInput))
     let flattenedQValues = dense2(hidden)
-    return QNetworkOutput(
-      qValues: flattenedQValues.unflattenedBatch(outerDims: outerDims),
-      state: Empty())
+    return flattenedQValues.unflattenedBatch(outerDims: outerDims)
   }
 
   public func copy() -> CartPoleQNetwork { self }
@@ -114,40 +102,36 @@ public func runCartPole(
   var agent: AnyAgent<CartPoleEnvironment, Empty> = {
     switch agentType {
     case .reinforce:
-      let network = CartPoleActor()
       return AnyAgent(ReinforceAgent(
         for: environment,
-        network: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
+        network: CartPoleActor(),
+        optimizer: { AMSGrad(for: $0, learningRate: 1e-3) },
         discountFactor: discountFactor,
         entropyRegularizationWeight: entropyRegularizationWeight))
     case .advantageActorCritic:
-      let network = CartPoleActorCritic()
       return AnyAgent(A2CAgent(
         for: environment,
-        network: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
+        network: CartPoleActorCritic(),
+        optimizer: { AMSGrad(for: $0, learningRate: 1e-3) },
         advantageFunction: GeneralizedAdvantageEstimation(discountFactor: discountFactor),
         entropyRegularizationWeight: entropyRegularizationWeight))
     case .ppo:
-      let network = CartPoleActorCritic()
       return AnyAgent(PPOAgent(
         for: environment,
-        network: network,
-        optimizer: AMSGrad(for: network),
+        network: CartPoleActorCritic(),
+        optimizer: { AMSGrad(for: $0) },
         learningRate: LinearlyDecayedLearningRate(
-          baseLearningRate: FixedLearningRate(1e-3),
+          baseLearningRate: FixedLearningRate(Float(1e-3)),
           slope: -1e-3 / 100.0,
           lowerBound: 1e-6),
         advantageFunction: GeneralizedAdvantageEstimation(
           discountFactor: 0.99,
           discountWeight: 0.95)))
     case .dqn:
-      let network = CartPoleQNetwork()
       return AnyAgent(DQNAgent(
         for: environment,
-        qNetwork: network,
-        optimizer: AMSGrad(for: network, learningRate: 1e-3),
+        qNetwork: CartPoleQNetwork(),
+        optimizer: { AMSGrad(for: $0, learningRate: 1e-3) },
         trainSequenceLength: 1,
         maxReplayedSequenceLength: maxReplayedSequenceLength,
         epsilonGreedy: 0.1,
