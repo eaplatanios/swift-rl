@@ -47,16 +47,16 @@ public func discountedReturns<Scalar: TensorFlowNumeric>(
   let isLast = stepKinds.isLast()
   let T = stepKinds.rawValue.shape[0]
   // TODO: This looks very ugly.
-  let Tminus1 = Tensor<Int64>(Int64(T - 1))
-  let finalReward = finalValue ?? Tensor<Scalar>(zerosLike: rewards[0])
+  let Tminus1 = Tensor(Int64(T - 1))
+  let finalReward = finalValue ?? Tensor(zerosLike: rewards[0])
   var discountedReturns = [Tensor<Scalar>]()
   for t in 0..<T {
-    let tTensor = Tensor<Int64>(Int64(t))
+    let tTensor = Tensor(Int64(t))
     let futureReturn = T - t < T ? discountedReturns[t - 1] : finalReward
     let discountedFutureReturn = discountFactor * futureReturn
     let discountedReturn = rewards.gathering(atIndices: Tminus1 - tTensor) +
       discountedFutureReturn.replacing(
-        with: Tensor<Scalar>(zerosLike: discountedFutureReturn),
+        with: Tensor(zerosLike: discountedFutureReturn),
         where: isLast.gathering(atIndices: Tminus1 - tTensor))
     discountedReturns.append(discountedReturn)
   }
@@ -165,13 +165,13 @@ public struct GeneralizedAdvantageEstimation: AdvantageFunction {
 
     // Compute advantages in reverse order.
     // TODO: This looks very ugly.
-    let Tminus1 = Tensor<Int64>(Int64(T - 1))
+    let Tminus1 = Tensor(Int64(T - 1))
     let last = rewards.gathering(atIndices: Tminus1) +
       discountFactor * finalValue * isNotLast.gathering(atIndices: Tminus1) -
       values.gathering(atIndices: Tminus1)
     var advantages = [last]
     for t in 1..<T {
-      let tTensor = Tensor<Int64>(Int64(t))
+      let tTensor = Tensor(Int64(t))
       let nextValue = values.gathering(atIndices: Tminus1 - tTensor + 1) *
         isNotLast.gathering(atIndices: Tminus1 - tTensor)
       let delta = rewards.gathering(atIndices: Tminus1 - tTensor) +
