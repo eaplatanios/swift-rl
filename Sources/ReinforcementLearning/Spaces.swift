@@ -49,7 +49,8 @@ public struct Discrete: Space {
 
   @inlinable
   public func contains(_ value: Tensor<Int32>) -> Bool {
-    value.rank < 2 && value >= 0 && value < Int32(size)
+    let v = value.scalarized()
+    return value.rank < 2 && v >= 0 && v < Int32(size)
   }
 }
 

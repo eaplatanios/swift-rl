@@ -79,7 +79,7 @@ extension Tensor: Replayable where Scalar: Numeric {
   }
 
   public mutating func update(atIndices indices: Tensor<Int64>, using values: Tensor) {
-    self = Raw.tensorScatterUpdate(self, indices: indices, updates: values)
+    self = _Raw.tensorScatterUpdate(self, indices: indices, updates: values)
   }
 
   public func gathering(atIndices indices: Tensor<Int64>) -> Tensor {

@@ -54,7 +54,7 @@ public struct Uniform<
   public func sample() -> Tensor<Scalar> {
     // TODO: Make `Tensor.init(randomUniform:...)` accept `Tensor<Int32>` for the shape.
     let seed = Context.local.randomSeed
-    let sample: Tensor<Scalar> = Raw.statelessRandomUniform(
+    let sample: Tensor<Scalar> = _Raw.statelessRandomUniform(
       shape: shape,
       seed: Tensor([seed.graph, seed.op]))
     return sample * (upperBound - lowerBound) + lowerBound

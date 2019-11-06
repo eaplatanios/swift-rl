@@ -57,7 +57,7 @@ public struct Bernoulli<Scalar: TensorFlowInteger>: DifferentiableDistribution, 
   public func sample() -> Tensor<Scalar> {
     let seed = Context.local.randomSeed
     let logProbabilities = logSigmoid(logits)
-    let uniform: Tensor<Float> = Raw.statelessRandomUniform(
+    let uniform: Tensor<Float> = _Raw.statelessRandomUniform(
       shape: logProbabilities.shapeTensor,
       seed: Tensor([seed.graph, seed.op]))
     return Tensor<Scalar>(logProbabilities .< log(uniform))

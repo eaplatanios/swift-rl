@@ -34,9 +34,6 @@ public protocol Environment {
   /// Resets the environment.
   @discardableResult
   mutating func reset() throws -> Step<Observation, Reward>
-
-  /// Returns a copy of this environment that is reset before being returned.
-  func copy() throws -> Self
 }
 
 public extension Environment {

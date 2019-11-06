@@ -62,7 +62,7 @@ public struct Categorical<Scalar: TensorFlowIndex>: DifferentiableDistribution, 
     let seed = Context.local.randomSeed
     let outerDimCount = self.logProbabilities.rank - 1
     let logProbabilities = self.logProbabilities.flattenedBatch(outerDimCount: outerDimCount)
-    let multinomial: Tensor<Scalar> = Raw.statelessMultinomial(
+    let multinomial: Tensor<Scalar> = _Raw.statelessMultinomial(
       logits: logProbabilities,
       numSamples: Tensor<Int32>(1),
       seed: Tensor([seed.graph, seed.op]))
