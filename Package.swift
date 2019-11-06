@@ -25,13 +25,9 @@ let package = Package(
                 .brew(["--HEAD git glfw3"]),
                 .apt(["libglfw3", "libglfw3-dev"])
             ]),
-        .systemLibrary(
-            name: "CVulkan",
-            path: "Sources/CVulkan",
-            pkgConfig: "vulkan"),
         .target(
             name: "ReinforcementLearning",
-            dependencies: ["CGLFW", "CVulkan"],
+            dependencies: ["CGLFW"],
             path: "Sources/ReinforcementLearning"),
         .target(
             name: "ReinforcementLearningExperiments",
