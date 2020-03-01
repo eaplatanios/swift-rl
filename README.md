@@ -33,7 +33,7 @@ currently supported features.
   - Uniform Replay Buffer
   - *UPCOMING: Prioritized Replay Buffer*
 - [Visualization using OpenGL for all of the currently
-  implemented environments.](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Environments/Rendering.swift)
+  implemented environments.](https://github.com/eaplatanios/retro-swift/blob/master/Sources/ReinforcementLearning/Utilities/Rendering.swift)
 
 ## Installation
 
