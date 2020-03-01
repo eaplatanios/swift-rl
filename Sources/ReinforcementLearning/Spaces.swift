@@ -73,7 +73,7 @@ public struct MultiBinary: Space {
 
   @inlinable
   public func contains(_ value: Tensor<Int32>) -> Bool {
-    value.shape == shape && value.scalars.allSatisfy{$0 == 0 || $0 == 1}
+    value.shape == shape && value.scalars.allSatisfy { $0 == 0 || $0 == 1 }
   }
 }
 

@@ -112,7 +112,6 @@ where
     return networkOutput.actionDistribution
   }
 
-  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, State, Action, Reward>
@@ -121,7 +120,7 @@ where
       discountFactor: discountFactor,
       stepKinds: trajectory.stepKind,
       rewards: trajectory.reward)
-    let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
+    let (loss, gradient) = valueWithGradient(at: network) { network -> Tensor<Float> in
       let networkOutput = network(AgentInput(
         observation: trajectory.observation,
         state: trajectory.state))
@@ -247,12 +246,11 @@ where
     return networkOutput.actionDistribution
   }
 
-  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, State, Action, Reward>
   ) -> Float {
-    let (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
+    let (loss, gradient) = valueWithGradient(at: network) { network -> Tensor<Float> in
       let networkOutput = network(AgentInput(
         observation: trajectory.observation,
         state: trajectory.state))
@@ -480,7 +478,6 @@ where
     return networkOutput.actionDistribution
   }
 
-  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, State, Action, Reward>
@@ -523,7 +520,7 @@ where
     
     var lastEpochLoss: Float = 0.0
     for _ in 0..<iterationCountPerUpdate {
-      var (loss, gradient) = network.valueWithGradient { network -> Tensor<Float> in
+      var (loss, gradient) = valueWithGradient(at: network) { network -> Tensor<Float> in
         // TODO: Should we be updating the state here?
         let newNetworkOutput = network(AgentInput(
           observation: trajectory.observation,

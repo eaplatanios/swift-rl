@@ -103,12 +103,11 @@ where
     return Categorical<Int32>(logits: qNetworkOutput.qValues)
   }
 
-  @inlinable
   @discardableResult
   public mutating func update(
     using trajectory: Trajectory<Observation, State, Action, Reward>
   ) -> Float {
-    let (loss, gradient) = qNetwork.valueWithGradient { qNetwork -> Tensor<Float> in
+    let (loss, gradient) = valueWithGradient(at: qNetwork) { qNetwork -> Tensor<Float> in
       let qNetworkOutput = qNetwork(AgentInput(
         observation: trajectory.observation,
         state: trajectory.state))

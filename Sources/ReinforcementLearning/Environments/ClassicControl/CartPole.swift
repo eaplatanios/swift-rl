@@ -53,7 +53,7 @@ public struct CartPoleEnvironment: RenderableEnvironment {
   @inlinable
   @discardableResult
   public mutating func step(taking action: Tensor<Int32>) -> Step<Observation, Tensor<Float>> {
-    precondition(actionSpace.contains(action), "Invalid action provided.")
+    // precondition(actionSpace.contains(action), "Invalid action provided.")
     var position = step.observation.position
     var positionDerivative = step.observation.positionDerivative
     var angle = step.observation.angle
