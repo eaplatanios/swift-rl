@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "ReinforcementLearning",
+    platforms: [.macOS(.v10_13)],
     products: [
         .library(
             name: "ReinforcementLearning",
