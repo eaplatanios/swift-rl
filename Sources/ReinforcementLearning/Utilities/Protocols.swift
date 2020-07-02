@@ -304,35 +304,9 @@ extension KeyPathIterable {
 extension KeyPathIterable where Self: Differentiable, Self.TangentVector: KeyPathIterable {
   // TODO: Differentiable `stack` and `unstacked`.
 
-  @differentiable(wrt: self, vjp: _vjpFlattenedBatch)
-  public func flattenedBatch(outerDimCount: Int) -> Self {
-    var result = self
-    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
-      result[keyPath: kp] = result[keyPath: kp].flattenedBatch(outerDimCount: outerDimCount)
-    }
-    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Double>.self) {
-      result[keyPath: kp] = result[keyPath: kp].flattenedBatch(outerDimCount: outerDimCount)
-    }
-    return result
-  }
-
-  @differentiable(wrt: self, vjp: _vjpUnflattenedBatch)
-  public func unflattenedBatch(outerDims: [Int]) -> Self {
-    var result = self
-    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
-      result[keyPath: kp] = result[keyPath: kp].unflattenedBatch(outerDims: outerDims)
-    }
-    for kp in result.recursivelyAllWritableKeyPaths(to: Tensor<Double>.self) {
-      result[keyPath: kp] = result[keyPath: kp].unflattenedBatch(outerDims: outerDims)
-    }
-    return result
-  }
-}
-
-internal extension KeyPathIterable
-where Self: Differentiable, Self.TangentVector: KeyPathIterable {
+  @derivative(of: flattenedBatch(outerDimCount:), wrt: self)
   @usableFromInline
-  func _vjpFlattenedBatch(outerDimCount: Int) -> (Self, (TangentVector) -> TangentVector) {
+  func _vjpFlattenedBatch(outerDimCount: Int) -> (value: Self, pullback: (TangentVector) -> TangentVector) {
     // TODO: This is very hacky.
     var outerDims = [Int]()
     for kp in recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
@@ -352,8 +326,9 @@ where Self: Differentiable, Self.TangentVector: KeyPathIterable {
     })
   }
 
+  @derivative(of: unflattenedBatch(outerDims:), wrt: self)
   @usableFromInline
-  func _vjpUnflattenedBatch(outerDims: [Int]) -> (Self, (TangentVector) -> TangentVector) {
+  func _vjpUnflattenedBatch(outerDims: [Int]) -> (value: Self, pullback: (TangentVector) -> TangentVector) {
     let result = unflattenedBatch(outerDims: outerDims)
     return (result, { seed in
       var result = seed
